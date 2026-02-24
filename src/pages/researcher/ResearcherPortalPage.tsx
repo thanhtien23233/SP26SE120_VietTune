@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Search, MessageSquare, Network, Database, Filter, Play, MapPin, Users, Music, Calendar, Download, Check, Send, Bot, User } from "lucide-react";
+import { Search, MessageSquare, Network, GitCompare, Play, FileText, Download, Check, Send, Bot, Lightbulb, Info } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import SearchableDropdown from "@/components/common/SearchableDropdown";
 import { INTELLIGENCE_NAME } from "@/config/constants";
 import { ETHNICITIES, REGIONS, EVENT_TYPES, INSTRUMENTS } from "@/config/musicMetadata";
 
-type TabId = "search" | "qa" | "graph" | "collection";
+type TabId = "search" | "qa" | "graph" | "compare";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -26,76 +26,52 @@ interface MockResult {
   region: string;
   instruments: string[];
   ceremony: string;
-  duration: string;
-  contributor: string;
   verified: boolean;
 }
 
-interface CollectionItem {
-  name: string;
-  count: number;
-  ethnic: string;
-  region: string;
-}
-
-/** Kết quả mẫu — dân tộc, khu vực, nhạc cụ, nghi lễ lấy từ @/config/musicMetadata để đồng bộ toàn trang. */
+/** Kết quả mẫu — dữ liệu từ @/config/musicMetadata. */
 const MOCK_RESULTS: MockResult[] = [
   {
     id: 1,
-    title: "Hò mái chèo - Nghệ An",
+    title: "Hò Mái Nhà - Hát Xoan Phú Thọ",
     ethnicGroup: ETHNICITIES[0],
-    region: REGIONS[2],
-    instruments: [INSTRUMENTS[56], INSTRUMENTS[112]],
-    ceremony: EVENT_TYPES[11],
-    duration: "3:45",
-    contributor: "Nghệ nhân Nguyễn Văn A",
+    region: REGIONS[0],
+    instruments: [INSTRUMENTS[93], INSTRUMENTS[172]],
+    ceremony: EVENT_TYPES[2],
     verified: true,
   },
   {
     id: 2,
-    title: "Đàn T'rưng - Lễ hội cơm mới",
-    ethnicGroup: ETHNICITIES[11],
-    region: REGIONS[4],
-    instruments: [INSTRUMENTS[119], INSTRUMENTS[19]],
-    ceremony: EVENT_TYPES[10],
-    duration: "5:20",
-    contributor: "Nghệ nhân Ksor H'Bơ",
+    title: "Khèn Mông - Nhạc Lễ H'Mông",
+    ethnicGroup: ETHNICITIES[5],
+    region: REGIONS[0],
+    instruments: [INSTRUMENTS[122]],
+    ceremony: EVENT_TYPES[6],
     verified: true,
   },
   {
     id: 3,
-    title: "Quan họ Bắc Ninh",
-    ethnicGroup: ETHNICITIES[0],
-    region: REGIONS[1],
-    instruments: [INSTRUMENTS[93], INSTRUMENTS[122]],
-    ceremony: EVENT_TYPES[2],
-    duration: "4:15",
-    contributor: "Nghệ nhân Phạm Thị B",
+    title: "T'rưng - Âm Nhạc Tây Nguyên",
+    ethnicGroup: ETHNICITIES[9],
+    region: REGIONS[4],
+    instruments: [INSTRUMENTS[198]],
+    ceremony: EVENT_TYPES[7],
     verified: true,
   },
 ];
 
-/** Bộ sưu tập mẫu — dân tộc và khu vực lấy từ ETHNICITIES, REGIONS để đồng bộ toàn trang. */
-const COLLECTIONS: CollectionItem[] = [
-  { name: "Dân ca Quan họ", count: 245, ethnic: ETHNICITIES[0], region: REGIONS[1] },
-  { name: "Âm nhạc Tây Nguyên", count: 892, ethnic: [ETHNICITIES[11], ETHNICITIES[10], ETHNICITIES[9]].join(", "), region: REGIONS[4] },
-  { name: "Hò mái chèo Nghệ Tĩnh", count: 167, ethnic: ETHNICITIES[0], region: REGIONS[2] },
-  { name: "Đờn ca tài tử", count: 324, ethnic: ETHNICITIES[0], region: REGIONS[6] },
-  { name: "Then của người Tày", count: 156, ethnic: ETHNICITIES[1], region: REGIONS[0] },
-  { name: "Ca trù Hà Nội", count: 89, ethnic: ETHNICITIES[0], region: REGIONS[1] },
-];
-
-const EXAMPLE_QUESTIONS = [
-  "Đàn bầu được chế tạo như thế nào?",
-  "So sánh nhạc tang lễ của người Tày và Thái",
-  "Lịch sử phát triển của quan họ Bắc Ninh",
+const QUICK_QUESTIONS = [
+  "Đàn bầu có đặc điểm gì?",
+  "So sánh nhạc cưới Tày và Thái",
+  "T'rưng được chế tạo như thế nào?",
+  "Hát Xoan xuất hiện khi nào?",
 ];
 
 const WELCOME_CHAT =
-  "Xin chào! Tôi có thể giúp bạn tìm hiểu về âm nhạc truyền thống Việt Nam. Bạn muốn tìm hiểu về điều gì?";
+  "Xin chào! Tôi có thể giúp bạn tìm hiểu về âm nhạc truyền thống Việt Nam. Hãy đặt câu hỏi về nhạc cụ, nghi lễ, hoặc phong cách âm nhạc của các dân tộc.";
 
 const MOCK_REPLY =
-  "Dựa trên tài liệu đã được xác minh, tôi có thể cung cấp thông tin chi tiết về chủ đề này. Vui lòng cho tôi chút thời gian để tìm kiếm...";
+  "Dựa trên tài liệu được xác minh, tôi có thể cho bạn biết rằng đàn bầu là nhạc cụ độc tấu truyền thống với một dây đàn duy nhất, sử dụng kỹ thuật uốn éo để tạo ra âm thanh đặc trưng. Nhạc cụ này thường xuất hiện trong các buổi biểu diễn ca Huế và nhạc cung đình.";
 
 export default function ResearcherPortalPage() {
   const [activeTab, setActiveTab] = useState<TabId>("search");
@@ -111,6 +87,8 @@ export default function ResearcherPortalPage() {
   ]);
   const [chatInput, setChatInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [compareLeft, setCompareLeft] = useState("");
+  const [compareRight, setCompareRight] = useState("");
   const chatListRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -136,15 +114,22 @@ export default function ResearcherPortalPage() {
     }
   };
 
-  const handleExampleClick = (question: string) => {
+  const askQuestion = (question: string) => {
     setChatInput(question);
+    setChatMessages((prev) => [...prev, { role: "user", content: question }]);
+    setChatInput("");
+    setIsTyping(true);
+    setTimeout(() => {
+      setChatMessages((prev) => [...prev, { role: "assistant", content: MOCK_REPLY }]);
+      setIsTyping(false);
+    }, 800);
   };
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
     { id: "search", label: "Tìm kiếm nâng cao", icon: Search },
-    { id: "qa", label: "VietTune Intelligence", icon: MessageSquare },
+    { id: "qa", label: "Hỏi đáp thông minh", icon: MessageSquare },
     { id: "graph", label: "Biểu đồ tri thức", icon: Network },
-    { id: "collection", label: "Bộ sưu tập", icon: Database },
+    { id: "compare", label: "So sánh phân tích", icon: GitCompare },
   ];
 
   return (
@@ -157,29 +142,25 @@ export default function ResearcherPortalPage() {
           <BackButton />
         </div>
 
-        {/* Tabs — đồng bộ với UploadPage/UploadMusic: rounded-2xl, #FFFCF5, shadow-lg */}
+        {/* Tabs — VietTune UI: rounded-2xl, #FFFCF5, border-neutral-200/80 */}
         <div
           className="border border-neutral-200/80 rounded-2xl overflow-hidden shadow-lg backdrop-blur-sm mb-6 sm:mb-8 transition-all duration-300 hover:shadow-xl min-w-0 overflow-x-hidden"
           style={{ backgroundColor: "#FFFCF5" }}
         >
-          <nav className="flex flex-wrap gap-2 p-4 sm:p-6 lg:p-8 border-b border-neutral-200/80" aria-label="Cổng nghiên cứu">
+          <nav
+            className="flex flex-wrap gap-2 p-4 sm:p-6 lg:p-8 border-b border-neutral-200/80 bg-white/50"
+            aria-label="Cổng nghiên cứu"
+          >
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border border-neutral-200/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer focus:outline-none ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 border cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
                   activeTab === tab.id
-                    ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white"
-                    : "text-neutral-800 bg-neutral-100/90"
+                    ? "bg-primary-600 text-white border-primary-600 shadow-md"
+                    : "text-neutral-700 bg-white border-neutral-200/80 hover:border-primary-300 hover:bg-primary-50/80"
                 }`}
-                style={activeTab !== tab.id ? { backgroundColor: "#FFFCF5" } : undefined}
-                onMouseEnter={(e) => {
-                  if (activeTab !== tab.id) e.currentTarget.style.backgroundColor = "#F5F0E8";
-                }}
-                onMouseLeave={(e) => {
-                  if (activeTab !== tab.id) e.currentTarget.style.backgroundColor = "#FFFCF5";
-                }}
                 aria-current={activeTab === tab.id ? "page" : undefined}
               >
                 <tab.icon className="w-5 h-5 flex-shrink-0" strokeWidth={2.5} />
@@ -188,397 +169,725 @@ export default function ResearcherPortalPage() {
             ))}
           </nav>
 
-          {/* Tab: Tìm Kiếm Nâng Cao — một container chung: tìm kiếm + bộ lọc + kết quả */}
+          {/* Tab: Tìm kiếm nâng cao */}
           {activeTab === "search" && (
             <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-              {/* Tìm kiếm bài hát — cùng section với bộ lọc, không container riêng */}
-              <div className="flex items-start gap-3 mb-4">
-                <div className="p-2 bg-primary-100/90 rounded-lg flex-shrink-0">
-                  <Search className="w-5 h-5 text-primary-600" strokeWidth={2.5} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-xl font-semibold text-neutral-900">Tìm kiếm bài hát</h2>
-                  <p className="text-sm text-neutral-600 font-medium mt-1">
-                    Nhập từ khóa để tìm kiếm nhanh. Kết hợp bộ lọc bên dưới để thu hẹp kết quả.
-                  </p>
-                </div>
-              </div>
               <div
-                className="relative w-full min-h-[48px] px-4 py-2.5 border border-neutral-400/80 rounded-full focus-within:border-primary-500 focus-within:border-transparent transition-all duration-200 shadow-sm hover:shadow-md mb-6"
+                className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6 transition-all duration-300"
                 style={{ backgroundColor: "#FFFCF5" }}
               >
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" strokeWidth={2} />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm kiếm bài hát, nhạc cụ, nghệ nhân,..."
-                  className="w-full pl-12 pr-32 py-2 bg-transparent text-neutral-900 placeholder-neutral-500 focus:outline-none rounded-full"
-                  aria-label="Từ khóa tìm kiếm"
-                />
-                <button
-                  type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white font-medium rounded-full transition-colors duration-200 flex items-center gap-2 cursor-pointer"
-                >
-                  Tìm kiếm
-                  <Search className="h-4 w-4" strokeWidth={2.5} />
-                </button>
+                <h2 className="text-lg sm:text-xl font-semibold text-primary-800 mb-4 flex items-center gap-2">
+                  <Search className="w-5 h-5 text-primary-600" strokeWidth={2.5} />
+                  Tìm kiếm ngữ nghĩa
+                </h2>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder='Ví dụ: "Tìm bài hát mùa màng dùng đàn bầu ở Tây Nam Bộ"'
+                    className="flex-1 min-w-0 px-4 py-3 rounded-xl border-2 border-primary-200/80 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all text-neutral-900 placeholder-neutral-500"
+                    aria-label="Tìm kiếm ngữ nghĩa"
+                  />
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold shadow-md hover:shadow-lg transition-all cursor-pointer"
+                  >
+                    <Search className="w-5 h-5" strokeWidth={2.5} />
+                    Tìm kiếm
+                  </button>
+                </div>
               </div>
 
-              {/* Bộ lọc — màu nền icon đồng bộ Tìm kiếm bài hát: bg-primary-100/90 */}
-              <div className="flex items-start gap-3 mb-6">
-                <div className="p-2 bg-primary-100/90 rounded-lg flex-shrink-0">
-                  <Filter className="w-5 h-5 text-primary-600" strokeWidth={2.5} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-neutral-900">Bộ lọc nâng cao</h3>
-                  <p className="text-sm text-neutral-600 font-medium mt-1">Lọc theo dân tộc, nhạc cụ, vùng miền, nghi lễ</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-neutral-800">Dân tộc</label>
+              {/* Bộ lọc — data từ musicMetadata */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
+                    <span className="text-secondary-600">Dân tộc</span>
+                  </label>
                   <SearchableDropdown
                     value={filters.ethnicGroup}
                     onChange={(v) => setFilters((prev) => ({ ...prev, ethnicGroup: v }))}
                     options={ETHNICITIES}
-                    placeholder="Tất cả"
+                    placeholder="Tất cả (54 dân tộc)"
                     searchable
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-neutral-800">Nhạc cụ</label>
+                <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
+                    Nhạc cụ
+                  </label>
                   <SearchableDropdown
                     value={filters.instrument}
                     onChange={(v) => setFilters((prev) => ({ ...prev, instrument: v }))}
                     options={INSTRUMENTS}
-                    placeholder="Tất cả"
+                    placeholder="Tất cả (200+ nhạc cụ)"
                     searchable
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-neutral-800">Vùng miền</label>
-                  <SearchableDropdown
-                    value={filters.region}
-                    onChange={(v) => setFilters((prev) => ({ ...prev, region: v }))}
-                    options={REGIONS}
-                    placeholder="Tất cả"
-                    searchable={false}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-neutral-800">Nghi lễ / Sự kiện</label>
+                <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
+                    Nghi lễ
+                  </label>
                   <SearchableDropdown
                     value={filters.ceremony}
                     onChange={(v) => setFilters((prev) => ({ ...prev, ceremony: v }))}
                     options={EVENT_TYPES}
-                    placeholder="Tất cả"
+                    placeholder="Tất cả nghi lễ"
+                    searchable={false}
+                  />
+                </div>
+                <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
+                    Vùng miền
+                  </label>
+                  <SearchableDropdown
+                    value={filters.region}
+                    onChange={(v) => setFilters((prev) => ({ ...prev, region: v }))}
+                    options={REGIONS}
+                    placeholder="Tất cả vùng miền"
                     searchable={false}
                   />
                 </div>
               </div>
 
-              {/* Kết quả — màu nền icon đồng bộ Tìm kiếm bài hát: bg-primary-100/90 */}
-              <div className="flex items-start gap-3 mb-6">
-                <div className="p-2 bg-primary-100/90 rounded-lg flex-shrink-0">
-                  <Search className="w-5 h-5 text-primary-600" strokeWidth={2.5} />
-                </div>
-                <div className="flex-1 flex flex-wrap items-center justify-between gap-4 min-w-0">
-                  <div>
-                    <h3 className="text-xl font-semibold text-neutral-900">Kết quả tìm kiếm</h3>
-                    <p className="text-sm text-neutral-600 font-medium mt-1">{MOCK_RESULTS.length} bản ghi</p>
-                  </div>
+              {/* Kết quả */}
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <h2 className="text-lg sm:text-xl font-semibold text-primary-800">
+                  Kết quả tìm kiếm
+                </h2>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-neutral-600 font-medium">
+                    Tìm thấy {MOCK_RESULTS.length} bản ghi
+                  </span>
                   <button
                     type="button"
-                    className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border border-neutral-200/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer bg-gradient-to-br from-primary-600 to-primary-700 text-white focus:outline-none"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary-500 hover:bg-secondary-600 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
                   >
                     <Download className="w-4 h-4" strokeWidth={2.5} />
                     Xuất dữ liệu
                   </button>
                 </div>
               </div>
+
               <div className="space-y-4">
                 {MOCK_RESULTS.map((result) => (
                   <div
                     key={result.id}
-                    className="border border-neutral-200/80 rounded-2xl p-4 sm:p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl cursor-default"
-                    style={{ backgroundColor: "#FFFCF5" }}
+                    className="rounded-xl border-2 border-primary-200/80 bg-white p-4 sm:p-5 shadow-md hover:shadow-lg transition-all"
                   >
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-3 mb-2">
-                            <h4 className="text-lg font-semibold text-neutral-900">{result.title}</h4>
-                            {result.verified && (
-                              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-neutral-100/90 text-green-700 rounded-full border border-neutral-300/80 shadow-sm">
-                                <Check className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
-                                Đã xác minh
-                              </span>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-neutral-600 mb-3">
-                            <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4 flex-shrink-0 text-primary-600" strokeWidth={2.5} />
-                              <span>{result.ethnicGroup}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4 flex-shrink-0 text-primary-600" strokeWidth={2.5} />
-                              <span>{result.region}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Music className="w-4 h-4 flex-shrink-0 text-primary-600" strokeWidth={2.5} />
-                              <span>{result.instruments.join(", ")}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 flex-shrink-0 text-primary-600" strokeWidth={2.5} />
-                              <span>{result.ceremony}</span>
-                            </div>
-                          </div>
-                          <p className="text-sm text-neutral-500">Nghệ nhân: {result.contributor}</p>
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          <h3 className="text-lg font-semibold text-primary-800">
+                            {result.title}
+                          </h3>
+                          {result.verified && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+                              Đã xác minh
+                            </span>
+                          )}
                         </div>
-                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                          <span className="text-sm font-medium text-neutral-600">{result.duration}</span>
-                          <button
-                            type="button"
-                            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border border-neutral-200/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer bg-gradient-to-br from-primary-600 to-primary-700 text-white focus:outline-none"
-                          >
-                            <Play className="w-4 h-4" strokeWidth={2.5} />
-                            Phát
-                          </button>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <strong className="block text-primary-700 font-semibold mb-0.5">
+                              Dân tộc
+                            </strong>
+                            <span className="text-neutral-600">{result.ethnicGroup}</span>
+                          </div>
+                          <div>
+                            <strong className="block text-primary-700 font-semibold mb-0.5">
+                              Vùng miền
+                            </strong>
+                            <span className="text-neutral-600">{result.region}</span>
+                          </div>
+                          <div>
+                            <strong className="block text-primary-700 font-semibold mb-0.5">
+                              Nhạc cụ
+                            </strong>
+                            <span className="text-neutral-600">
+                              {result.instruments.join(", ")}
+                            </span>
+                          </div>
+                          <div>
+                            <strong className="block text-primary-700 font-semibold mb-0.5">
+                              Nghi lễ
+                            </strong>
+                            <span className="text-neutral-600">{result.ceremony}</span>
+                          </div>
                         </div>
                       </div>
+                      <div className="flex flex-col gap-2 sm:flex-shrink-0">
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
+                        >
+                          <Play className="w-4 h-4" strokeWidth={2.5} />
+                          Phát
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-secondary-500 hover:bg-secondary-600 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
+                        >
+                          <FileText className="w-4 h-4" strokeWidth={2.5} />
+                          Chi tiết
+                        </button>
+                      </div>
                     </div>
-                  ))}
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Tab: Hỏi Đáp AI — bê y nguyên phần "Chat với VietTune Intelligence" từ ChatbotPage */}
+          {/* Tab: Hỏi đáp thông minh */}
           {activeTab === "qa" && (
-            <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-              {/* Introduction — y nguyên ChatbotPage */}
-              <div
-                className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 transition-all duration-300 hover:shadow-xl"
-                style={{ backgroundColor: "#FFFCF5" }}
-              >
-                <h2 className="text-2xl font-semibold text-neutral-900 mb-4">
-                  Chat với {INTELLIGENCE_NAME}
-                </h2>
-                <p className="text-neutral-600 font-medium leading-relaxed mb-4">
-                  {INTELLIGENCE_NAME} giúp bạn tìm hiểu về kho bản thu âm nhạc truyền thống Việt Nam, nhạc cụ dân tộc, dân ca các vùng miền và cách sử dụng nền tảng VietTune.
-                </p>
-                <p className="text-neutral-600 leading-relaxed">
-                  Bạn có thể hỏi về cách tìm kiếm bản thu, đóng góp bản thu, giới thiệu nhạc cụ như đàn bầu, đàn tranh, hoặc hướng dẫn sử dụng. Gõ câu hỏi vào ô bên dưới và nhấn Gửi.
-                </p>
-              </div>
-
-              {/* Chat — y nguyên ChatbotPage */}
-              <div
-                className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 transition-all duration-300 hover:shadow-xl"
-                style={{ backgroundColor: "#FFFCF5" }}
-              >
-                <h2 className="text-2xl font-semibold text-neutral-900 mb-4">
-                  Hội thoại
-                </h2>
-
-                <div className="bg-secondary-50/80 rounded-xl p-4 mb-6 border border-neutral-200/80">
-                  <p className="text-sm text-neutral-600 mb-2">Ví dụ câu hỏi:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {EXAMPLE_QUESTIONS.map((question, idx) => (
-                      <button
+            <div className="p-4 sm:p-6 lg:p-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 flex flex-col rounded-2xl border-2 border-primary-200/80 bg-white shadow-lg overflow-hidden min-h-[500px] max-h-[700px]">
+                  <div className="bg-gradient-to-r from-primary-700 to-primary-600 text-white px-4 sm:px-6 py-4 border-b-2 border-primary-800">
+                    <h2 className="text-lg font-semibold">VietTune Intelligence</h2>
+                    <p className="text-secondary-200 text-sm mt-0.5">
+                      Hệ thống được đào tạo trên cơ sở tri thức đã xác minh
+                    </p>
+                  </div>
+                  <div
+                    ref={chatListRef}
+                    className="flex-1 overflow-y-auto p-4 space-y-4"
+                    style={{
+                      background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)",
+                    }}
+                  >
+                    {chatMessages.map((msg, idx) => (
+                      <div
                         key={idx}
-                        type="button"
-                        onClick={() => handleExampleClick(question)}
-                        className="px-3 py-1.5 bg-white border border-neutral-300 rounded-full text-sm hover:border-primary-500 hover:text-primary-600 transition-colors cursor-pointer"
+                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                       >
-                        {question}
-                      </button>
+                        <div
+                          className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                            msg.role === "user"
+                              ? "bg-primary-600 text-white shadow-md"
+                              : "bg-white border-2 border-secondary-200/80 text-neutral-700 shadow-sm"
+                          }`}
+                        >
+                          {msg.role === "assistant" && (
+                            <div className="flex items-center gap-2 text-xs font-semibold text-primary-600 mb-1.5">
+                              <Bot className="w-4 h-4" strokeWidth={2.5} />
+                              {INTELLIGENCE_NAME}
+                            </div>
+                          )}
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                            {msg.content}
+                          </p>
+                        </div>
+                      </div>
                     ))}
+                    {isTyping && (
+                      <div className="flex justify-start">
+                        <div className="rounded-2xl px-4 py-3 bg-white border-2 border-secondary-200/80 shadow-sm flex gap-1.5">
+                          <span
+                            className="w-2 h-2 rounded-full bg-neutral-400 animate-bounce"
+                            style={{ animationDelay: "0ms" }}
+                          />
+                          <span
+                            className="w-2 h-2 rounded-full bg-neutral-400 animate-bounce"
+                            style={{ animationDelay: "150ms" }}
+                          />
+                          <span
+                            className="w-2 h-2 rounded-full bg-neutral-400 animate-bounce"
+                            style={{ animationDelay: "300ms" }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4 border-t border-neutral-200 bg-neutral-50/80">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={handleQaKeyDown}
+                        placeholder="Hỏi về nhạc cụ, phong cách biểu diễn, lịch sử,..."
+                        className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border-2 border-primary-200/80 focus:border-primary-500 outline-none text-neutral-900 placeholder-neutral-500"
+                        aria-label="Tin nhắn"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSendMessage}
+                        disabled={!chatInput.trim() || isTyping}
+                        className="p-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:pointer-events-none text-white transition-colors cursor-pointer"
+                        aria-label="Gửi"
+                      >
+                        <Send className="w-5 h-5" strokeWidth={2.5} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div
-                  ref={chatListRef}
-                  className="overflow-y-auto mb-6 pr-2"
-                  style={{ minHeight: "280px", maxHeight: "50vh" }}
-                >
-                  <ul className="space-y-4">
-                    {chatMessages.map((msg, idx) => (
-                      <li
-                        key={idx}
-                        className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
-                      >
-                        <div
-                          className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${msg.role === "user"
-                            ? "bg-primary-600 text-white"
-                            : "bg-primary-100 text-primary-600"
-                            }`}
-                        >
-                          {msg.role === "user" ? (
-                            <User className="h-4 w-4" strokeWidth={2.5} />
-                          ) : (
-                            <Bot className="h-4 w-4" strokeWidth={2.5} />
-                          )}
-                        </div>
-                        <div
-                          className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm border border-neutral-200/80 ${msg.role === "user"
-                            ? "bg-primary-600 text-white rounded-tr-md border-primary-500/50"
-                            : "rounded-tl-md"
-                            }`}
-                          style={msg.role === "assistant" ? { backgroundColor: "#FFFCF5" } : undefined}
-                        >
-                          <p className={`text-sm whitespace-pre-wrap break-words leading-relaxed ${msg.role === "user" ? "text-white" : "text-neutral-700"}`}>
-                            {msg.role === "user" ? (
-                              msg.content
-                            ) : (
-                              msg.content.split("**").map((part, i) =>
-                                i % 2 === 1 ? (
-                                  <strong key={i} className="font-semibold text-neutral-900">{part}</strong>
-                                ) : (
-                                  <span key={i}>{part}</span>
-                                )
-                              )
-                            )}
-                          </p>
-                          {msg.role === "assistant" && (
-                            <div className="mt-2 pt-2 border-t border-neutral-300">
-                              <p className="text-xs text-neutral-500">Nguồn: Cơ sở tri thức đã xác minh</p>
-                            </div>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                    {isTyping && (
-                      <li className="flex gap-3">
-                        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center">
-                          <Bot className="h-4 w-4" strokeWidth={2.5} />
-                        </div>
-                        <div
-                          className="rounded-2xl rounded-tl-md px-4 py-3 border border-neutral-200/80 shadow-sm flex gap-1.5"
-                          style={{ backgroundColor: "#FFFCF5" }}
-                        >
-                          <span className="w-2 h-2 rounded-full bg-neutral-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                          <span className="w-2 h-2 rounded-full bg-neutral-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                          <span className="w-2 h-2 rounded-full bg-neutral-400 animate-bounce" style={{ animationDelay: "300ms" }} />
-                        </div>
-                      </li>
-                    )}
-                  </ul>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={handleQaKeyDown}
-                    placeholder="Nhập câu hỏi..."
-                    className="flex-1 px-5 py-3 rounded-full border border-neutral-200/80 focus:border-primary-500 outline-none transition-all text-neutral-900 placeholder-neutral-400"
-                    style={{ minHeight: "48px" }}
-                    aria-label="Tin nhắn"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSendMessage}
-                    disabled={!chatInput.trim() || isTyping}
-                    className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:pointer-events-none text-white transition-colors duration-200 cursor-pointer"
-                    aria-label="Gửi"
+                <div className="flex flex-col gap-4">
+                  <div
+                    className="rounded-2xl border-2 border-primary-200/80 bg-white p-4 shadow-md"
+                    style={{ backgroundColor: "#FFFCF5" }}
                   >
-                    <Send className="h-5 w-5" strokeWidth={2.5} />
-                  </button>
+                    <h3 className="flex items-center gap-2 text-base font-semibold text-primary-800 mb-3">
+                      <Lightbulb className="w-5 h-5 text-secondary-600" strokeWidth={2.5} />
+                      Câu hỏi gợi ý
+                    </h3>
+                    <div className="flex flex-col gap-2">
+                      {QUICK_QUESTIONS.map((q, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => askQuestion(q)}
+                          className="w-full text-left px-3 py-2.5 rounded-xl bg-primary-50 border border-primary-200/80 text-primary-800 font-medium text-sm hover:bg-primary-100 hover:border-primary-300 transition-all cursor-pointer"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div
+                    className="rounded-xl border-2 border-secondary-300 bg-gradient-to-br from-secondary-50 to-amber-50 p-4"
+                    style={{ borderColor: "rgba(251, 191, 36, 0.6)" }}
+                  >
+                    <h3 className="flex items-center gap-2 text-base font-semibold text-primary-800 mb-2">
+                      <Info className="w-5 h-5 text-secondary-600" strokeWidth={2.5} />
+                      Lưu ý
+                    </h3>
+                    <ul className="text-sm text-neutral-700 space-y-1.5 list-none pl-0">
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary-600 font-bold">•</span>
+                        Câu trả lời được tạo từ tài liệu đã xác minh
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary-600 font-bold">•</span>
+                        Kèm theo nguồn trích dẫn học thuật
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary-600 font-bold">•</span>
+                        Chuyên gia có thể giám sát và điều chỉnh
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Tab: Biểu Đồ Tri Thức — padding đồng bộ UploadPage/UploadMusic */}
+          {/* Tab: Biểu đồ tri thức */}
           {activeTab === "graph" && (
-            <div className="p-4 sm:p-6 lg:p-8">
-              <div className="flex items-start gap-3 mb-6">
-                <div className="p-2 bg-primary-100/90 rounded-lg flex-shrink-0">
-                  <Network className="w-5 h-5 text-primary-600" strokeWidth={2.5} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-neutral-900">Biểu đồ tri thức</h3>
-                  <p className="text-sm text-neutral-600 font-medium mt-1">
-                    Trực quan hóa mối quan hệ giữa bài hát, nhạc cụ, dân tộc, nghi lễ và vùng địa lý
-                  </p>
-                </div>
-              </div>
-              <div className="text-center py-8">
-                <div
-                  className="max-w-2xl mx-auto rounded-2xl border border-neutral-200/80 p-4 sm:p-6 lg:p-8 text-left shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
-                  style={{ backgroundColor: "#FFFCF5" }}
-                >
-                  <p className="text-sm font-semibold text-neutral-800 mb-2">Tính năng này sẽ hiển thị:</p>
-                  <ul className="text-sm text-neutral-600 space-y-2">
-                    <li>• Mạng lưới tương tác: nhấp vào nhạc cụ để xem các bài hát sử dụng nó</li>
-                    <li>• Nhấp vào nghi lễ để tìm âm nhạc liên quan</li>
-                    <li>• Khám phá các mối liên hệ giữa các dân tộc và phong cách âm nhạc</li>
-                    <li>• Phân tích phân bố địa lý của các truyền thống âm nhạc</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Tab: Bộ Sưu Tập — padding đồng bộ UploadPage/UploadMusic */}
-          {activeTab === "collection" && (
             <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+              <div
+                className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6"
+                style={{ backgroundColor: "#FFFCF5" }}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                  <h2 className="text-lg sm:text-xl font-semibold text-primary-800">
+                    Biểu đồ tri thức tương tác
+                  </h2>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-xl bg-primary-600 text-white font-semibold text-sm shadow-md cursor-pointer"
+                    >
+                      Tổng quan
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-xl bg-neutral-200 text-neutral-700 font-semibold text-sm cursor-pointer hover:bg-neutral-300"
+                    >
+                      Nhạc cụ
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-xl bg-neutral-200 text-neutral-700 font-semibold text-sm cursor-pointer hover:bg-neutral-300"
+                    >
+                      Dân tộc
+                    </button>
+                  </div>
+                </div>
+                <div
+                  className="relative rounded-xl border-2 border-secondary-200/80 overflow-hidden flex items-center justify-center"
+                  style={{
+                    height: "min(600px, 70vh)",
+                    background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)",
+                  }}
+                >
+                  <svg
+                    width="100%"
+                    height="100%"
+                    viewBox="0 0 800 600"
+                    className="max-h-[600px]"
+                    aria-hidden
+                  >
+                    <g transform="translate(400, 300)">
+                      <circle
+                        cx="0"
+                        cy="0"
+                        r="60"
+                        fill="#9B2C2C"
+                        opacity="0.2"
+                      >
+                        <animate
+                          attributeName="r"
+                          values="60;65;60"
+                          dur="2s"
+                          repeatCount="indefinite"
+                        />
+                      </circle>
+                      <circle cx="0" cy="0" r="50" fill="#9B2C2C" />
+                      <text
+                        x="0"
+                        y="-5"
+                        textAnchor="middle"
+                        fill="white"
+                        fontSize="14"
+                        fontWeight="bold"
+                      >
+                        Âm nhạc
+                      </text>
+                      <text
+                        x="0"
+                        y="10"
+                        textAnchor="middle"
+                        fill="white"
+                        fontSize="10"
+                      >
+                        Truyền thống
+                      </text>
+                    </g>
+                    <line
+                      x1="400"
+                      y1="300"
+                      x2="200"
+                      y2="150"
+                      stroke="#9B2C2C"
+                      strokeWidth="2"
+                      opacity="0.3"
+                    />
+                    <circle
+                      cx="200"
+                      cy="150"
+                      r="45"
+                      fill="#9B2C2C"
+                      opacity="0.9"
+                      className="cursor-pointer"
+                    />
+                    <text x="200" y="145" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">
+                      Dân tộc
+                    </text>
+                    <text x="200" y="160" textAnchor="middle" fill="white" fontSize="10">
+                      {ETHNICITIES.length}
+                    </text>
+                    <line
+                      x1="400"
+                      y1="300"
+                      x2="600"
+                      y2="150"
+                      stroke="#d97706"
+                      strokeWidth="2"
+                      opacity="0.3"
+                    />
+                    <circle
+                      cx="600"
+                      cy="150"
+                      r="45"
+                      fill="#d97706"
+                      opacity="0.9"
+                      className="cursor-pointer"
+                    />
+                    <text x="600" y="145" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">
+                      Nhạc cụ
+                    </text>
+                    <text x="600" y="160" textAnchor="middle" fill="white" fontSize="10">
+                      200+
+                    </text>
+                    <line
+                      x1="400"
+                      y1="300"
+                      x2="200"
+                      y2="450"
+                      stroke="#b45309"
+                      strokeWidth="2"
+                      opacity="0.3"
+                    />
+                    <circle
+                      cx="200"
+                      cy="450"
+                      r="45"
+                      fill="#b45309"
+                      opacity="0.9"
+                      className="cursor-pointer"
+                    />
+                    <text x="200" y="445" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">
+                      Nghi lễ
+                    </text>
+                    <text x="200" y="460" textAnchor="middle" fill="white" fontSize="10">
+                      {EVENT_TYPES.length}+
+                    </text>
+                    <line
+                      x1="400"
+                      y1="300"
+                      x2="600"
+                      y2="450"
+                      stroke="#ca8a04"
+                      strokeWidth="2"
+                      opacity="0.3"
+                    />
+                    <circle
+                      cx="600"
+                      cy="450"
+                      r="45"
+                      fill="#ca8a04"
+                      opacity="0.9"
+                      className="cursor-pointer"
+                    />
+                    <text x="600" y="445" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">
+                      Vùng miền
+                    </text>
+                    <text x="600" y="460" textAnchor="middle" fill="white" fontSize="10">
+                      {REGIONS.length}
+                    </text>
+                    <line
+                      x1="400"
+                      y1="300"
+                      x2="100"
+                      y2="300"
+                      stroke="#16a34a"
+                      strokeWidth="2"
+                      opacity="0.3"
+                    />
+                    <circle
+                      cx="100"
+                      cy="300"
+                      r="45"
+                      fill="#16a34a"
+                      opacity="0.9"
+                      className="cursor-pointer"
+                    />
+                    <text x="100" y="295" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">
+                      Bài hát
+                    </text>
+                    <text x="100" y="310" textAnchor="middle" fill="white" fontSize="10">
+                      5000+
+                    </text>
+                    <line
+                      x1="400"
+                      y1="300"
+                      x2="700"
+                      y2="300"
+                      stroke="#2563eb"
+                      strokeWidth="2"
+                      opacity="0.3"
+                    />
+                    <circle
+                      cx="700"
+                      cy="300"
+                      r="45"
+                      fill="#2563eb"
+                      opacity="0.9"
+                      className="cursor-pointer"
+                    />
+                    <text x="700" y="295" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">
+                      Nghệ nhân
+                    </text>
+                    <text x="700" y="310" textAnchor="middle" fill="white" fontSize="10">
+                      800+
+                    </text>
+                  </svg>
+                  <div className="absolute bottom-4 left-4 rounded-lg bg-white border-2 border-primary-200/80 shadow-md p-3 text-sm">
+                    <p className="font-semibold text-primary-800 mb-1">Hướng dẫn:</p>
+                    <p className="text-neutral-600 text-xs">• Click vào node để xem chi tiết</p>
+                    <p className="text-neutral-600 text-xs">• Hover để xem mối quan hệ</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: "Tổng bản ghi", value: "50,000+", icon: Database, color: "primary" },
-                  { label: "Dân tộc", value: "54", icon: Users, color: "primary" },
-                  { label: "Nhạc cụ", value: "200+", icon: Music, color: "secondary" },
-                  { label: "Đã xác minh", value: "95%", icon: Check, color: "green" },
+                  {
+                    label: "Tổng node",
+                    value: "6,254",
+                    className: "bg-gradient-to-br from-primary-50 to-red-50 border-primary-200/80",
+                    valueColor: "text-primary-800",
+                  },
+                  {
+                    label: "Mối quan hệ",
+                    value: "18,762",
+                    className: "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/80",
+                    valueColor: "text-amber-900",
+                  },
+                  {
+                    label: "Đã xác minh",
+                    value: "94%",
+                    className: "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200/80",
+                    valueColor: "text-emerald-800",
+                  },
+                  {
+                    label: "Cập nhật",
+                    value: "Hôm nay",
+                    className: "bg-gradient-to-br from-sky-50 to-blue-50 border-sky-200/80",
+                    valueColor: "text-sky-800",
+                  },
                 ].map((stat, idx) => (
                   <div
                     key={idx}
-                    className={`rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-4 sm:p-6 text-white transition-all duration-300 hover:shadow-xl cursor-default ${
-                      stat.color === "green"
-                        ? "bg-gradient-to-br from-green-600 to-green-700"
-                        : stat.color === "secondary"
-                          ? "bg-gradient-to-br from-secondary-500 to-secondary-600"
-                          : "bg-gradient-to-br from-primary-600 to-primary-700"
-                    }`}
+                    className={`rounded-xl border-2 p-4 shadow-sm ${stat.className}`}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <stat.icon className="w-8 h-8 opacity-90" strokeWidth={2.5} />
-                    </div>
-                    <p className="text-3xl font-bold mb-1">{stat.value}</p>
-                    <p className="text-sm opacity-90">{stat.label}</p>
+                    <p className="text-sm text-neutral-600 font-medium mb-0.5">{stat.label}</p>
+                    <p className={`text-2xl font-bold ${stat.valueColor}`}>{stat.value}</p>
                   </div>
                 ))}
               </div>
-              <div className="flex items-start gap-3 mb-6">
-                <div className="p-2 bg-primary-100/90 rounded-lg flex-shrink-0">
-                  <Database className="w-5 h-5 text-primary-600" strokeWidth={2.5} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-neutral-900">Bộ sưu tập</h3>
-                  <p className="text-sm text-neutral-600 font-medium mt-1">Khám phá theo chủ đề và vùng miền</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {COLLECTIONS.map((collection, idx) => (
+            </div>
+          )}
+
+          {/* Tab: So sánh phân tích */}
+          {activeTab === "compare" && (
+            <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+              <div
+                className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6"
+                style={{ backgroundColor: "#FFFCF5" }}
+              >
+                <h2 className="text-lg sm:text-xl font-semibold text-primary-800 mb-6">
+                  So sánh phân tích
+                </h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                   <div
-                    key={idx}
-                    className="border border-neutral-200/80 rounded-2xl p-4 sm:p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl cursor-pointer"
-                    style={{ backgroundColor: "#FFFCF5" }}
+                    className="rounded-xl border-2 border-secondary-200/80 p-4"
+                    style={{ background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)" }}
                   >
-                    <h4 className="font-semibold text-neutral-900 mb-2">{collection.name}</h4>
-                    <div className="space-y-1 text-sm text-neutral-600 font-medium mb-3">
-                      <p><strong>Số lượng:</strong> {collection.count} bản ghi</p>
-                      <p><strong>Dân tộc:</strong> {collection.ethnic}</p>
-                      <p><strong>Khu vực:</strong> {collection.region}</p>
+                    <h3 className="font-semibold text-primary-800 mb-3">Lựa chọn #1</h3>
+                    <SearchableDropdown
+                      value={compareLeft}
+                      onChange={setCompareLeft}
+                      options={MOCK_RESULTS.map((r) => r.title)}
+                      placeholder="Chọn bản ghi âm..."
+                      searchable={false}
+                    />
+                    <div className="mt-4 rounded-lg bg-white border border-primary-200/80 p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-semibold text-neutral-700">Bản ghi âm</span>
+                        <button
+                          type="button"
+                          className="p-1 text-primary-600 hover:bg-primary-50 rounded cursor-pointer"
+                          aria-label="Phát"
+                        >
+                          <Play className="w-4 h-4" strokeWidth={2.5} />
+                        </button>
+                      </div>
+                      <div
+                        className="h-16 rounded-lg flex items-center justify-center text-primary-600 font-semibold text-sm"
+                        style={{
+                          background: "linear-gradient(90deg, #fecaca 0%, #fef3c7 50%, #fecaca 100%)",
+                        }}
+                      >
+                        Waveform
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      className="w-full px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border border-neutral-200/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer bg-gradient-to-br from-primary-600 to-primary-700 text-white focus:outline-none"
-                    >
-                      Xem bộ sưu tập
-                    </button>
+                    <div className="mt-3 rounded-lg bg-white border border-primary-200/80 p-3 space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-neutral-600">Dân tộc:</span>
+                        <span className="font-semibold text-primary-800">Kinh</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-600">Nhạc cụ:</span>
+                        <span className="font-semibold text-primary-800">Đàn nguyệt, Trống</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-600">Tempo:</span>
+                        <span className="font-semibold text-primary-800">120 BPM</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-600">Âm giai:</span>
+                        <span className="font-semibold text-primary-800">Ngũ cung</span>
+                      </div>
+                    </div>
                   </div>
-                ))}
+                  <div
+                    className="rounded-xl border-2 border-secondary-200/80 p-4"
+                    style={{ background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)" }}
+                  >
+                    <h3 className="font-semibold text-primary-800 mb-3">Lựa chọn #2</h3>
+                    <SearchableDropdown
+                      value={compareRight}
+                      onChange={setCompareRight}
+                      options={MOCK_RESULTS.map((r) => r.title)}
+                      placeholder="Chọn bản ghi âm..."
+                      searchable={false}
+                    />
+                    <div className="mt-4 rounded-lg bg-white border border-primary-200/80 p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-semibold text-neutral-700">Bản ghi âm</span>
+                        <button
+                          type="button"
+                          className="p-1 text-primary-600 hover:bg-primary-50 rounded cursor-pointer"
+                          aria-label="Phát"
+                        >
+                          <Play className="w-4 h-4" strokeWidth={2.5} />
+                        </button>
+                      </div>
+                      <div
+                        className="h-16 rounded-lg flex items-center justify-center text-primary-600 font-semibold text-sm"
+                        style={{
+                          background: "linear-gradient(90deg, #fecaca 0%, #fef3c7 50%, #fecaca 100%)",
+                        }}
+                      >
+                        Waveform
+                      </div>
+                    </div>
+                    <div className="mt-3 rounded-lg bg-white border border-primary-200/80 p-3 space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-neutral-600">Dân tộc:</span>
+                        <span className="font-semibold text-primary-800">H'Mông</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-600">Nhạc cụ:</span>
+                        <span className="font-semibold text-primary-800">Khèn</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-600">Tempo:</span>
+                        <span className="font-semibold text-primary-800">110 BPM</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-600">Âm giai:</span>
+                        <span className="font-semibold text-primary-800">Ngũ âm</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold shadow-md hover:shadow-lg transition-all cursor-pointer"
+                  >
+                    Bắt đầu so sánh
+                  </button>
+                </div>
+              </div>
+
+              <div
+                className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6"
+                style={{ backgroundColor: "#FFFCF5" }}
+              >
+                <h3 className="text-lg font-semibold text-primary-800 mb-3">
+                  Nhận xét từ chuyên gia
+                </h3>
+                <div className="text-neutral-700 leading-relaxed space-y-3">
+                  <p>
+                    <strong className="text-primary-800">Điểm tương đồng:</strong> Cả hai phong
+                    cách đều sử dụng âm giai ngũ cung truyền thống của người Việt, với cấu trúc
+                    giai điệu mang tính tự do và ứng tác theo ngữ điệu tiếng Việt.
+                  </p>
+                  <p>
+                    <strong className="text-primary-800">Điểm khác biệt:</strong> Hát Xoan thể
+                    hiện tính chất nghi lễ với sự kết hợp của đàn nguyệt và trống, tạo nên âm sắc
+                    trang nghiêm. Trong khi đó, nhạc Khèn Mông mang đậm bản sắc văn hóa vùng cao
+                    với kỹ thuật thổi đặc trưng.
+                  </p>
+                </div>
               </div>
             </div>
           )}

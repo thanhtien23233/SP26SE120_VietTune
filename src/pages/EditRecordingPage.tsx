@@ -45,9 +45,11 @@ export default function EditRecordingPage() {
         const isApproved = status === ModerationStatus.APPROVED;
         const isTemporarilyRejected = status === ModerationStatus.TEMPORARILY_REJECTED;
         const isRejected = status === ModerationStatus.REJECTED;
+        // Permanently rejected: no one can edit. Temporarily rejected: only contributor (owner) can edit until resubmit.
         const canEdit =
-          (isContributor && isOwner && (isApproved || isTemporarilyRejected) && !contributorEditLocked) ||
-          (isExpert && (isApproved || (isRejected && contributorEditLocked)));
+          !isRejected &&
+          ((isContributor && isOwner && (isApproved || isTemporarilyRejected) && !contributorEditLocked) ||
+            (isExpert && isApproved));
         if (!canEdit) {
           setForbidden(true);
           setRecording(null);

@@ -5,7 +5,7 @@ import { authService } from "@/services/authService";
 import { useAuthStore } from "@/stores/authStore";
 import Input from "@/components/common/Input";
 import BackButton from "@/components/common/BackButton";
-import { LoginForm, User } from "@/types";
+import { LoginForm, User, UserRole } from "@/types";
 import { notify } from "@/stores/notificationStore";
 import backgroundImage from "@/components/image/Đàn bầu.png";
 import logo from "@/components/image/VietTune logo.png";
@@ -72,7 +72,10 @@ export default function LoginPage() {
       if (response.success && response.data) {
         setUser(response.data.user);
         void sessionRemoveItem("fromLogout");
-        navigate(redirectTo ?? "/");
+        const defaultPath =
+          response.data.user?.role === UserRole.RESEARCHER ? "/researcher" :
+          response.data.user?.role === UserRole.EXPERT ? "/moderation" : "/";
+        navigate(redirectTo ?? defaultPath);
       }
     } catch (error: unknown) {
       const errorMessage =
@@ -221,7 +224,7 @@ export default function LoginPage() {
                     if (res.success && res.data) {
                       setUser(res.data.user as unknown as import("@/types").User);
                       void sessionRemoveItem("fromLogout");
-                      navigate(redirectTo ?? "/");
+                      navigate(redirectTo ?? "/moderation");
                     }
                   } catch (err) {
                     notify.error("Lỗi", "Không thể đăng nhập demo");
@@ -242,7 +245,7 @@ export default function LoginPage() {
                     if (res.success && res.data) {
                       setUser(res.data.user as unknown as import("@/types").User);
                       void sessionRemoveItem("fromLogout");
-                      navigate(redirectTo ?? "/");
+                      navigate(redirectTo ?? "/moderation");
                     }
                   } catch (err) {
                     notify.error("Lỗi", "Không thể đăng nhập demo");
@@ -263,7 +266,7 @@ export default function LoginPage() {
                     if (res.success && res.data) {
                       setUser(res.data.user as unknown as import("@/types").User);
                       void sessionRemoveItem("fromLogout");
-                      navigate(redirectTo ?? "/");
+                      navigate(redirectTo ?? "/moderation");
                     }
                   } catch (err) {
                     notify.error("Lỗi", "Không thể đăng nhập demo");
@@ -305,7 +308,7 @@ export default function LoginPage() {
                     if (res.success && res.data) {
                       setUser(res.data.user as unknown as import("@/types").User);
                       void sessionRemoveItem("fromLogout");
-                      navigate(redirectTo ?? "/");
+                      navigate(redirectTo ?? "/researcher");
                     }
                   } catch (err) {
                     notify.error("Lỗi", "Không thể đăng nhập demo");

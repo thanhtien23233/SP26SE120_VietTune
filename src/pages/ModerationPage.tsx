@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { Region, RecordingType, RecordingQuality, VerificationStatus, Recording, User, UserRole, RecordingMetadata, Instrument } from "@/types";
+import { Region, RecordingType, RecordingQuality, VerificationStatus, Recording, UserRole, RecordingMetadata, Instrument } from "@/types";
 import { useAuthStore } from "@/stores/authStore";
 import { ModerationStatus } from "@/types";
 import AudioPlayer from "@/components/features/AudioPlayer";
@@ -8,10 +8,11 @@ import { isYouTubeUrl } from "@/utils/youtube";
 import { migrateVideoDataToVideoData, formatDateTime, getModerationStatusLabel } from "@/utils/helpers";
 import { buildTagsFromLocal } from "@/utils/recordingTags";
 import { createPortal } from "react-dom";
-import { ChevronDown, Search, AlertCircle, X } from "lucide-react";
+import { ChevronDown, Search, AlertCircle, X, FileText, MessageSquare, BookOpen, MapPin, Music, User as UserIcon, CheckCircle, Trash2 } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import ForbiddenPage from "@/pages/ForbiddenPage";
-import { getLocalRecordingMetaList, getLocalRecordingFull, setLocalRecording, toMeta } from "@/services/recordingStorage";
+import { getLocalRecordingMetaList, getLocalRecordingFull, setLocalRecording, toMeta, removeLocalRecording } from "@/services/recordingStorage";
+import { recordingRequestService } from "@/services/recordingRequestService";
 
 // ===== UTILITY FUNCTIONS =====
 // Check if click is on scrollbar
@@ -257,7 +258,7 @@ interface LocalRecordingMini {
         rejectionNote?: string;
         contributorEditLocked?: boolean;
     };
-    /** True khi bản thu đang PENDING_REVIEW do contributor bấm "Hoàn tất chỉnh sửa" (đang chờ expert kiểm duyệt lại). */
+    /** True khi bản thu đang PENDING_REVIEW do Người đóng góp bấm "Hoàn tất chỉnh sửa" (đang chờ Chuyên gia kiểm duyệt lại). */
     resubmittedForModeration?: boolean;
 }
 
@@ -288,6 +289,11 @@ export default function ModerationPage() {
     const [showApproveConfirmDialog, setShowApproveConfirmDialog] = useState<string | null>(null);
     const [showRejectConfirmDialog, setShowRejectConfirmDialog] = useState<string | null>(null);
     const [showRejectNoteWarningDialog, setShowRejectNoteWarningDialog] = useState<boolean>(false);
+    const [showDeleteConfirmId, setShowDeleteConfirmId] = useState<string | null>(null);
+    type ExpertTabId = "review" | "ai" | "knowledge";
+    const [activeTab, setActiveTab] = useState<ExpertTabId>("review");
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [selectedItemFull, setSelectedItemFull] = useState<LocalRecordingMini | null>(null);
 
     const load = useCallback(async () => {
         try {
@@ -301,7 +307,7 @@ export default function ModerationPage() {
                     if (r.moderation?.claimedBy === user?.id) return true;
                     // Show unclaimed items (available for claiming)
                     if (!r.moderation?.claimedBy && r.moderation?.status === ModerationStatus.PENDING_REVIEW) return true;
-                    // Also show items reviewed by this expert (already approved/rejected)
+                    // Show items reviewed by this expert (approved, rejected permanently, or rejected temporarily)
                     if (r.moderation?.reviewerId === user?.id) return true;
                     // Don't show items claimed by other experts
                     return false;
@@ -340,6 +346,26 @@ export default function ModerationPage() {
         if (!showVerificationDialog) setDialogCurrentRecording(null);
     }, [showVerificationDialog]);
 
+    // Load full recording for right-panel preview when selectedId changes
+    useEffect(() => {
+        if (!selectedId) {
+            setSelectedItemFull(null);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const item = await getLocalRecordingFull(selectedId) as LocalRecordingMini | null;
+                if (cancelled || !item) return;
+                const migrated = migrateVideoDataToVideoData([item])[0];
+                if (migrated) setSelectedItemFull(migrated);
+            } catch {
+                setSelectedItemFull(null);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [selectedId]);
+
     // Load full recording when dialog opens (single-record read → no OOM)
     useEffect(() => {
         if (!showVerificationDialog) return;
@@ -353,11 +379,20 @@ export default function ModerationPage() {
                 if (migrated) {
                     // Keep full recording (with blobs) only in dialog state for playback; never put blobs in allItems
                     setDialogCurrentRecording(migrated);
-                    // Update allItems with metadata only (no audioData/videoData) so list stays light
+                    // Update allItems with metadata only (no audioData/videoData) so list stays light.
+                    // Merge with current item's moderation so we don't overwrite claim state (claimedBy, verificationStep)
+                    // that was just set by claim() before saveItems() has persisted.
                     const metaOnly = toMeta(migrated) as LocalRecordingMini;
                     setAllItems(prev => {
                         const idx = prev.findIndex(it => it.id === showVerificationDialog);
-                        if (idx >= 0) return prev.map(it => it.id === showVerificationDialog ? metaOnly : it);
+                        if (idx >= 0) {
+                            const current = prev[idx];
+                            return prev.map(it =>
+                                it.id === showVerificationDialog
+                                    ? { ...metaOnly, moderation: { ...metaOnly.moderation, ...current?.moderation } }
+                                    : it
+                            );
+                        }
                         return [...prev, metaOnly];
                     });
 
@@ -411,7 +446,8 @@ export default function ModerationPage() {
             showUnclaimDialog ||
             showApproveConfirmDialog ||
             showRejectConfirmDialog ||
-            showRejectNoteWarningDialog
+            showRejectNoteWarningDialog ||
+            showDeleteConfirmId
         );
 
         if (hasOpenDialog) {
@@ -439,7 +475,7 @@ export default function ModerationPage() {
             document.body.style.width = '';
             document.body.style.overflow = '';
         };
-    }, [showVerificationDialog, showRejectDialog, showUnclaimDialog, showApproveConfirmDialog, showRejectConfirmDialog, showRejectNoteWarningDialog]);
+    }, [showVerificationDialog, showRejectDialog, showUnclaimDialog, showApproveConfirmDialog, showRejectConfirmDialog, showRejectNoteWarningDialog, showDeleteConfirmId]);
 
     // Handle ESC key to close dialogs
     useEffect(() => {
@@ -449,7 +485,8 @@ export default function ModerationPage() {
             showUnclaimDialog ||
             showApproveConfirmDialog ||
             showRejectConfirmDialog ||
-            showRejectNoteWarningDialog
+            showRejectNoteWarningDialog ||
+            showDeleteConfirmId
         );
 
         if (!hasOpenDialog) return;
@@ -476,12 +513,15 @@ export default function ModerationPage() {
                 if (showRejectNoteWarningDialog) {
                     setShowRejectNoteWarningDialog(false);
                 }
+                if (showDeleteConfirmId) {
+                    setShowDeleteConfirmId(null);
+                }
             }
         };
 
         document.addEventListener('keydown', handleEscape);
         return () => document.removeEventListener('keydown', handleEscape);
-    }, [showVerificationDialog, showRejectDialog, showUnclaimDialog, showApproveConfirmDialog, showRejectConfirmDialog, showRejectNoteWarningDialog]);
+    }, [showVerificationDialog, showRejectDialog, showUnclaimDialog, showApproveConfirmDialog, showRejectConfirmDialog, showRejectNoteWarningDialog, showDeleteConfirmId]);
 
     if (!user || user.role !== "EXPERT") {
         return (
@@ -690,6 +730,7 @@ export default function ModerationPage() {
         saveItems(updated);
         setShowVerificationDialog(null);
         setShowApproveConfirmDialog(null);
+        if (selectedId === id) setSelectedId(null);
     };
 
     const handleConfirmReject = () => {
@@ -773,6 +814,27 @@ export default function ModerationPage() {
         saveItems(updated);
     };
 
+    const handleConfirmDelete = async () => {
+        const id = showDeleteConfirmId;
+        if (!id) return;
+        const toDelete = allItems.find(it => it.id === id);
+        const recordingTitle = toDelete?.basicInfo?.title || toDelete?.title || "Không có tiêu đề";
+        try {
+            await removeLocalRecording(id);
+            await recordingRequestService.addNotification({
+                type: "recording_deleted",
+                title: "Bản thu đã được Chuyên gia xóa khỏi hệ thống",
+                body: `Bản thu "${recordingTitle}" đã được xóa khỏi hệ thống bởi Chuyên gia.`,
+                forRoles: [UserRole.ADMIN, UserRole.CONTRIBUTOR, UserRole.EXPERT, UserRole.RESEARCHER],
+                recordingId: id,
+            });
+            setAllItems(prev => prev.filter(it => it.id !== id));
+            if (selectedId === id) setSelectedId(null);
+        } finally {
+            setShowDeleteConfirmId(null);
+        }
+    };
+
     // Approve function is no longer needed - approval happens automatically after step 3
 
     const reject = (id?: string, type: "direct" | "temporary" = "direct", note?: string) => {
@@ -819,241 +881,304 @@ export default function ModerationPage() {
                     <BackButton />
                 </div>
 
-                {/* Filters — responsive padding */}
-                <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-4 sm:p-6 mb-6 sm:mb-8 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-neutral-800">Lọc theo trạng thái</label>
-                            <SearchableDropdown
-                                value={statusFilter === "ALL" ? "" : getModerationStatusLabel(statusFilter)}
-                                onChange={(val) => {
-                                    // Map label back to status value
-                                    if (val === "Tất cả") {
-                                        setStatusFilter("ALL");
-                                    } else {
-                                        const statusMap: Record<string, string> = {
-                                            "Đang chờ được kiểm duyệt": ModerationStatus.PENDING_REVIEW,
-                                            "Đang được kiểm duyệt": ModerationStatus.IN_REVIEW,
-                                            "Đã được kiểm duyệt": ModerationStatus.APPROVED,
-                                            "Đã bị từ chối vĩnh viễn": ModerationStatus.REJECTED,
-                                            "Đã bị từ chối tạm thời": ModerationStatus.TEMPORARILY_REJECTED,
-                                        };
-                                        setStatusFilter(statusMap[val] || "ALL");
-                                    }
-                                }}
-                                options={[
-                                    "Tất cả",
-                                    "Đang chờ được kiểm duyệt",
-                                    "Đang được kiểm duyệt",
-                                    "Đã được kiểm duyệt",
-                                    "Đã bị từ chối vĩnh viễn",
-                                    "Đã bị từ chối tạm thời",
-                                ]}
-                                placeholder="Chọn trạng thái"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-neutral-800">Sắp xếp theo ngày</label>
-                            <SearchableDropdown
-                                value={dateSort === "newest" ? "Mới nhất" : "Cũ nhất"}
-                                onChange={(val) => {
-                                    setDateSort(val === "Mới nhất" ? "newest" : "oldest");
-                                }}
-                                options={["Mới nhất", "Cũ nhất"]}
-                                placeholder="Chọn thứ tự"
-                                searchable={false}
-                            />
-                        </div>
-                    </div>
-                </div>
+                {/* Tabs — VietTune UI */}
+                <div
+                    className="border border-neutral-200/80 rounded-2xl overflow-hidden shadow-lg backdrop-blur-sm mb-6 sm:mb-8 transition-all duration-300 hover:shadow-xl min-w-0 overflow-x-hidden"
+                    style={{ backgroundColor: "#FFFCF5" }}
+                >
+                    <nav
+                        className="flex flex-wrap gap-2 p-4 sm:p-6 lg:p-8 border-b border-neutral-200/80 bg-white/50"
+                        aria-label="Cổng chuyên gia"
+                    >
+                        {[
+                            { id: "review" as const, label: "Xem duyệt bản thu", icon: FileText },
+                            { id: "ai" as const, label: "Giám sát phản hồi của AI", icon: MessageSquare },
+                            { id: "knowledge" as const, label: "Kho tri thức", icon: BookOpen },
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 border cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+                                    activeTab === tab.id
+                                        ? "bg-primary-600 text-white border-primary-600 shadow-md"
+                                        : "text-neutral-700 bg-white border-neutral-200/80 hover:border-primary-300 hover:bg-primary-50/80"
+                                }`}
+                                aria-current={activeTab === tab.id ? "page" : undefined}
+                            >
+                                <tab.icon className="w-5 h-5 flex-shrink-0" strokeWidth={2.5} />
+                                <span>{tab.label}</span>
+                            </button>
+                        ))}
+                    </nav>
 
-                {items.length === 0 ? (
-                    <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-                        <h2 className="text-lg sm:text-xl font-semibold mb-2 text-neutral-900">Không có bản thu</h2>
-                        <p className="text-neutral-700 font-medium text-sm sm:text-base">Không có bản thu đang chờ được kiểm duyệt.</p>
-                    </div>
-                ) : (
-                    <div className="space-y-6 sm:space-y-8">
-                        {items.filter(it => it.id).map((it) => {
-                            // VideoPlayer CHỈ nhận videoData hoặc YouTubeURL, AudioPlayer CHỈ nhận audioData
-                            let mediaSrc: string | undefined;
-                            let isVideo = false;
-
-                            // Kiểm tra YouTube URL trước (cho VideoPlayer)
-                            if (it.mediaType === "youtube" && it.youtubeUrl && it.youtubeUrl.trim()) {
-                                mediaSrc = it.youtubeUrl.trim();
-                                isVideo = true;
-                            } else if (it.youtubeUrl && typeof it.youtubeUrl === 'string' && it.youtubeUrl.trim() && isYouTubeUrl(it.youtubeUrl)) {
-                                mediaSrc = it.youtubeUrl.trim();
-                                isVideo = true;
-                            }
-                            // Nếu là video, CHỈ dùng videoData (không fallback về audioData)
-                            else if (it.mediaType === "video") {
-                                if (it.videoData && typeof it.videoData === 'string' && it.videoData.trim().length > 0) {
-                                    mediaSrc = it.videoData;
-                                    isVideo = true;
-                                }
-                            }
-                            // Nếu là audio, CHỈ dùng audioData
-                            else if (it.mediaType === "audio") {
-                                if (it.audioData && typeof it.audioData === 'string' && it.audioData.trim().length > 0) {
-                                    mediaSrc = it.audioData;
-                                    isVideo = false;
-                                }
-                            }
-                            // Nếu mediaType chưa được set, thử phát hiện từ dữ liệu có sẵn
-                            else {
-                                // Ưu tiên videoData nếu có
-                                if (it.videoData && typeof it.videoData === 'string' && it.videoData.trim().length > 0) {
-                                    mediaSrc = it.videoData;
-                                    isVideo = true;
-                                }
-                                // Sau đó thử audioData
-                                else if (it.audioData && typeof it.audioData === 'string' && it.audioData.trim().length > 0) {
-                                    mediaSrc = it.audioData;
-                                    // Kiểm tra xem có phải video không bằng cách xem data URL
-                                    if (mediaSrc.startsWith('data:video/')) {
-                                        isVideo = true;
-                                    } else {
-                                        isVideo = false;
-                                    }
-                                }
-                            }
-
-                            // Convert LocalRecordingMini to Recording for type safety
-                            const convertedRecording: RecordingWithLocalData = {
-                                id: it.id ?? "",
-                                title: it.basicInfo?.title || it.title || "Không có tiêu đề",
-                                titleVietnamese: it.basicInfo?.title || it.title || "Không có tiêu đề",
-                                description: "",
-                                ethnicity: {
-                                    id: "local",
-                                    name: it.culturalContext?.ethnicity || "Không xác định",
-                                    nameVietnamese: it.culturalContext?.ethnicity || "Không xác định",
-                                    region: (() => {
-                                        const regionKey = it.culturalContext?.region as keyof typeof Region;
-                                        return Region[regionKey] ?? Region.RED_RIVER_DELTA;
-                                    })(),
-                                    recordingCount: 0,
-                                },
-                                region: (() => {
-                                    const regionKey = it.culturalContext?.region as keyof typeof Region;
-                                    return Region[regionKey] ?? Region.RED_RIVER_DELTA;
-                                })(),
-                                recordingType: RecordingType.OTHER,
-                                duration: 0,
-                                audioUrl: it.audioData ?? "",
-                                waveformUrl: "",
-                                coverImage: "",
-                                instruments: (it.culturalContext?.instruments || []).map((name, idx) => ({
-                                    id: `local-instrument-${idx}`,
-                                    name: name,
-                                    nameVietnamese: name,
-                                    category: "STRING" as import("@/types").InstrumentCategory,
-                                    images: [],
-                                    recordingCount: 0,
-                                })) as Instrument[],
-                                performers: [],
-                                recordedDate: it.basicInfo?.recordingDate || "",
-                                uploadedDate: it.uploadedAt || new Date().toISOString(),
-                                uploader: ((): User => {
-                                    if (typeof it.uploader === "object" && it.uploader !== null) {
-                                        const u = it.uploader as Partial<User>;
-                                        return {
-                                            id: u.id ?? "",
-                                            username: u.username ?? "",
-                                            email: u.email ?? "",
-                                            fullName: u.fullName ?? u.username ?? "",
-                                            role: u.role ?? UserRole.USER,
-                                            createdAt: u.createdAt ?? "",
-                                            updatedAt: u.updatedAt ?? "",
-                                        };
-                                    }
-                                    return {
-                                        id: "",
-                                        username: "",
-                                        email: "",
-                                        fullName: "",
-                                        role: UserRole.USER,
-                                        createdAt: "",
-                                        updatedAt: "",
-                                    };
-                                })(),
-                                tags: buildTagsFromLocal(it),
-                                metadata: {
-                                    recordingQuality: RecordingQuality.FIELD_RECORDING,
-                                    lyrics: "",
-                                } as RecordingMetadata,
-                                verificationStatus: it.moderation?.status === "APPROVED" ? VerificationStatus.VERIFIED : VerificationStatus.PENDING,
-                                verifiedBy: undefined,
-                                viewCount: 0,
-                                likeCount: 0,
-                                downloadCount: 0,
-                                _originalLocalData: it,
-                            };
-
-                            return (
-                                <div key={it.id} className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-4 sm:p-6 lg:p-8 transition-all duration-300 hover:shadow-xl min-w-0" style={{ backgroundColor: '#FFFCF5' }}>
-                                    {/* Title + actions row — wraps on mobile; touch-friendly buttons */}
-                                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-neutral-800 font-semibold text-base sm:text-lg mb-2 break-words">
-                                                {it.basicInfo?.title || it.title || 'Không có tiêu đề'}
-                                            </div>
-                                            {it.basicInfo?.artist && (
-                                                <div className="text-sm text-neutral-600 mb-1">Nghệ sĩ: {it.basicInfo.artist}</div>
-                                            )}
-                                            <div className="text-sm text-neutral-600 mb-1">Người đóng góp: {it.uploader?.username || 'Khách'}</div>
-                                            <div className="text-sm text-neutral-500 mb-1">Thời điểm tải lên: {formatDateTime((it as LocalRecordingMini & { uploadedDate?: string }).uploadedDate || it.uploadedAt)}</div>
-                                            <div className="text-sm mt-2">
-                                                Trạng thái: <span className="font-medium">{getModerationStatusLabel(it.moderation?.status)}</span>
-                                                {it.moderation?.status === ModerationStatus.IN_REVIEW && it.moderation?.claimedByName && (
-                                                    <span className="text-neutral-500"> — Đang được kiểm duyệt bởi {it.moderation.claimedByName}</span>
-                                                )}
-                                            </div>
+                    {/* Tab: Xem duyệt bản thu */}
+                    {activeTab === "review" && (
+                        <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-0 min-h-[calc(100vh-280px)]">
+                            {/* Left: Hàng đợi */}
+                            <div
+                                className="rounded-b-2xl lg:rounded-b-none border-t border-neutral-200/80 flex flex-col overflow-hidden"
+                                style={{ backgroundColor: "#FFFCF5" }}
+                            >
+                                <div className="p-4 border-b border-neutral-200/80 flex-shrink-0">
+                                    <h2 className="text-lg font-semibold text-neutral-900 mb-3">Hàng đợi kiểm duyệt</h2>
+                                    <div className="space-y-3">
+                                        <div className="relative">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Tìm bản thu..."
+                                                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-neutral-300 text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none focus:border-primary-500"
+                                                style={{ backgroundColor: "#FFFCF5" }}
+                                            />
                                         </div>
-
-                                        <div className="flex flex-col gap-2 flex-shrink-0 w-full sm:w-auto sm:ml-4">
-                                            {it.moderation?.status === ModerationStatus.PENDING_REVIEW && (
-                                                <button onClick={() => claim(it.id)} className="min-h-[44px] px-4 py-2.5 rounded-full bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap text-sm sm:text-base">Nhận kiểm duyệt</button>
-                                            )}
-
-                                            {it.moderation?.status === ModerationStatus.IN_REVIEW && it.moderation?.claimedBy === user?.id && (
-                                                <>
-                                                    <button onClick={() => claim(it.id)} className="min-h-[44px] px-4 py-2.5 rounded-full bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap text-sm sm:text-base">Tiếp tục kiểm duyệt</button>
-                                                    <button onClick={() => unclaim(it.id)} className="min-h-[44px] px-4 py-2.5 rounded-full bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-red-600/40 hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap text-sm sm:text-base">Hủy nhận kiểm duyệt</button>
-                                                </>
-                                            )}
+                                        <div className="flex flex-wrap gap-2">
+                                            {[
+                                                { key: "ALL", label: "Tất cả" },
+                                                { key: ModerationStatus.PENDING_REVIEW, label: "Chờ được kiểm duyệt" },
+                                                { key: ModerationStatus.IN_REVIEW, label: "Đang được kiểm duyệt" },
+                                                { key: ModerationStatus.APPROVED, label: "Đã được kiểm duyệt" },
+                                                { key: ModerationStatus.REJECTED, label: "Đã bị từ chối vĩnh viễn" },
+                                                { key: ModerationStatus.TEMPORARILY_REJECTED, label: "Đã bị từ chối tạm thời" },
+                                            ].map((f) => (
+                                                <button
+                                                    key={f.key}
+                                                    type="button"
+                                                    onClick={() => setStatusFilter(f.key)}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                                                        statusFilter === f.key
+                                                            ? "bg-primary-600 text-white"
+                                                            : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                                                    }`}
+                                                >
+                                                    {f.label}
+                                                </button>
+                                            ))}
                                         </div>
+                                        <div className="space-y-1">
+                                        <label className="block text-xs font-medium text-neutral-600">Sắp xếp theo ngày</label>
+                                        <SearchableDropdown
+                                            value={dateSort === "newest" ? "Mới nhất" : "Cũ nhất"}
+                                            onChange={(val) => setDateSort(val === "Mới nhất" ? "newest" : "oldest")}
+                                            options={["Mới nhất", "Cũ nhất"]}
+                                            placeholder="Chọn thứ tự"
+                                            searchable={false}
+                                        />
                                     </div>
-
-                                    {/* Media Player */}
-                                    {mediaSrc && (
-                                        <div className="mt-4">
-                                            {isVideo ? (
-                                                <VideoPlayer
-                                                    src={mediaSrc}
-                                                    title={it.basicInfo?.title || it.title}
-                                                    artist={it.basicInfo?.artist}
-                                                    recording={convertedRecording}
-                                                    showContainer={true}
-                                                />
-                                            ) : (
-                                                <AudioPlayer
-                                                    src={mediaSrc}
-                                                    title={it.basicInfo?.title || it.title}
-                                                    artist={it.basicInfo?.artist}
-                                                    recording={convertedRecording}
-                                                    showContainer={true}
-                                                />
-                                            )}
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-y-auto min-h-0">
+                                    {items.length === 0 ? (
+                                        <div className="p-4 text-center text-neutral-500 text-sm">
+                                            Không có bản thu nào trong hàng đợi.
+                                        </div>
+                                    ) : (
+                                        items.filter((it) => it.id).map((it) => {
+                            const status = it.moderation?.status;
+                            const borderColor =
+                                status === ModerationStatus.PENDING_REVIEW
+                                    ? "border-l-neutral-400"
+                                    : status === ModerationStatus.IN_REVIEW
+                                        ? "border-l-primary-500"
+                                        : status === ModerationStatus.APPROVED
+                                            ? "border-l-green-500"
+                                            : "border-l-red-400";
+                            return (
+                                <div
+                                    key={it.id}
+                                    onClick={() => setSelectedId(it.id ?? null)}
+                                    className={`p-4 border-b border-neutral-200/80 cursor-pointer transition-colors border-l-4 ${borderColor} ${
+                                        selectedId === it.id ? "bg-primary-50/80" : "hover:bg-neutral-50"
+                                    }`}
+                                >
+                                    <div className="flex justify-between items-start gap-2 mb-1">
+                                        <h3 className="text-sm font-semibold text-neutral-900 line-clamp-2">
+                                            {it.basicInfo?.title || it.title || "Không có tiêu đề"}
+                                        </h3>
+                                        <span className="shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-700">
+                                            {getModerationStatusLabel(status)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-xs text-neutral-600">
+                                        <UserIcon className="h-3.5 w-3.5 shrink-0" />
+                                        <span>{it.uploader?.username || "Khách"}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-xs text-neutral-600 mt-0.5">
+                                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                                        <span>
+                                            {it.culturalContext?.ethnicity || "—"}
+                                            {it.culturalContext?.province && ` • ${it.culturalContext.province}`}
+                                        </span>
+                                    </div>
+                                    {(it.culturalContext?.instruments?.length ?? 0) > 0 && (
+                                        <div className="flex items-center gap-1.5 text-xs text-neutral-600 mt-0.5">
+                                            <Music className="h-3.5 w-3.5 shrink-0" />
+                                            <span>{(it.culturalContext?.instruments ?? []).slice(0, 2).join(", ")}</span>
                                         </div>
                                     )}
+                                    <div className="text-xs text-neutral-500 mt-2 pt-2 border-t border-neutral-100">
+                                        {formatDateTime((it as LocalRecordingMini & { uploadedDate?: string }).uploadedDate || it.uploadedAt)}
+                                    </div>
                                 </div>
                             );
-                        })}
-                    </div>
-                )}
+                        })
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right: Chi tiết bản thu hoặc empty state */}
+                            <div
+                                className="rounded-b-2xl lg:rounded-bl-none border-t lg:border-t-0 lg:border-l border-neutral-200/80 overflow-y-auto p-4 sm:p-6"
+                                style={{ backgroundColor: "#FFFCF5" }}
+                            >
+                                {selectedId && (() => {
+                                    const item = selectedItemFull ?? allItems.find((i) => i.id === selectedId);
+                                    if (!item) return null;
+                                    let mediaSrc: string | undefined;
+                                    let isVideo = false;
+                                    if (item.mediaType === "youtube" && item.youtubeUrl?.trim()) {
+                                        mediaSrc = item.youtubeUrl.trim();
+                                        isVideo = true;
+                                    } else if (item.youtubeUrl && isYouTubeUrl(item.youtubeUrl)) {
+                                        mediaSrc = item.youtubeUrl.trim();
+                                        isVideo = true;
+                                    } else if (item.mediaType === "video" && item.videoData?.trim()) {
+                                        mediaSrc = item.videoData;
+                                        isVideo = true;
+                                    } else if (item.mediaType === "audio" && item.audioData?.trim()) {
+                                        mediaSrc = item.audioData;
+                                    } else if (item.videoData?.trim()) {
+                                        mediaSrc = item.videoData;
+                                        isVideo = true;
+                                    } else if (item.audioData?.trim()) {
+                                        mediaSrc = item.audioData;
+                                        if (mediaSrc.startsWith("data:video/")) isVideo = true;
+                                    }
+                                    const convertedForPlayer = item && (selectedItemFull ?? item) ? (() => {
+                                        const r = selectedItemFull ?? item;
+                                        return {
+                                            id: r.id ?? "",
+                                            title: r.basicInfo?.title || r.title || "Không có tiêu đề",
+                                            titleVietnamese: r.basicInfo?.title || r.title || "Không có tiêu đề",
+                                            description: "",
+                                            ethnicity: { id: "local", name: r.culturalContext?.ethnicity || "—", nameVietnamese: r.culturalContext?.ethnicity || "—", region: Region.RED_RIVER_DELTA, recordingCount: 0 },
+                                            region: Region.RED_RIVER_DELTA,
+                                            recordingType: RecordingType.OTHER,
+                                            duration: 0,
+                                            audioUrl: r.audioData ?? "",
+                                            waveformUrl: "",
+                                            coverImage: "",
+                                            instruments: (r.culturalContext?.instruments || []).map((name, idx) => ({ id: `li-${idx}`, name, nameVietnamese: name, category: "STRING" as import("@/types").InstrumentCategory, images: [], recordingCount: 0 })) as Instrument[],
+                                            performers: [],
+                                            recordedDate: r.basicInfo?.recordingDate || "",
+                                            uploadedDate: r.uploadedAt || "",
+                                            uploader: (r.uploader ? { id: (r.uploader as { id?: string }).id ?? "", username: (r.uploader as { username?: string }).username ?? "", email: "", fullName: (r.uploader as { username?: string }).username ?? "", role: UserRole.USER, createdAt: "", updatedAt: "" } : { id: "", username: "", email: "", fullName: "", role: UserRole.USER, createdAt: "", updatedAt: "" }),
+                                            tags: buildTagsFromLocal(r),
+                                            metadata: { recordingQuality: RecordingQuality.FIELD_RECORDING, lyrics: "" } as RecordingMetadata,
+                                            verificationStatus: r.moderation?.status === "APPROVED" ? VerificationStatus.VERIFIED : VerificationStatus.PENDING,
+                                            verifiedBy: undefined,
+                                            viewCount: 0,
+                                            likeCount: 0,
+                                            downloadCount: 0,
+                                            _originalLocalData: r,
+                                        } as RecordingWithLocalData;
+                                    })() : null;
+                                    return (
+                                        <div className="space-y-6">
+                                            <div className="rounded-2xl border border-neutral-200/80 shadow-md overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900 text-white p-6">
+                                                <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                                                    <div>
+                                                        <h2 className="text-xl font-semibold mb-1">{item.basicInfo?.title || item.title || "Không có tiêu đề"}</h2>
+                                                        <p className="text-sm text-white/80">
+                                                            {item.culturalContext?.ethnicity || "—"} • {item.culturalContext?.province || item.culturalContext?.region || "—"} • {formatDateTime((item as LocalRecordingMini & { uploadedDate?: string }).uploadedDate || item.uploadedAt)}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex flex-col gap-2">
+                                                        {(item.moderation?.status === ModerationStatus.PENDING_REVIEW || (item.moderation?.status === ModerationStatus.IN_REVIEW && item.moderation?.claimedBy === user?.id)) && (
+                                                            <button
+                                                                onClick={() => item.id && claim(item.id)}
+                                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-green-600 hover:bg-green-500 text-white font-medium cursor-pointer"
+                                                            >
+                                                                <CheckCircle className="h-4 w-4" />
+                                                                {item.moderation?.status === ModerationStatus.IN_REVIEW ? "Tiếp tục kiểm duyệt" : "Bắt đầu kiểm duyệt"}
+                                                            </button>
+                                                        )}
+                                                        {item.moderation?.status === ModerationStatus.TEMPORARILY_REJECTED && (
+                                                            <p className="text-sm text-amber-200/95 bg-amber-900/40 rounded-xl px-4 py-2 border border-amber-600/50">
+                                                                Bạn cần phải chờ Người đóng góp hoàn tất chỉnh sửa bản thu thì bạn mới có thể tái kiểm duyệt bản thu.
+                                                            </p>
+                                                        )}
+                                                        {item.moderation?.status === ModerationStatus.REJECTED && (
+                                                            <p className="text-sm text-red-200/95 bg-red-900/40 rounded-xl px-4 py-2 border border-red-600/50">
+                                                                Bản thu đã bị từ chối vĩnh viễn và không thể chỉnh sửa bởi bất kỳ ai.
+                                                            </p>
+                                                        )}
+                                                        {item.id && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowDeleteConfirmId(item.id!)}
+                                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium cursor-pointer border border-red-500/50"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                                Xóa bản thu khỏi hệ thống
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {mediaSrc && convertedForPlayer && (
+                                                    <div className="rounded-xl overflow-hidden bg-black/20">
+                                                        {isVideo ? (
+                                                            <VideoPlayer src={mediaSrc} title={item.basicInfo?.title || item.title} artist={item.basicInfo?.artist} recording={convertedForPlayer} showContainer={true} />
+                                                        ) : (
+                                                            <AudioPlayer src={mediaSrc} title={item.basicInfo?.title || item.title} artist={item.basicInfo?.artist} recording={convertedForPlayer} showContainer={true} />
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {!mediaSrc && (
+                                                    <p className="text-sm text-white/70 py-2">Không có bản thu để phát.</p>
+                                                )}
+                                            </div>
+                                            <div className="rounded-2xl border border-neutral-200/80 p-4 bg-white shadow-sm">
+                                                <h3 className="text-base font-semibold text-neutral-900 mb-3">Thông tin bản thu</h3>
+                                                <ul className="space-y-2 text-sm">
+                                                    <li className="flex items-center gap-2"><UserIcon className="h-4 w-4 text-neutral-500" /> <span>Người đóng góp: {item.uploader?.username || "Khách"}</span></li>
+                                                    <li className="flex items-center gap-2"><MapPin className="h-4 w-4 text-neutral-500" /> <span>Dân tộc / Vùng: {item.culturalContext?.ethnicity || "—"} / {item.culturalContext?.region || item.culturalContext?.province || "—"}</span></li>
+                                                    <li className="flex items-center gap-2"><Music className="h-4 w-4 text-neutral-500" /> <span>Nhạc cụ: {item.culturalContext?.instruments?.join(", ") || "—"}</span></li>
+                                                    <li>Loại sự kiện: {item.culturalContext?.eventType || "—"}</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                                {!selectedId && (
+                                    <div className="flex flex-col items-center justify-center min-h-[320px] text-center">
+                                        <FileText className="h-16 w-16 text-primary-300 mb-4" />
+                                        <h3 className="text-lg font-semibold text-neutral-800 mb-1">Chọn một bản thu</h3>
+                                        <p className="text-sm text-neutral-500">Chọn bản thu từ hàng đợi bên trái để xem chi tiết và kiểm duyệt.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tab: Giám sát AI */}
+                    {activeTab === "ai" && (
+                        <div className="p-6 sm:p-8 min-h-[400px] flex flex-col items-center justify-center text-center">
+                            <MessageSquare className="h-16 w-16 text-primary-300 mb-4" />
+                            <h2 className="text-xl font-semibold text-neutral-900 mb-2">Giám sát phản hồi AI</h2>
+                            <p className="text-neutral-600 max-w-md">Theo dõi và chỉnh sửa các phản hồi do AI tạo ra trước khi hiển thị cho người dùng.</p>
+                        </div>
+                    )}
+
+                    {/* Tab: Kho tri thức */}
+                    {activeTab === "knowledge" && (
+                        <div className="p-6 sm:p-8 min-h-[400px] flex flex-col items-center justify-center text-center">
+                            <BookOpen className="h-16 w-16 text-primary-300 mb-4" />
+                            <h2 className="text-xl font-semibold text-neutral-900 mb-2">Kho tri thức</h2>
+                            <p className="text-neutral-600 max-w-md">Bách khoa toàn thư cộng tác về âm nhạc truyền thống Việt Nam.</p>
+                        </div>
+                    )}
+                </div>
 
                 {/* Verification Dialog */}
                 {showVerificationDialog && (() => {
@@ -1955,6 +2080,71 @@ export default function ModerationPage() {
                     </div>
                     , document.body
                 )}
+
+                {/* Delete recording confirmation */}
+                {showDeleteConfirmId && (() => {
+                    const toDelete = allItems.find(it => it.id === showDeleteConfirmId);
+                    const title = toDelete?.basicInfo?.title || toDelete?.title || "Không có tiêu đề";
+                    return createPortal(
+                        <div
+                            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300 pointer-events-auto"
+                            onClick={() => setShowDeleteConfirmId(null)}
+                            style={{
+                                animation: "fadeIn 0.3s ease-out",
+                                top: 0, left: 0, right: 0, bottom: 0,
+                                width: "100vw", height: "100vh", position: "fixed",
+                            }}
+                        >
+                            <div
+                                className="rounded-2xl shadow-xl border border-neutral-300/80 backdrop-blur-sm max-w-md w-full overflow-hidden flex flex-col pointer-events-auto transform"
+                                style={{ backgroundColor: "#FFF2D6", animation: "slideUp 0.3s ease-out" }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-center justify-between p-6 border-b border-neutral-200/80 bg-gradient-to-br from-neutral-700 to-neutral-800">
+                                    <h2 className="text-xl font-bold text-white">Xóa bản thu khỏi hệ thống</h2>
+                                    <button
+                                        onClick={() => setShowDeleteConfirmId(null)}
+                                        className="p-1.5 rounded-full hover:bg-white/20 transition-colors text-white cursor-pointer"
+                                        aria-label="Đóng"
+                                    >
+                                        <X className="h-5 w-5" strokeWidth={2.5} />
+                                    </button>
+                                </div>
+                                <div className="overflow-y-auto p-6">
+                                    <div className="rounded-2xl shadow-md border border-neutral-200 p-6" style={{ backgroundColor: "#FFFCF5" }}>
+                                        <div className="flex flex-col items-center gap-4 mb-2">
+                                            <div className="p-3 bg-red-100 rounded-full flex-shrink-0">
+                                                <Trash2 className="h-8 w-8 text-red-600" />
+                                            </div>
+                                            <h3 className="text-lg font-semibold text-neutral-800 text-center">
+                                                Bạn có chắc muốn xóa bản thu &quot;{title}&quot; khỏi hệ thống?
+                                            </h3>
+                                            <p className="text-neutral-600 text-center text-sm">
+                                                Bản thu sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-center gap-4 p-6 border-t border-neutral-200 bg-neutral-50/50">
+                                    <button
+                                        onClick={() => setShowDeleteConfirmId(null)}
+                                        className="px-6 py-2.5 bg-neutral-200 text-neutral-800 rounded-full font-medium hover:bg-neutral-300 transition-colors shadow-sm"
+                                    >
+                                        Hủy
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmDelete}
+                                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-red-600 text-white rounded-full font-medium hover:bg-red-500 transition-colors shadow-sm"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        Xóa bản thu
+                                    </button>
+                                </div>
+                            </div>
+                        </div>,
+                        document.body
+                    );
+                })()}
             </div>
         </div>
     );

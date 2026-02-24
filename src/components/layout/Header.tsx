@@ -76,26 +76,12 @@ export default function Header() {
 
             {/* Desktop Navigation */}
             <div className="hidden lg:flex lg:items-center lg:justify-center lg:gap-3 xl:gap-4 flex-1 mx-4">
-              {user?.role === "EXPERT" ? (
-                <Link
-                  to="/moderation"
-                  className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-                >
-                  Kiểm duyệt bản thu
-                </Link>
-              ) : user?.role === "ADMIN" ? (
+              {user?.role === "ADMIN" ? (
                 <Link
                   to="/admin"
                   className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
                 >
                   Quản trị hệ thống
-                </Link>
-              ) : user?.role === UserRole.RESEARCHER ? (
-                <Link
-                  to="/researcher"
-                  className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-                >
-                  Cổng nghiên cứu
                 </Link>
               ) : (
                 <Link
@@ -105,15 +91,7 @@ export default function Header() {
                   Đóng góp bản thu
                 </Link>
               )}
-              {user?.role === UserRole.ADMIN && (
-                <Link
-                  to="/researcher"
-                  className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-                >
-                  Cổng Nghiên Cứu
-                </Link>
-              )}
-              {user?.role === "EXPERT" || !user || user?.role === "ADMIN" ? (
+              {user?.role === "EXPERT" || !user || user?.role === "ADMIN" || user?.role === UserRole.RESEARCHER ? (
                 <Link
                   to="/instruments"
                   className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
@@ -257,29 +235,13 @@ export default function Header() {
           {/* Mobile menu */}
           {isMobileMenuOpen && (
             <div className="lg:hidden pt-4 mt-4 space-y-2 border-t border-white/20">
-              {user?.role === "EXPERT" ? (
-                <Link
-                  to="/moderation"
-                  className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Kiểm duyệt bản thu
-                </Link>
-              ) : user?.role === "ADMIN" ? (
+              {user?.role === "ADMIN" ? (
                 <Link
                   to="/admin"
                   className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Quản trị hệ thống
-                </Link>
-              ) : user?.role === UserRole.RESEARCHER ? (
-                <Link
-                  to="/researcher"
-                  className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Cổng Nghiên Cứu
                 </Link>
               ) : (
                 <Link
@@ -290,16 +252,7 @@ export default function Header() {
                   Đóng góp
                 </Link>
               )}
-              {user?.role === UserRole.ADMIN && (
-                <Link
-                  to="/researcher"
-                  className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Cổng Nghiên Cứu
-                </Link>
-              )}
-              {user?.role === "EXPERT" || !user || user?.role === "ADMIN" ? (
+              {user?.role === "EXPERT" || !user || user?.role === "ADMIN" || user?.role === UserRole.RESEARCHER ? (
                 <Link
                   to="/instruments"
                   className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
