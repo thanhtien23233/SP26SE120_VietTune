@@ -1,211 +1,110 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
-using static VietTuneArchive.Application.Mapper.DTOs.Request.SubmissionRequest;
-using static VietTuneArchive.Application.Mapper.DTOs.SubmissionDto;
+using VietTuneArchive.Application.Responses;
 
 namespace VietTuneArchive.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize]
     public class SubmissionController : ControllerBase
     {
+        private readonly ISubmissionService2 _submissionService;
         private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
 
-        // POST: /api/v1/submissions
-        [HttpPost]
-        public ActionResult<SubmissionDto> CreateSubmission([FromBody] CreateSubmissionRequest request)
+        public SubmissionController(ISubmissionService2 submissionService)
         {
-            // TODO: Tạo draft mới, status=Draft
-            var submission = new SubmissionDto
-            {
-                Id = "sub-001",
-                UserId = CurrentUserId,
-                Title = request.Title,
-                Status = "Draft",
-                CreatedAt = DateTime.UtcNow
-            };
-            return Created($"submissions/{submission.Id}", submission);
+            _submissionService = submissionService;
         }
 
-        // GET: /api/v1/submissions/my
+        // POST: /api/submissions
+        [HttpPost]
+        public async Task<ActionResult<ServiceResponse<SubmissionDto>>> CreateSubmission([FromBody] SubmissionDto dto)
+        {
+            var result = await _submissionService.CreateAsync(dto);
+            return result.Success 
+                ? CreatedAtAction(nameof(GetById), new { id = result.Data?.Id }, result)
+                : BadRequest(result);
+        }
+
+        // GET: /api/submissions/my
         [HttpGet("my")]
-        public ActionResult<PagedList<SubmissionDto>> GetMySubmissions(
+        public async Task<ActionResult<PagedResponse<SubmissionDto>>> GetMySubmissions(
             [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            // TODO: Query submissions WHERE UserId=CurrentUserId, paginate
-            var submissions = new PagedList<SubmissionDto>
+            var userId = Guid.Parse(CurrentUserId);
+            var result = await _submissionService.GetByContributorAsync(userId);
+            if (!result.Success)
+                return NotFound(result);
+            
+            var pagedResult = new PagedResponse<SubmissionDto>
             {
-                Items = new List<SubmissionDto>(),
+                Success = true,
+                Data = result.Data ?? new List<SubmissionDto>(),
                 Page = page,
                 PageSize = pageSize,
-                Total = 5
+                Total = result.Data?.Count ?? 0,
+                Message = "Retrieved successfully"
             };
-            return Ok(submissions);
+            return Ok(pagedResult);
         }
 
-        // GET: /api/v1/submissions/{id}
+        // GET: /api/submissions/{id}
         [HttpGet("{id}")]
-        [Authorize(Policy = "Owner")]  // Custom policy: submission.UserId == CurrentUserId
-        public ActionResult<SubmissionDetailDto> GetSubmission(string id)
+        public async Task<ActionResult<ServiceResponse<SubmissionDto>>> GetById(Guid id)
         {
-            var submission = new SubmissionDetailDto
-            {
-                Id = id,
-                Title = "Bài hát dân ca Tày",
-                Status = "Submitted",
-                //BasicInfo = new BasicInfoDto { /* ... */ },
-                //CulturalContext = new CulturalContextDto { /* ... */ }
-                // Full detail
-            };
-            return Ok(submission);
+            var result = await _submissionService.GetByIdAsync(id);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // PUT: /api/v1/submissions/{id}
+        // PUT: /api/submissions/{id}
         [HttpPut("{id}")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<SubmissionDto> UpdateSubmission(string id, [FromBody] UpdateSubmissionRequest request)
+        public async Task<ActionResult<ServiceResponse<SubmissionDto>>> Update(Guid id, [FromBody] SubmissionDto dto)
         {
-            // TODO: Replace toàn bộ (hoặc merge)
-            return Ok(new SubmissionDto { Id = id, Status = "Draft" });
+            var result = await _submissionService.UpdateAsync(id, dto);
+            return result.Success ? Ok(result) : BadRequest(result);
         }
 
-        // DELETE: /api/v1/submissions/{id}
+        // DELETE: /api/submissions/{id}
         [HttpDelete("{id}")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<BaseResponse> DeleteSubmission(string id)
+        public async Task<ActionResult<ServiceResponse<bool>>> Delete(Guid id)
         {
-            // TODO: Chỉ xóa nếu status=Draft
-            return Ok(new BaseResponse { Success = true, Message = "Deleted" });
+            var result = await _submissionService.DeleteAsync(id);
+            return result.Success ? Ok(result) : BadRequest(result);
         }
 
-        // PUT: /api/v1/submissions/{id}/basic-info
-        [HttpPut("{id}/basic-info")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<BaseResponse> UpdateBasicInfo(string id, [FromBody] BasicInfoDto basicInfo)
+        // GET: /api/submissions/status/{status}
+        [HttpGet("status/{status}")]
+        public async Task<ActionResult<ServiceResponse<List<SubmissionDto>>>> GetByStatus(int status)
         {
-            // TODO: Update step 2
-            return Ok(new BaseResponse { Success = true });
+            var result = await _submissionService.GetByStatusAsync(status);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // PUT: /api/v1/submissions/{id}/cultural-context
-        [HttpPut("{id}/cultural-context")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<BaseResponse> UpdateCulturalContext(string id, [FromBody] CulturalContextDto context)
+        // GET: /api/submissions/stage/{stage}
+        [HttpGet("stage/{stage}")]
+        public async Task<ActionResult<ServiceResponse<List<SubmissionDto>>>> GetByStage(int stage)
         {
-            // TODO: Update step 3
-            return Ok(new BaseResponse { Success = true });
+            var result = await _submissionService.GetByStageAsync(stage);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // PUT: /api/v1/submissions/{id}/additional-info
-        [HttpPut("{id}/additional-info")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<BaseResponse> UpdateAdditionalInfo(string id, [FromBody] AdditionalInfoDto info)
+        // GET: /api/submissions/recent
+        [HttpGet("recent")]
+        public async Task<ActionResult<ServiceResponse<List<SubmissionDto>>>> GetRecent([FromQuery] int count = 10)
         {
-            // TODO: Update step 4
-            return Ok(new BaseResponse { Success = true });
+            var result = await _submissionService.GetRecentAsync(count);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // PUT: /api/v1/submissions/{id}/copyright-info
-        [HttpPut("{id}/copyright-info")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<BaseResponse> UpdateCopyrightInfo(string id, [FromBody] CopyrightInfoDto copyright)
+        // POST: /api/submissions/{id}/paginated
+        [HttpGet("paginated")]
+        public async Task<ActionResult<PagedResponse<SubmissionDto>>> GetPaginated([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            return Ok(new BaseResponse { Success = true });
-        }
-
-        // POST: /api/v1/submissions/{id}/submit
-        [HttpPost("{id}/submit")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<SubmissionDto> Submit(string id)
-        {
-            // TODO: Validate full info, set status=PendingReview
-            return Ok(new SubmissionDto { Id = id, Status = "PendingReview" });
-        }
-
-        // POST: /api/v1/submissions/{id}/resubmit
-        [HttpPost("{id}/resubmit")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<SubmissionDto> Resubmit(string id)
-        {
-            // TODO: Chỉ sau khi Rejected
-            return Ok(new SubmissionDto { Id = id, Status = "PendingReview" });
-        }
-
-        // GET: /api/v1/submissions/{id}/status
-        [HttpGet("{id}/status")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<SubmissionStatusDto> GetStatus(string id)
-        {
-            var status = new SubmissionStatusDto
-            {
-                Status = "InReview",
-                Timeline = new List<TimelineItemDto>
-                {
-                    new() { Step = "Submitted", Date = DateTime.Now, Note = "Gửi xét duyệt" }
-                }
-            };
-            return Ok(status);
-        }
-
-        // GET: /api/v1/submissions/{id}/history
-        [HttpGet("{id}/history")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<List<SubmissionHistoryDto>> GetHistory(string id)
-        {
-            var history = new List<SubmissionHistoryDto>();
-            return Ok(history);
-        }
-
-        // GET: /api/v1/submissions/{id}/feedback
-        [HttpGet("{id}/feedback")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<List<FeedbackDto>> GetFeedback(string id)
-        {
-            var feedback = new List<FeedbackDto>();
-            return Ok(feedback);
-        }
-
-        // POST: /api/v1/submissions/{id}/duplicate
-        [HttpPost("{id}/duplicate")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<SubmissionDto> Duplicate(string id)
-        {
-            // TODO: Clone thành draft mới
-            return Ok(new SubmissionDto { Id = "sub-002" });
-        }
-
-        // PUT: /api/v1/submissions/{id}/instruments
-        [HttpPut("{id}/instruments")]
-        [Authorize(Policy = "Owner")]
-        public ActionResult<BaseResponse> UpdateInstruments(string id, [FromBody] List<SubmissionInstrumentDto> instruments)
-        {
-            return Ok(new BaseResponse { Success = true });
-        }
-
-        // GET: /api/v1/submissions/drafts
-        [HttpGet("drafts")]
-        public ActionResult<PagedList<SubmissionDto>> GetDrafts(
-            [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
-        {
-            var drafts = new PagedList<SubmissionDto>();
-            return Ok(drafts);
-        }
-
-        // GET: /api/v1/submissions/statistics
-        [HttpGet("statistics")]
-        public ActionResult<SubmissionStatsDto> GetStatistics()
-        {
-            var stats = new SubmissionStatsDto
-            {
-                Total = 10,
-                Drafts = 3,
-                Submitted = 5,
-                Approved = 2
-            };
-            return Ok(stats);
+            var result = await _submissionService.GetPaginatedAsync(page, pageSize);
+            return Ok(result);
         }
     }
 }

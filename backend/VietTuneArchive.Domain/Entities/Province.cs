@@ -1,9 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace VietTuneArchive.Domain.Entities
 {
@@ -11,12 +8,16 @@ namespace VietTuneArchive.Domain.Entities
     {
         [Key]
         public Guid Id { get; set; }
+
+        [Required]
+        [MaxLength(100)]
         public string Name { get; set; }
-        public string Description { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-        public Guid? RegionId { get; set; }
-        public Region? Region { get; set; }
-        public ICollection<Submission>? Submissions { get; set; }
+
+        [Required]
+        [MaxLength(20)]
+        public string RegionCode { get; set; } // Bac-Trung-Nam
+
+        // Navigation properties
+        public ICollection<District>? Districts { get; set; }
     }
 }

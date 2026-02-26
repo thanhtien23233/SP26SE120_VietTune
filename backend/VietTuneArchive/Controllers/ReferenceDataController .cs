@@ -1,150 +1,159 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
-using static VietTuneArchive.Application.Mapper.DTOs.ReferenceDataDto;
-using RegionDtoRef = VietTuneArchive.Application.Mapper.DTOs.RegionDto;
-using ProvinceDtoRef = VietTuneArchive.Application.Mapper.DTOs.ProvinceDto;
+using VietTuneArchive.Application.Responses;
 
 namespace VietTuneArchive.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize]
     public class ReferenceDataController : ControllerBase
     {
+        private readonly IProvinceService _provinceService;
+        private readonly IEthnicGroupService _ethnicGroupService;
+        private readonly ICeremonyService _ceremonyService;
+        private readonly IVocalStyleService _vocalStyleService;
+        private readonly IMusicalScaleService _musicalScaleService;
+        private readonly ITagService _tagService;
+
+        public ReferenceDataController(
+            IProvinceService provinceService,
+            IEthnicGroupService ethnicGroupService,
+            ICeremonyService ceremonyService,
+            IVocalStyleService vocalStyleService,
+            IMusicalScaleService musicalScaleService,
+            ITagService tagService)
+        {
+            _provinceService = provinceService;
+            _ethnicGroupService = ethnicGroupService;
+            _ceremonyService = ceremonyService;
+            _vocalStyleService = vocalStyleService;
+            _musicalScaleService = musicalScaleService;
+            _tagService = tagService;
+        }
+
         // GET: /api/reference/ethnic-groups
         [HttpGet("ethnic-groups")]
-        public ActionResult<List<EthnicGroupDto>> GetEthnicGroups()
+        public async Task<ActionResult<PagedResponse<EthnicGroupDto>>> GetEthnicGroups(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var ethnicGroups = new List<EthnicGroupDto>
-            {
-                new() { Id = "1", Name = "Kinh", Code = "kinh" },
-                new() { Id = "2", Name = "Tày", Code = "tay" },
-                // ... 52 dân tộc khác
-            };
-            return Ok(ethnicGroups);
+            var result = await _ethnicGroupService.GetPaginatedAsync(page, pageSize);
+            return Ok(result);
         }
 
         // GET: /api/reference/ethnic-groups/{id}
         [HttpGet("ethnic-groups/{id}")]
-        public ActionResult<EthnicGroupDetailDto> GetEthnicGroup(string id)
+        public async Task<ActionResult<ServiceResponse<EthnicGroupDto>>> GetEthnicGroup(Guid id)
         {
-            var ethnicGroup = new EthnicGroupDetailDto
-            {
-                Id = id,
-                Name = "Kinh",
-                Code = "kinh",
-                Population = "86 triệu",
-                Distribution = "Toàn quốc",
-                Description = "Dân tộc đa số Việt Nam"
-            };
-            return Ok(ethnicGroup);
-        }
-
-        // GET: /api/reference/regions
-        [HttpGet("regions")]
-        public ActionResult<List<RegionDtoRef>> GetRegions()
-        {
-            var regions = new List<RegionDtoRef>
-            {
-                new() { Id = Guid.NewGuid(), Name = "Bắc Bộ", Description = "Vùng Bắc Bộ", CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid(), Name = "Trung Bộ", Description = "Vùng Trung Bộ", CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid(), Name = "Nam Bộ", Description = "Vùng Nam Bộ", CreatedAt = DateTime.UtcNow }
-            };
-            return Ok(regions);
+            var result = await _ethnicGroupService.GetByIdAsync(id);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
         // GET: /api/reference/provinces
         [HttpGet("provinces")]
-        public ActionResult<List<ProvinceDtoRef>> GetProvinces()
+        public async Task<ActionResult<PagedResponse<ProvinceDto>>> GetProvinces(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var provinces = new List<ProvinceDtoRef>
-            {
-                new() { Id = Guid.NewGuid(), Name = "Hà Nội", Description = "Thủ đô Hà Nội", RegionId = Guid.NewGuid(), CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid(), Name = "Hà Giang", Description = "Hà Giang", RegionId = Guid.NewGuid(), CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid(), Name = "TP. Hồ Chí Minh", Description = "TP. Hồ Chí Minh", RegionId = Guid.NewGuid(), CreatedAt = DateTime.UtcNow }
-            };
-            return Ok(provinces);
+            var result = await _provinceService.GetPaginatedAsync(page, pageSize);
+            return Ok(result);
         }
 
-        // GET: /api/reference/music-genres
-        [HttpGet("music-genres")]
-        public ActionResult<List<MusicGenreDto>> GetMusicGenres()
+        // GET: /api/reference/provinces/{id}
+        [HttpGet("provinces/{id}")]
+        public async Task<ActionResult<ServiceResponse<ProvinceDto>>> GetProvince(Guid id)
         {
-            var genres = new List<MusicGenreDto>
-            {
-                new() { Id = "1", Name = "Dân gian", ParentId = null, Children = new List<MusicGenreDto>() },
-                new() { Id = "2", Name = "Cải lương", ParentId = null },
-                new() { Id = "3", Name = "Rap Việt", ParentId = "1" }
-            };
-            return Ok(genres);
+            var result = await _provinceService.GetByIdAsync(id);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // GET: /api/reference/event-types
-        [HttpGet("event-types")]
-        public ActionResult<List<ReferenceItemDto>> GetEventTypes()
+        // GET: /api/reference/ceremonies
+        [HttpGet("ceremonies")]
+        public async Task<ActionResult<PagedResponse<CeremonyDto>>> GetCeremonies(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var types = new List<ReferenceItemDto>
-            {
-                new() { Id = "1", Name = "Lễ hội", Code = "le-hoi" },
-                new() { Id = "2", Name = "Hội diễn", Code = "hoi-dien" },
-                new() { Id = "3", Name = "Biểu diễn", Code = "bieu-dien" }
-            };
-            return Ok(types);
+            var result = await _ceremonyService.GetPaginatedAsync(page, pageSize);
+            return Ok(result);
         }
 
-        // GET: /api/reference/performance-types
-        [HttpGet("performance-types")]
-        public ActionResult<List<ReferenceItemDto>> GetPerformanceTypes()
+        // GET: /api/reference/vocal-styles
+        [HttpGet("vocal-styles")]
+        public async Task<ActionResult<PagedResponse<VocalStyleDto>>> GetVocalStyles(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var types = new List<ReferenceItemDto>
-            {
-                new() { Id = "1", Name = "Múa", Code = "mua" },
-                new() { Id = "2", Name = "Hát", Code = "hat" },
-                new() { Id = "3", Name = "Kịch", Code = "kich" }
-            };
-            return Ok(types);
+            var result = await _vocalStyleService.GetPaginatedAsync(page, pageSize);
+            return Ok(result);
         }
 
-        // GET: /api/reference/languages
-        [HttpGet("languages")]
-        public ActionResult<List<LanguageDto>> GetLanguages()
+        // GET: /api/reference/musical-scales
+        [HttpGet("musical-scales")]
+        public async Task<ActionResult<PagedResponse<MusicalScaleDto>>> GetMusicalScales(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var languages = new List<LanguageDto>
-            {
-                new() { Id = "1", Name = "Tiếng Việt", Code = "vi" },
-                new() { Id = "2", Name = "Tiếng Anh", Code = "en" },
-                new() { Id = "3", Name = "Tiếng Tày", Code = "tyz" }
-            };
-            return Ok(languages);
+            var result = await _musicalScaleService.GetPaginatedAsync(page, pageSize);
+            return Ok(result);
         }
 
-        // GET: /api/reference/license-types
-        [HttpGet("license-types")]
-        public ActionResult<List<ReferenceItemDto>> GetLicenseTypes()
+        // GET: /api/reference/tags
+        [HttpGet("tags")]
+        public async Task<ActionResult<PagedResponse<TagDto>>> GetTags(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var types = new List<ReferenceItemDto>
-            {
-                new() { Id = "1", Name = "Giấy phép biểu diễn", Code = "gp-bd" },
-                new() { Id = "2", Name = "Giấy phép lưu hành", Code = "gp-lh" }
-            };
-            return Ok(types);
+            var result = await _tagService.GetPaginatedAsync(page, pageSize);
+            return Ok(result);
         }
 
-        // GET: /api/reference/all
-        [HttpGet("all")]
-        public ActionResult<ReferenceBundleDto> GetAll()
+        // GET: /api/reference/ethnic-groups/search
+        [HttpGet("ethnic-groups/search")]
+        public async Task<ActionResult<ServiceResponse<List<EthnicGroupDto>>>> SearchEthnicGroups([FromQuery] string keyword)
         {
-            var bundle = new ReferenceBundleDto
-            {
-                EthnicGroups = new List<EthnicGroupDto>(),
-                // Regions and Provinces removed from ReferenceBundleDto to avoid Swagger conflicts
-                MusicGenres = new List<MusicGenreDto>(),
-                EventTypes = new List<ReferenceItemDto>(),
-                PerformanceTypes = new List<ReferenceItemDto>(),
-                Languages = new List<LanguageDto>(),
-                LicenseTypes = new List<ReferenceItemDto>()
-            };
-            return Ok(bundle);
+            var result = await _ethnicGroupService.SearchAsync(keyword);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
+        // GET: /api/reference/provinces/search
+        [HttpGet("provinces/search")]
+        public async Task<ActionResult<ServiceResponse<List<ProvinceDto>>>> SearchProvinces([FromQuery] string keyword)
+        {
+            var result = await _provinceService.SearchByNameAsync(keyword);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
+        // GET: /api/reference/ceremonies/search
+        [HttpGet("ceremonies/search")]
+        public async Task<ActionResult<ServiceResponse<List<CeremonyDto>>>> SearchCeremonies([FromQuery] string keyword)
+        {
+            var result = await _ceremonyService.SearchByNameAsync(keyword);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
+        // GET: /api/reference/vocal-styles/search
+        [HttpGet("vocal-styles/search")]
+        public async Task<ActionResult<ServiceResponse<List<VocalStyleDto>>>> SearchVocalStyles([FromQuery] string keyword)
+        {
+            var result = await _vocalStyleService.SearchByNameAsync(keyword);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
+        // GET: /api/reference/musical-scales/search
+        [HttpGet("musical-scales/search")]
+        public async Task<ActionResult<ServiceResponse<List<MusicalScaleDto>>>> SearchMusicalScales([FromQuery] string keyword)
+        {
+            var result = await _musicalScaleService.SearchByNameAsync(keyword);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
+        // GET: /api/reference/tags/search
+        [HttpGet("tags/search")]
+        public async Task<ActionResult<ServiceResponse<List<TagDto>>>> SearchTags([FromQuery] string keyword)
+        {
+            var result = await _tagService.SearchByNameAsync(keyword);
+            return result.Success ? Ok(result) : NotFound(result);
         }
     }
 }

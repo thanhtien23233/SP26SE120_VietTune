@@ -9,6 +9,7 @@ using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper;
 using VietTuneArchive.Application.Services;
 using VietTuneArchive.Domain.Context;
+using VietTuneArchive.Domain.Entities;
 using VietTuneArchive.Domain.IRepositories;
 using VietTuneArchive.Domain.Repositories;
 
@@ -73,25 +74,97 @@ builder.Services.AddSwaggerGen(c =>
     }
 });
 
-// Repositories
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<ISongRepository, SongRepository>();
-builder.Services.AddScoped<ISubmissionRepository, SubmissionRepository>();
-builder.Services.AddScoped<IGenreRepository, GenreRepository>();
-builder.Services.AddScoped<IInstrumentRepository, InstrumentRepository>();
-builder.Services.AddScoped<IRegionRepository, RegionRepository>();
+// ✅ REPOSITORIES - Geographic
+builder.Services.AddScoped<IGenericRepository<Province>, GenericRepository<Province>>();
 builder.Services.AddScoped<IProvinceRepository, ProvinceRepository>();
-builder.Services.AddScoped<IContextRepository, ContextRepository>();
+builder.Services.AddScoped<IGenericRepository<District>, GenericRepository<District>>();
+builder.Services.AddScoped<IDistrictRepository, DistrictRepository>();
+builder.Services.AddScoped<IGenericRepository<Commune>, GenericRepository<Commune>>();
+builder.Services.AddScoped<ICommuneRepository, CommuneRepository>();
 
-// Services
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<ISongService, SongService>();
-builder.Services.AddScoped<ISubmissionService, SubmissionService>();
-builder.Services.AddScoped<IGenreService, GenreService>();
-builder.Services.AddScoped<IInstrumentService, InstrumentService>();
-builder.Services.AddScoped<IRegionService, RegionService>();
+// ✅ REPOSITORIES - Reference Data
+builder.Services.AddScoped<IGenericRepository<EthnicGroup>, GenericRepository<EthnicGroup>>();
+builder.Services.AddScoped<IEthnicGroupRepository, EthnicGroupRepository>();
+builder.Services.AddScoped<IGenericRepository<Ceremony>, GenericRepository<Ceremony>>();
+builder.Services.AddScoped<ICeremonyRepository, CeremonyRepository>();
+builder.Services.AddScoped<IGenericRepository<VocalStyle>, GenericRepository<VocalStyle>>();
+builder.Services.AddScoped<IVocalStyleRepository, VocalStyleRepository>();
+builder.Services.AddScoped<IGenericRepository<MusicalScale>, GenericRepository<MusicalScale>>();
+builder.Services.AddScoped<IMusicalScaleRepository, MusicalScaleRepository>();
+builder.Services.AddScoped<IGenericRepository<Tag>, GenericRepository<Tag>>();
+builder.Services.AddScoped<ITagRepository, TagRepository>();
+
+// ✅ REPOSITORIES - Recording & Related
+builder.Services.AddScoped<IGenericRepository<Recording>, GenericRepository<Recording>>();
+builder.Services.AddScoped<IRecordingRepository, RecordingRepository>();
+builder.Services.AddScoped<IGenericRepository<RecordingImage>, GenericRepository<RecordingImage>>();
+builder.Services.AddScoped<IRecordingImageRepository, RecordingImageRepository>();
+
+// ✅ REPOSITORIES - Submission & Review
+builder.Services.AddScoped<IGenericRepository<Submission>, GenericRepository<Submission>>();
+builder.Services.AddScoped<ISubmissionVersionRepository, SubmissionVersionRepository>();
+builder.Services.AddScoped<IGenericRepository<Review>, GenericRepository<Review>>();
+builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
+
+// ✅ REPOSITORIES - User & Audit
+builder.Services.AddScoped<IGenericRepository<User>, GenericRepository<User>>();
+builder.Services.AddScoped<IGenericRepository<RefreshToken>, GenericRepository<RefreshToken>>();
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddScoped<IGenericRepository<AuditLog>, GenericRepository<AuditLog>>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+
+// ✅ REPOSITORIES - Annotation & AI
+builder.Services.AddScoped<IAnnotationRepository, AnnotationRepository>();
+builder.Services.AddScoped<IVectorEmbeddingRepository, VectorEmbeddingRepository>();
+builder.Services.AddScoped<IAudioAnalysisResultRepository, AudioAnalysisResultRepository>();
+
+// ✅ REPOSITORIES - Knowledge Base
+builder.Services.AddScoped<IKBEntryRepository, KBEntryRepository>();
+builder.Services.AddScoped<IKBRevisionRepository, KBRevisionRepository>();
+builder.Services.AddScoped<IKBCitationRepository, KBCitationRepository>();
+
+// ✅ REPOSITORIES - Q&A System
+builder.Services.AddScoped<IQAConversationRepository, QAConversationRepository>();
+builder.Services.AddScoped<IQAMessageRepository, QAMessageRepository>();
+
+// ✅ SERVICES - Geographic
 builder.Services.AddScoped<IProvinceService, ProvinceService>();
-builder.Services.AddScoped<IContextService, ContextService>();
+builder.Services.AddScoped<IDistrictService, DistrictService>();
+builder.Services.AddScoped<ICommuneService, CommuneService>();
+
+// ✅ SERVICES - Reference Data
+builder.Services.AddScoped<IEthnicGroupService, EthnicGroupService>();
+builder.Services.AddScoped<ICeremonyService, CeremonyService>();
+builder.Services.AddScoped<IVocalStyleService, VocalStyleService>();
+builder.Services.AddScoped<IMusicalScaleService, MusicalScaleService>();
+builder.Services.AddScoped<ITagService, TagService>();
+
+// ✅ SERVICES - Recording & Related
+builder.Services.AddScoped<IRecordingService, RecordingService>();
+builder.Services.AddScoped<IRecordingImageService, RecordingImageService>();
+
+// ✅ SERVICES - Submission & Review
+builder.Services.AddScoped<ISubmissionService2, SubmissionService2>();
+builder.Services.AddScoped<ISubmissionVersionService, SubmissionVersionService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
+
+// ✅ SERVICES - Annotation & AI
+builder.Services.AddScoped<IAnnotationService, AnnotationService>();
+builder.Services.AddScoped<IVectorEmbeddingService, VectorEmbeddingService>();
+builder.Services.AddScoped<IAudioAnalysisResultService, AudioAnalysisResultService>();
+
+// ✅ SERVICES - Knowledge Base
+builder.Services.AddScoped<IKBEntryService, KBEntryService>();
+builder.Services.AddScoped<IKBRevisionService, KBRevisionService>();
+builder.Services.AddScoped<IKBCitationService, KBCitationService>();
+
+// ✅ SERVICES - Q&A System
+builder.Services.AddScoped<IQAConversationService, QAConversationService>();
+builder.Services.AddScoped<IQAMessageService, QAMessageService>();
+
+// ✅ SERVICES - User & Audit
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
@@ -100,9 +173,13 @@ builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 builder.Services.AddTransient<EmailService>();
 
-builder.Services.AddCors(o => o.AddPolicy("AllowReactApp", p =>
-    p.WithOrigins("http://localhost:3000")
-     .AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddCors(o => 
+{
+    o.AddPolicy("AllowReactApp", p =>
+        p.AllowAnyOrigin()
+         .AllowAnyHeader()
+         .AllowAnyMethod());
+});
 
 var app = builder.Build();
 
@@ -114,9 +191,27 @@ if (app.Environment.IsDevelopment())  // ✅ Fix: Chỉ Development
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    
+    // ✅ Auto-open browser to Swagger UI
+    var task = Task.Run(async () =>
+    {
+        await Task.Delay(1000); // Wait for server to start
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "http://localhost:8080/swagger/index.html",
+                UseShellExecute = true
+            });
+        }
+        catch { /* Browser might not be available in some environments */ }
+    });
+}
+else
+{
+    app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
 app.UseAuthentication();
 app.UseAuthorization();

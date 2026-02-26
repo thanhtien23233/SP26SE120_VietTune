@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VietTuneArchive.Application.Mapper.DTOs;
+using VietTuneArchive.Application.Responses;
 using static VietTuneArchive.Application.Mapper.DTOs.CommonDto;
 using static VietTuneArchive.Application.Mapper.DTOs.MediaDto;
 
@@ -24,7 +25,7 @@ namespace VietTuneArchive.API.Controllers
             // upload cloud (Azure Blob/S3), save metadata DB,
             // associate với submissionId
             if (file == null || file.Length == 0)
-                return BadRequest(new BaseResponse { Success = false, Message = "No file" });
+                return BadRequest(new ServiceResponse<string> { Success = false, Message = "No file" });
 
             var mediaFile = new MediaFileDetailDto
             {
@@ -77,19 +78,19 @@ namespace VietTuneArchive.API.Controllers
         // DELETE: /api/v1/media/{mediaFileId}
         [HttpDelete("{mediaFileId}")]
         [Authorize(Policy = "Owner")]  // Owner của file/submission
-        public ActionResult<BaseResponse> DeleteMediaFile(string mediaFileId)
+        public ActionResult<ServiceResponse<string>> DeleteMediaFile(string mediaFileId)
         {
             // TODO: Soft/hard delete file + DB record
-            return Ok(new BaseResponse { Success = true, Message = "File deleted" });
+            return Ok(new ServiceResponse<string> { Success = true, Message = "File deleted" });
         }
 
         // PUT: /api/v1/media/{mediaFileId}/set-primary
         [HttpPut("{mediaFileId}/set-primary")]
         [Authorize(Policy = "Owner")]
-        public ActionResult<BaseResponse> SetPrimary(string mediaFileId)
+        public ActionResult<ServiceResponse<string>> SetPrimary(string mediaFileId)
         {
             // TODO: Set IsPrimary=true cho file này, false cho others trong submission
-            return Ok(new BaseResponse { Success = true, Message = "Set as primary" });
+            return Ok(new ServiceResponse<string> { Success = true, Message = "Set as primary" });
         }
 
         // GET: /api/v1/media/{mediaFileId}/stream

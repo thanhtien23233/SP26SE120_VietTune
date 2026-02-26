@@ -1,9 +1,9 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
-using static VietTuneArchive.Application.Mapper.DTOs.AnnotationDto;
-using static VietTuneArchive.Application.Mapper.DTOs.Request.AnnotationRequest;
+using VietTuneArchive.Application.Responses;
 
 namespace VietTuneArchive.API.Controllers
 {
@@ -12,76 +12,99 @@ namespace VietTuneArchive.API.Controllers
     //[Authorize]
     public class AnnotationController : ControllerBase
     {
+        private readonly IAnnotationService _annotationService;
         private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
 
-        // GET: /api/annotations/submissions/{submissionId}
-        [HttpGet("submissions/{submissionId}")]
-        public ActionResult<PagedList<AnnotationDto>> GetAnnotations(string submissionId,
-            [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public AnnotationController(IAnnotationService annotationService)
         {
-            var annotations = new PagedList<AnnotationDto>
-            {
-                Items = new List<AnnotationDto>(),
-                Page = page,
-                PageSize = pageSize,
-                Total = 12
-            };
-            return Ok(annotations);
+            _annotationService = annotationService;
         }
 
-        // POST: /api/annotations/submissions/{submissionId}
-        [HttpPost("submissions/{submissionId}")]
-        //[Authorize(Policy = "Expert")]
-        public ActionResult<AnnotationDto> CreateAnnotation(string submissionId, [FromBody] CreateAnnotationRequest request)
+        // GET: /api/annotation
+        [HttpGet]
+        public async Task<ActionResult<PagedResponse<AnnotationDto>>> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var annotation = new AnnotationDto
-            {
-                Id = "anno-001",
-                SubmissionId = submissionId,
-                TimeStart = request.TimeStart,
-                TimeEnd = request.TimeEnd,
-                Content = request.Content,
-                Type = request.Type,
-                AuthorId = CurrentUserId,
-                CreatedAt = DateTime.UtcNow
-            };
-            return Created(annotation.Id, annotation);
+            var result = await _annotationService.GetPaginatedAsync(page, pageSize);
+            return Ok(result);
         }
 
-        // GET: /api/annotations/{annotationId}
-        [HttpGet("{annotationId}")]
-        public ActionResult<AnnotationDetailDto> GetAnnotation(string annotationId)
+        // GET: /api/annotation/{id}
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ServiceResponse<AnnotationDto>>> GetById(Guid id)
         {
-            var annotation = new AnnotationDetailDto
-            {
-                Id = annotationId,
-                SubmissionId = "sub-001",
-                TimeStart = 30.5,  // 30.5s
-                TimeEnd = 45.2,
-                Content = "Đoạn này sử dụng kỹ thuật hát then đặc trưng của dân tộc Tày",
-                Type = "CulturalNote",
-                AuthorId = "expert-123",
-                Likes = 15,
-                CreatedAt = DateTime.UtcNow.AddDays(-2)
-            };
-            return Ok(annotation);
+            var result = await _annotationService.GetByIdAsync(id);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // PUT: /api/annotations/{annotationId}
-        [HttpPut("{annotationId}")]
-        [Authorize(Policy = "Author")]
-        public ActionResult<BaseResponse> UpdateAnnotation(string annotationId, [FromBody] UpdateAnnotationRequest request)
+        // POST: /api/annotation
+        [HttpPost]
+        public async Task<ActionResult<ServiceResponse<AnnotationDto>>> Create([FromBody] AnnotationDto dto)
         {
-            // BaseResponse: Success + Message chỉ
-            return Ok(new BaseResponse { Success = true, Message = "Annotation updated" });
+            var result = await _annotationService.CreateAsync(dto);
+            return result.Success
+                ? CreatedAtAction(nameof(GetById), new { id = result.Data?.Id }, result)
+                : BadRequest(result);
         }
 
-        // DELETE: /api/annotations/{annotationId}
-        [HttpDelete("{annotationId}")]
-        [Authorize(Policy = "Author")]
-        public ActionResult<BaseResponse> DeleteAnnotation(string annotationId)
+        // PUT: /api/annotation/{id}
+        [HttpPut("{id}")]
+        public async Task<ActionResult<ServiceResponse<AnnotationDto>>> Update(Guid id, [FromBody] AnnotationDto dto)
         {
-            return Ok(new BaseResponse { Success = true, Message = "Annotation deleted" });
+            var result = await _annotationService.UpdateAsync(id, dto);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        // DELETE: /api/annotation/{id}
+        [HttpDelete("{id}")]
+        public async Task<ActionResult<ServiceResponse<bool>>> Delete(Guid id)
+        {
+            var result = await _annotationService.DeleteAsync(id);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        // GET: /api/annotation/recording/{recordingId}
+        [HttpGet("recording/{recordingId}")]
+        public async Task<ActionResult<ServiceResponse<List<AnnotationDto>>>> GetByRecording(Guid recordingId)
+        {
+            var result = await _annotationService.GetByRecordingAsync(recordingId);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
+        // GET: /api/annotation/expert/{expertId}
+        [HttpGet("expert/{expertId}")]
+        public async Task<ActionResult<ServiceResponse<List<AnnotationDto>>>> GetByExpert(Guid expertId)
+        {
+            var result = await _annotationService.GetByExpertAsync(expertId);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
+        // GET: /api/annotation/type/{type}
+        [HttpGet("type/{type}")]
+        public async Task<ActionResult<ServiceResponse<List<AnnotationDto>>>> GetByType(string type)
+        {
+            var result = await _annotationService.GetByTypeAsync(type);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
+        // GET: /api/annotation/search
+        [HttpGet("search")]
+        public async Task<ActionResult<ServiceResponse<List<AnnotationDto>>>> Search([FromQuery] string keyword)
+        {
+            var result = await _annotationService.SearchAsync(keyword);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
+        // GET: /api/annotation/time-range
+        [HttpGet("time-range")]
+        public async Task<ActionResult<ServiceResponse<List<AnnotationDto>>>> GetByTimeRange(
+            [FromQuery] Guid recordingId,
+            [FromQuery] int startTime,
+            [FromQuery] int endTime)
+        {
+            var result = await _annotationService.GetByTimeRangeAsync(recordingId, startTime, endTime);
+            return result.Success ? Ok(result) : NotFound(result);
         }
     }
 }

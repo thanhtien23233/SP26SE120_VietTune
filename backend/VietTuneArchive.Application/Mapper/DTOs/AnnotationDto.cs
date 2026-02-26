@@ -1,22 +1,17 @@
-﻿using System;
+using System;
 
 namespace VietTuneArchive.Application.Mapper.DTOs
 {
     public class AnnotationDto
     {
-        public string Id { get; set; } = default!;
-        public string SubmissionId { get; set; } = default!;
-        public double TimeStart { get; set; }  // seconds
-        public double TimeEnd { get; set; }
+        public Guid Id { get; set; }
+        public Guid RecordingId { get; set; }
+        public Guid ExpertId { get; set; }
         public string Content { get; set; } = default!;
-        public string Type { get; set; } = default!;  // CulturalNote, Technique, Instrument, Lyrics
-        public string AuthorId { get; set; } = default!;
+        public string Type { get; set; } = default!;
+        public string? ResearchCitation { get; set; }
+        public int? TimestampStart { get; set; }
+        public int? TimestampEnd { get; set; }
         public DateTime CreatedAt { get; set; }
-
-        public class AnnotationDetailDto : AnnotationDto
-        {
-            public int Likes { get; set; }
-            public string AuthorName { get; set; } = default!;
-        }
     }
 }

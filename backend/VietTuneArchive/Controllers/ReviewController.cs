@@ -1,165 +1,114 @@
 ﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
-using static VietTuneArchive.Application.Mapper.DTOs.Request.ReviewRequest;
-using static VietTuneArchive.Application.Mapper.DTOs.ReviewDto;
+using VietTuneArchive.Application.Responses;
 
 namespace VietTuneArchive.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize(Policy = "Expert")]
     public class ReviewController : ControllerBase
     {
+        private readonly IReviewService _reviewService;
         private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
 
-        // GET: /api/reviews/dashboard/stats
-        [HttpGet("dashboard/stats")]
-        public ActionResult<ReviewStatsDto> GetDashboardStats()
+        public ReviewController(IReviewService reviewService)
         {
-            var stats = new ReviewStatsDto
-            {
-                PendingCount = 15,
-                InProgressCount = 3,
-                CompletedToday = 5,
-                AvgTime = "2.5 days"
-            };
-            return Ok(stats);
+            _reviewService = reviewService;
         }
 
-        // GET: /api/reviews/queue
-        [HttpGet("queue")]
-        public ActionResult<PagedList<ReviewQueueItemDto>> GetReviewQueue(
-            [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        // GET: /api/review
+        [HttpGet]
+        public async Task<ActionResult<PagedResponse<ReviewDto>>> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var queue = new PagedList<ReviewQueueItemDto>
-            {
-                Items = new List<ReviewQueueItemDto>(),
-                Page = page,
-                PageSize = pageSize,
-                Total = 45
-            };
-            return Ok(queue);
+            var result = await _reviewService.GetPaginatedAsync(page, pageSize);
+            return Ok(result);
         }
 
-        // GET: /api/reviews/{reviewId}
-        [HttpGet("{reviewId}")]
-        public ActionResult<ReviewDetailDto> GetReview(string reviewId)
+        // GET: /api/review/{id}
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ServiceResponse<ReviewDto>>> GetById(Guid id)
         {
-            var review = new ReviewDetailDto
-            {
-                Id = reviewId,
-                SubmissionId = "sub-001",
-                Status = "InProgress",
-                AssignedAt = DateTime.UtcNow.AddDays(-1),
-                Submission = new SubmissionSummaryDto { /* ... */ }
-            };
-            return Ok(review);
+            var result = await _reviewService.GetByIdAsync(id);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // POST: /api/reviews/{reviewId}/start
-        [HttpPost("{reviewId}/start")]
-        public ActionResult<BaseResponse> StartReview(string reviewId)
+        // POST: /api/review
+        [HttpPost]
+        public async Task<ActionResult<ServiceResponse<ReviewDto>>> Create([FromBody] ReviewDto dto)
         {
-            return Ok(new BaseResponse { Success = true, Message = "Review started" });
+            var result = await _reviewService.CreateAsync(dto);
+            return result.Success
+                ? CreatedAtAction(nameof(GetById), new { id = result.Data?.Id }, result)
+                : BadRequest(result);
         }
 
-        // PUT: /api/reviews/{reviewId}/checklist
-        [HttpPut("{reviewId}/checklist")]
-        public ActionResult<BaseResponse> UpdateChecklist(string reviewId, [FromBody] UpdateChecklistRequest request)
+        // PUT: /api/review/{id}
+        [HttpPut("{id}")]
+        public async Task<ActionResult<ServiceResponse<ReviewDto>>> Update(Guid id, [FromBody] ReviewDto dto)
         {
-            return Ok(new BaseResponse { Success = true });
+            var result = await _reviewService.UpdateAsync(id, dto);
+            return result.Success ? Ok(result) : BadRequest(result);
         }
 
-        // PUT: /api/reviews/{reviewId}/submission
-        [HttpPut("{reviewId}/submission")]
-        public ActionResult<BaseResponse> UpdateSubmissionMetadata(string reviewId, [FromBody] SubmissionMetadataRequest request)
+        // DELETE: /api/review/{id}
+        [HttpDelete("{id}")]
+        public async Task<ActionResult<ServiceResponse<bool>>> Delete(Guid id)
         {
-            return Ok(new BaseResponse { Success = true });
+            var result = await _reviewService.DeleteAsync(id);
+            return result.Success ? Ok(result) : BadRequest(result);
         }
 
-        // PUT: /api/reviews/{reviewId}/transcription
-        [HttpPut("{reviewId}/transcription")]
-        public ActionResult<BaseResponse> UpdateTranscription(string reviewId, [FromBody] TranscriptionUpdateRequest request)
+        // GET: /api/review/submission/{submissionId}
+        [HttpGet("submission/{submissionId}")]
+        public async Task<ActionResult<ServiceResponse<List<ReviewDto>>>> GetBySubmission(Guid submissionId)
         {
-            return Ok(new BaseResponse { Success = true });
+            var result = await _reviewService.GetBySubmissionAsync(submissionId);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // POST: /api/reviews/{reviewId}/approve
-        [HttpPost("{reviewId}/approve")]
-        public ActionResult<ReviewDecisionDto> Approve(string reviewId, [FromBody] ApproveRequest request)
+        // GET: /api/review/reviewer/{reviewerId}
+        [HttpGet("reviewer/{reviewerId}")]
+        public async Task<ActionResult<ServiceResponse<List<ReviewDto>>>> GetByReviewer(Guid reviewerId)
         {
-            var decision = new ReviewDecisionDto
-            {
-                Action = "Approved",
-                ReviewId = reviewId,
-                CompletedAt = DateTime.UtcNow
-            };
-            return Ok(decision);
+            var result = await _reviewService.GetByReviewerAsync(reviewerId);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // POST: /api/reviews/{reviewId}/reject
-        [HttpPost("{reviewId}/reject")]
-        public ActionResult<ReviewDecisionDto> Reject(string reviewId, [FromBody] RejectRequest request)
+        // GET: /api/review/decision/{decision}
+        [HttpGet("decision/{decision}")]
+        public async Task<ActionResult<ServiceResponse<List<ReviewDto>>>> GetByDecision(int decision)
         {
-            var decision = new ReviewDecisionDto
-            {
-                Action = "Rejected",
-                ReviewId = reviewId,
-                Reason = request.Reason
-            };
-            return Ok(decision);
+            var result = await _reviewService.GetByDecisionAsync(decision);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // POST: /api/reviews/{reviewId}/request-changes
-        [HttpPost("{reviewId}/request-changes")]
-        public ActionResult<ReviewDecisionDto> RequestChanges(string reviewId, [FromBody] RequestChangesRequest request)
+        // GET: /api/review/stage/{stage}
+        [HttpGet("stage/{stage}")]
+        public async Task<ActionResult<ServiceResponse<List<ReviewDto>>>> GetByStage(int stage)
         {
-            var decision = new ReviewDecisionDto
-            {
-                Action = "ChangesRequested",
-                ReviewId = reviewId,
-                Feedback = request.Feedback
-            };
-            return Ok(decision);
+            var result = await _reviewService.GetByStageAsync(stage);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // POST: /api/reviews/{reviewId}/save-draft
-        [HttpPost("{reviewId}/save-draft")]
-        public ActionResult<BaseResponse> SaveDraft(string reviewId)
+        // GET: /api/review/recent
+        [HttpGet("recent")]
+        public async Task<ActionResult<ServiceResponse<List<ReviewDto>>>> GetRecent([FromQuery] int count = 10)
         {
-            return Ok(new BaseResponse { Success = true, Message = "Draft saved" });
+            var result = await _reviewService.GetRecentAsync(count);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
-        // GET: /api/reviews/{reviewId}/history
-        [HttpGet("{reviewId}/history")]
-        public ActionResult<List<ReviewHistoryDto>> GetReviewHistory(string reviewId)
+        // GET: /api/review/pending-count
+        [HttpGet("pending-count")]
+        public async Task<ActionResult<ServiceResponse<int>>> GetPendingCount()
         {
-            var history = new List<ReviewHistoryDto>();
-            return Ok(history);
-        }
-
-        // GET: /api/reviews/my-completed
-        [HttpGet("my-completed")]
-        public ActionResult<PagedList<ReviewSummaryDto>> GetMyCompleted(
-            [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
-        {
-            var completed = new PagedList<ReviewSummaryDto>();
-            return Ok(completed);
-        }
-
-        // GET: /api/reviews/statistics
-        [HttpGet("statistics")]
-        public ActionResult<ReviewStatisticsDto> GetStatistics()
-        {
-            var stats = new ReviewStatisticsDto
-            {
-                TotalReviewed = 150,
-                Approved = 120,
-                Rejected = 20,
-                AvgRating = 4.2
-            };
-            return Ok(stats);
+            var result = await _reviewService.GetPendingCountAsync();
+            return result.Success ? Ok(result) : NotFound(result);
         }
     }
 }

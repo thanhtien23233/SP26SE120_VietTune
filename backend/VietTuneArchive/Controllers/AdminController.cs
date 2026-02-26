@@ -77,13 +77,13 @@ namespace VietTuneArchive.API.Controllers
 
         // GET: /api/admin/audit-logs
         [HttpGet("audit-logs")]
-        public ActionResult<PagedList<AuditLogDto>> GetAuditLogs(
+        public ActionResult<PagedList<Application.Mapper.DTOs.AuditLogDto>> GetAuditLogs(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 100,
             [FromQuery] DateTime? from = null,
             [FromQuery] DateTime? to = null)
         {
-            var logs = new PagedList<AuditLogDto>();
+            var logs = new PagedList<Application.Mapper.DTOs.AuditLogDto>();
             return Ok(logs);
         }
 

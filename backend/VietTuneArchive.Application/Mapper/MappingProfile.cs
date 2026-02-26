@@ -1,12 +1,6 @@
 ﻿using AutoMapper;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Domain.Entities;
-using ContextEntity = VietTuneArchive.Domain.Entities.Context;
 
 namespace VietTuneArchive.Application.Mapper
 {
@@ -14,45 +8,48 @@ namespace VietTuneArchive.Application.Mapper
     {
         public MappingProfile()
         {
-            // ✅ WORKING MAPPINGS ONLY
-
-            // Genre Mappings
-            CreateMap<Genre, GenreDto>().ReverseMap();
-            CreateMap<GenreCreateDto, Genre>();
-            CreateMap<GenreCreateDto, GenreDto>();
-            CreateMap<GenreUpdateDto, Genre>();
-            CreateMap<GenreUpdateDto, GenreDto>();
-
-            // Instrument Mappings
-            CreateMap<Instrument, InstrumentDto>().ReverseMap();
-
-            // Region Mappings
-            CreateMap<Region, RegionDto>().ReverseMap();
-            CreateMap<RegionCreateDto, Region>();
-            CreateMap<RegionCreateDto, RegionDto>();
-            CreateMap<RegionUpdateDto, Region>();
-            CreateMap<RegionUpdateDto, RegionDto>();
-
-            // Province Mappings
+            // ============= GEOGRAPHIC ENTITIES =============
             CreateMap<Province, ProvinceDto>().ReverseMap();
-            CreateMap<ProvinceCreateDto, Province>();
-            CreateMap<ProvinceCreateDto, ProvinceDto>();
-            CreateMap<ProvinceUpdateDto, Province>();
-            CreateMap<ProvinceUpdateDto, ProvinceDto>();
+            CreateMap<District, DistrictDto>().ReverseMap();
+            CreateMap<Commune, CommuneDto>().ReverseMap();
 
-            // Context Mappings
-            CreateMap<ContextEntity, ContextDto>();
-            CreateMap<ContextDto, ContextEntity>();
-            CreateMap<ContextCreateDto, ContextEntity>();
-            CreateMap<ContextCreateDto, ContextDto>();
-            CreateMap<ContextUpdateDto, ContextEntity>();
-            CreateMap<ContextUpdateDto, ContextDto>();
+            // ============= REFERENCE DATA =============
+            CreateMap<EthnicGroup, EthnicGroupDto>().ReverseMap();
+            CreateMap<Instrument, InstrumentDto>().ReverseMap();
+            CreateMap<Ceremony, CeremonyDto>().ReverseMap();
+            CreateMap<VocalStyle, VocalStyleDto>().ReverseMap();
+            CreateMap<MusicalScale, MusicalScaleDto>().ReverseMap();
+            CreateMap<Tag, TagDto>().ReverseMap();
 
-            // OPTIONAL: User, Song, Submission (disable for now if causing issues)
-            // CreateMap<User, UserDto.UserProfileDto>()
-            //     .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id.ToString()));
-            // CreateMap<Song, SongDto.SongDetailDto>();
-            // CreateMap<Submission, SubmissionDto>();
+            // ============= USER & AUTH =============
+            CreateMap<User, UserDto>().ReverseMap();
+            CreateMap<RefreshToken, RefreshTokenDto>().ReverseMap();
+            CreateMap<AuditLog, AuditLogDto>().ReverseMap();
+
+            // ============= RECORDING & RELATED =============
+            CreateMap<Recording, RecordingDto>().ReverseMap();
+            CreateMap<RecordingImage, RecordingImageDto>().ReverseMap();
+
+            // ============= SUBMISSION & REVIEW =============
+            CreateMap<Submission, SubmissionDto>().ReverseMap();
+            CreateMap<SubmissionVersion, SubmissionVersionDto>().ReverseMap();
+            CreateMap<Review, ReviewDto>().ReverseMap();
+
+            // ============= ANNOTATION =============
+            CreateMap<Annotation, AnnotationDto>().ReverseMap();
+
+            // ============= VECTOR & AUDIO ANALYSIS =============
+            CreateMap<VectorEmbedding, VectorEmbeddingDto>().ReverseMap();
+            CreateMap<AudioAnalysisResult, AudioAnalysisResultDto>().ReverseMap();
+
+            // ============= KNOWLEDGE BASE =============
+            CreateMap<KBEntry, KBEntryDto>().ReverseMap();
+            CreateMap<KBRevision, KBRevisionDto>().ReverseMap();
+            CreateMap<KBCitation, KBCitationDto>().ReverseMap();
+
+            // ============= Q&A SYSTEM =============
+            CreateMap<QAConversation, QAConversationDto>().ReverseMap();
+            CreateMap<QAMessage, QAMessageDto>().ReverseMap();
         }
     }
 }
