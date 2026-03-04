@@ -1,40 +1,36 @@
 ﻿using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Microsoft.AspNetCore.HttpOverrides;
-using Supabase; // Giữ lại nếu bạn vẫn dùng Supabase Storage
+using Service.EmailConfirmation;
+using Supabase;
 using VietTuneArchive.Application.Common.Email;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Services;
+using VietTuneArchive.Domain.Context;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- 1. Cấu hình Forwarded Headers (Giúp Render nhận diện HTTPS) ---
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
-{
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownNetworks.Clear();
-    options.KnownProxies.Clear();
-});
+var connectionString = builder.Configuration.GetConnectionString("Database");
+builder.Services.AddDbContext<DBContext>(options => options.UseSqlServer(connectionString));
 
-// --- 2. Khởi tạo Gemini / Supabase từ Config ---
 var supabaseUrl = builder.Configuration["Supabase:Url"];
 var supabaseKey = builder.Configuration["Supabase:Key"];
-if (!string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseKey))
+if (string.IsNullOrEmpty(supabaseUrl) || string.IsNullOrEmpty(supabaseKey))
 {
-    builder.Services.AddSingleton(new Client(supabaseUrl, supabaseKey));
+    throw new Exception("CRITICAL: Supabase URL or Key is missing from Configuration/Environment Variables!");
 }
+var supabaseClient = new Client(supabaseUrl, supabaseKey);
 
-// Lấy JWT Key để Auth hoạt động
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "Key_Mac_Dinh_Sieu_Dai_De_Khong_Loi";
-var key = Encoding.ASCII.GetBytes(jwtKey);
 
+builder.Services.AddSingleton(supabaseClient);
+var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"]!);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.RequireHttpsMetadata = false;
-        options.TokenValidationParameters = new TokenValidationParameters
+        options.TokenValidationParameters = new()
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(key),
@@ -43,36 +39,70 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services
+    .AddScoped<IEnumsProvider, EnumsProvider>()
+    .AddScoped<IAudioUploadService, AudioUploadService>()
+    .AddScoped<IAudioProcessingService, AudioProcessingService>();
+// ✅ CRITICAL: Authorization Policies
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Admin", p => p.RequireRole("Admin"));
+    options.AddPolicy("Expert", p => p.RequireRole("Expert"));
+    options.AddPolicy("Owner", p => p.RequireAssertion(c => true)); // Custom impl
+});
 
-// Đăng ký các Service xử lý Gemini của bạn ở đây
-builder.Services.AddScoped<IAudioProcessingService, AudioProcessingService>();
-// builder.Services.AddHttpClient(); // Đừng quên nếu Service của bạn dùng HttpClient để gọi Gemini
+// Controllers + JSON
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.ReferenceHandler =
+        System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles);
 
-builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "VietTuneArchive", Version = "v1" });
+    c.AddSecurityDefinition("Bearer", new()
+    {
+        Description = "JWT Bearer",
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer"
+    });
+    c.AddSecurityRequirement(new()
+    {
+        { new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" } }, new string[] { } }
+    });
+});
+builder.Services.AddHttpClient();
+
+// Email + AutoMapper
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
+builder.Services.AddTransient<EmailService>();
+
+builder.Services.AddCors(o => o.AddPolicy("AllowReactApp", p =>
+    p.WithOrigins("http://localhost:3000")
+     .AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
 
-// --- 3. Thứ tự Middleware chuẩn Render ---
-app.UseForwardedHeaders();
-
+//if (app.Environment.IsDevelopment()) 
+//{
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
+//}
 app.UseSwagger();
+
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "VietTuneArchive API v1");
-    c.RoutePrefix = string.Empty; // Hiện Swagger ngay trang chủ
+    
+    // Đặt RoutePrefix bằng rỗng để Swagger hiện ngay khi truy cập vào trang chủ (/)
+    // Thay vì phải gõ thêm /swagger
+    c.RoutePrefix = string.Empty; 
 });
-
-// TẮT HttpsRedirection để tránh lỗi vòng lặp trên Render
-// app.UseHttpsRedirection(); 
-
-app.UseCors(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
-
+app.UseHttpsRedirection();
+app.UseCors("AllowReactApp");
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();
