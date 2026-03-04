@@ -84,11 +84,21 @@ builder.Services.AddCors(o => o.AddPolicy("AllowReactApp", p =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment()) 
+//if (app.Environment.IsDevelopment()) 
+//{
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
+//}
+app.UseSwagger();
+
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "VietTuneArchive API v1");
+
+    // Đặt RoutePrefix bằng rỗng để Swagger hiện ngay khi truy cập vào trang chủ (/)
+    // Thay vì phải gõ thêm /swagger
+    c.RoutePrefix = string.Empty;
+});
 app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
 app.UseAuthentication();
