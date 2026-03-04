@@ -17,6 +17,10 @@ builder.Services.AddDbContext<DBContext>(options => options.UseSqlServer(connect
 
 var supabaseUrl = builder.Configuration["Supabase:Url"];
 var supabaseKey = builder.Configuration["Supabase:Key"];
+if (string.IsNullOrEmpty(supabaseUrl) || string.IsNullOrEmpty(supabaseKey))
+{
+    throw new Exception("CRITICAL: Supabase URL or Key is missing from Configuration/Environment Variables!");
+}
 var supabaseClient = new Client(supabaseUrl, supabaseKey);
 
 
@@ -80,7 +84,7 @@ builder.Services.AddCors(o => o.AddPolicy("AllowReactApp", p =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())  // ✅ Fix: Chỉ Development
+if (app.Environment.IsDevelopment()) 
 {
     app.UseSwagger();
     app.UseSwaggerUI();
