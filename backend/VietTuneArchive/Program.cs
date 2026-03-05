@@ -93,6 +93,8 @@ builder.Services.AddScoped<IGenericRepository<MusicalScale>, GenericRepository<M
 builder.Services.AddScoped<IMusicalScaleRepository, MusicalScaleRepository>();
 builder.Services.AddScoped<IGenericRepository<Tag>, GenericRepository<Tag>>();
 builder.Services.AddScoped<ITagRepository, TagRepository>();
+builder.Services.AddScoped<IGenericRepository<Instrument>, GenericRepository<Instrument>>();
+builder.Services.AddScoped<IInstrumentRepository, InstrumentRepository>();
 
 // ✅ REPOSITORIES - Recording & Related
 builder.Services.AddScoped<IGenericRepository<Recording>, GenericRepository<Recording>>();
@@ -138,6 +140,7 @@ builder.Services.AddScoped<ICeremonyService, CeremonyService>();
 builder.Services.AddScoped<IVocalStyleService, VocalStyleService>();
 builder.Services.AddScoped<IMusicalScaleService, MusicalScaleService>();
 builder.Services.AddScoped<ITagService, TagService>();
+builder.Services.AddScoped<IInstrumentService, InstrumentService>();
 
 // ✅ SERVICES - Recording & Related
 builder.Services.AddScoped<IRecordingService, RecordingService>();

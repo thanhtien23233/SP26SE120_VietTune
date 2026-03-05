@@ -531,6 +531,7 @@ namespace VietTuneArchive.Domain.Context
             {
                 entity.HasKey(e => new { e.InstrumentId, e.EthnicGroupId });
             });
+            SeedData.Seed(modelBuilder);
         }
     }
 }

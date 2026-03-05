@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
+#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
+
 namespace VietTuneArchive.Domain.Context.Migrations
 {
     /// <inheritdoc />
@@ -704,6 +706,238 @@ namespace VietTuneArchive.Domain.Context.Migrations
                         principalTable: "Submissions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.InsertData(
+                table: "Ceremonies",
+                columns: new[] { "Id", "Description", "Name", "Season", "Type" },
+                values: new object[,]
+                {
+                    { new Guid("00000000-0000-0000-0003-000000000001"), "Nghi lễ cưới hỏi truyền thống", "Lễ cưới", null, "Wedding" },
+                    { new Guid("00000000-0000-0000-0003-000000000002"), "Nghi lễ tiễn đưa người mất", "Lễ tang", null, "Funeral" },
+                    { new Guid("00000000-0000-0000-0003-000000000003"), "Lễ mừng thu hoạch lúa, phổ biến ở Tây Nguyên", "Lễ mừng lúa mới", "Thu", "Harvest" },
+                    { new Guid("00000000-0000-0000-0003-000000000004"), "Lễ hội lớn nhất của người H'Mông", "Lễ hội Gầu Tào", "Xuân", "Festival" },
+                    { new Guid("00000000-0000-0000-0003-000000000005"), "Lễ hội xuống đồng của người Tày", "Lễ hội Lồng Tồng", "Xuân", "Festival" },
+                    { new Guid("00000000-0000-0000-0003-000000000006"), "Lễ cúng thần nước của các dân tộc Tây Nguyên", "Lễ cúng bến nước", null, "Ritual" },
+                    { new Guid("00000000-0000-0000-0003-000000000007"), "Nghi lễ then - Di sản UNESCO, người Tày/Nùng", "Hát then", null, "Ritual" },
+                    { new Guid("00000000-0000-0000-0003-000000000008"), "Nghệ thuật ca trù - Di sản UNESCO", "Ca trù", null, "Daily" },
+                    { new Guid("00000000-0000-0000-0003-000000000009"), "Nhạc cung đình Huế - Di sản UNESCO", "Nhã nhạc cung đình Huế", null, "Ritual" },
+                    { new Guid("00000000-0000-0000-0003-000000000010"), "Lễ giỗ tổ tiên, cúng ông bà", "Đám giỗ", null, "Ritual" },
+                    { new Guid("00000000-0000-0000-0003-000000000011"), "Lễ trưởng thành của người Dao", "Lễ cấp sắc", null, "Ritual" },
+                    { new Guid("00000000-0000-0000-0003-000000000012"), "Lễ bỏ mả của các dân tộc Tây Nguyên", "Lễ bỏ mả", null, "Funeral" }
+                });
+
+            migrationBuilder.InsertData(
+                table: "EthnicGroups",
+                columns: new[] { "Id", "Description", "ImageUrl", "LanguageFamily", "Name", "PrimaryRegion" },
+                values: new object[,]
+                {
+                    { new Guid("00000000-0000-0000-0001-000000000001"), null, null, "Austroasiatic", "Kinh (Việt)", "Toàn quốc" },
+                    { new Guid("00000000-0000-0000-0001-000000000002"), null, null, "Tai-Kadai", "Tày", "Đông Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000003"), null, null, "Tai-Kadai", "Thái", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000004"), null, null, "Austroasiatic", "Mường", "Bắc Trung Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000005"), null, null, "Austroasiatic", "Khmer", "Đồng bằng sông Cửu Long" },
+                    { new Guid("00000000-0000-0000-0001-000000000006"), null, null, "Sino-Tibetan", "Hoa", "TP.HCM, Đông Nam Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000007"), null, null, "Tai-Kadai", "Nùng", "Đông Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000008"), null, null, "Hmong-Mien", "H'Mông", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000009"), null, null, "Hmong-Mien", "Dao", "Bắc Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000010"), null, null, "Austronesian", "Gia Rai", "Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0001-000000000011"), null, null, "Austronesian", "Ê Đê", "Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0001-000000000012"), null, null, "Austroasiatic", "Ba Na", "Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0001-000000000013"), null, null, "Austroasiatic", "Xơ Đăng", "Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0001-000000000014"), null, null, "Tai-Kadai", "Sán Chay", "Đông Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000015"), null, null, "Austroasiatic", "Cơ Ho", "Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0001-000000000016"), null, null, "Austronesian", "Chăm", "Nam Trung Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000017"), null, null, "Sino-Tibetan", "Sán Dìu", "Đông Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000018"), null, null, "Austroasiatic", "Hrê", "Trung Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000019"), null, null, "Austronesian", "Ra Glai", "Nam Trung Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000020"), null, null, "Austroasiatic", "Mnông", "Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0001-000000000021"), null, null, "Austroasiatic", "Thổ", "Bắc Trung Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000022"), null, null, "Austroasiatic", "Xtiêng", "Đông Nam Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000023"), null, null, "Austroasiatic", "Khơ Mú", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000024"), null, null, "Austroasiatic", "Bru - Vân Kiều", "Bắc Trung Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000025"), null, null, "Austroasiatic", "Cơ Tu", "Trung Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000026"), null, null, "Tai-Kadai", "Giáy", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000027"), null, null, "Austroasiatic", "Tà Ôi", "Trung Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000028"), null, null, "Austroasiatic", "Mạ", "Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0001-000000000029"), null, null, "Austroasiatic", "Giẻ Triêng", "Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0001-000000000030"), null, null, "Austroasiatic", "Co", "Trung Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000031"), null, null, "Austroasiatic", "Chơ Ro", "Đông Nam Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000032"), null, null, "Austroasiatic", "Xinh Mun", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000033"), null, null, "Sino-Tibetan", "Hà Nhì", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000034"), null, null, "Austronesian", "Chu Ru", "Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0001-000000000035"), null, null, "Tai-Kadai", "Lào", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000036"), null, null, "Tai-Kadai", "La Chí", "Đông Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000037"), null, null, "Austroasiatic", "Kháng", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000038"), null, null, "Sino-Tibetan", "Phù Lá", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000039"), null, null, "Sino-Tibetan", "La Hủ", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000040"), null, null, "Tai-Kadai", "La Ha", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000041"), null, null, "Hmong-Mien", "Pà Thẻn", "Đông Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000042"), null, null, "Tai-Kadai", "Lự", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000043"), null, null, "Sino-Tibetan", "Ngái", "Đông Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000044"), null, null, "Austroasiatic", "Chứt", "Bắc Trung Bộ" },
+                    { new Guid("00000000-0000-0000-0001-000000000045"), null, null, "Sino-Tibetan", "Lô Lô", "Đông Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000046"), null, null, "Austroasiatic", "Mảng", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000047"), null, null, "Hmong-Mien", "Cơ Lao", "Đông Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000048"), null, null, "Tai-Kadai", "Bố Y", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000049"), null, null, "Sino-Tibetan", "Cống", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000050"), null, null, "Sino-Tibetan", "Si La", "Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000051"), null, null, "Hmong-Mien", "Pu Péo", "Đông Bắc" },
+                    { new Guid("00000000-0000-0000-0001-000000000052"), null, null, "Austroasiatic", "Brâu", "Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0001-000000000053"), null, null, "Austroasiatic", "Rơ Măm", "Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0001-000000000054"), null, null, "Austroasiatic", "Ơ Đu", "Bắc Trung Bộ" }
+                });
+
+            migrationBuilder.InsertData(
+                table: "MusicalScales",
+                columns: new[] { "Id", "Description", "Name", "NotePattern" },
+                values: new object[,]
+                {
+                    { new Guid("00000000-0000-0000-0005-000000000001"), "Thang âm ngũ cung Bắc, tính chất vui tươi sáng sủa", "Điệu Bắc", "Hò-Xự-Xang-Xê-Cống" },
+                    { new Guid("00000000-0000-0000-0005-000000000002"), "Thang âm ngũ cung Nam, tính chất buồn ai oán", "Điệu Nam", "Hò-Xự-Xang-Xê-Cống (biến thể Nam)" },
+                    { new Guid("00000000-0000-0000-0005-000000000003"), "Hơi Xuân trong nhạc tài tử, tươi sáng", "Nam Xuân", "Hò-Xự-Xang-Xê-Cống (Xuân)" },
+                    { new Guid("00000000-0000-0000-0005-000000000004"), "Hơi Ai trong nhạc tài tử, buồn thương", "Nam Ai", "Hò-Xự-Xang-Xê-Cống (Ai)" },
+                    { new Guid("00000000-0000-0000-0005-000000000005"), "Hơi Oán trong nhạc tài tử, bi thương sâu lắng", "Oán điệu", "Hò-Xự-Xang-Xê-Cống (Oán)" },
+                    { new Guid("00000000-0000-0000-0005-000000000006"), "Hơi Bắc trong nhạc cải lương, vui sáng", "Bắc điệu", "Hò-Xự-Xang-Xê-Cống (Bắc)" },
+                    { new Guid("00000000-0000-0000-0005-000000000007"), "Thang ngũ cung Đô thứ, phổ biến trong nhạc dân tộc thiểu số", "Ngũ cung thứ", "C-Eb-F-G-Bb" },
+                    { new Guid("00000000-0000-0000-0005-000000000008"), "Thang ngũ cung Đô trưởng", "Ngũ cung trưởng", "C-D-E-G-A" }
+                });
+
+            migrationBuilder.InsertData(
+                table: "Tags",
+                columns: new[] { "Id", "Category", "Name" },
+                values: new object[,]
+                {
+                    { new Guid("00000000-0000-0000-0006-000000000001"), "Heritage", "Di sản UNESCO" },
+                    { new Guid("00000000-0000-0000-0006-000000000002"), "Heritage", "Di sản quốc gia" },
+                    { new Guid("00000000-0000-0000-0006-000000000003"), "Rarity", "Nhạc cụ hiếm" },
+                    { new Guid("00000000-0000-0000-0006-000000000004"), "Source", "Bản ghi gốc" },
+                    { new Guid("00000000-0000-0000-0006-000000000005"), "Performer", "Nghệ nhân ưu tú" },
+                    { new Guid("00000000-0000-0000-0006-000000000006"), "Genre", "Nhạc cung đình" },
+                    { new Guid("00000000-0000-0000-0006-000000000007"), "Genre", "Nhạc dân gian" },
+                    { new Guid("00000000-0000-0000-0006-000000000008"), "Genre", "Nhạc lễ Tết" },
+                    { new Guid("00000000-0000-0000-0006-000000000009"), "Region", "Nhạc Tây Nguyên" },
+                    { new Guid("00000000-0000-0000-0006-000000000010"), "Region", "Nhạc Tây Bắc" },
+                    { new Guid("00000000-0000-0000-0006-000000000011"), "Region", "Nhạc Nam Bộ" },
+                    { new Guid("00000000-0000-0000-0006-000000000012"), "Region", "Nhạc Trung Bộ" },
+                    { new Guid("00000000-0000-0000-0006-000000000013"), "Region", "Nhạc Bắc Bộ" },
+                    { new Guid("00000000-0000-0000-0006-000000000014"), "Genre", "Hát ru con ngủ" },
+                    { new Guid("00000000-0000-0000-0006-000000000015"), "Rarity", "Nhạc nguyên thủy" }
+                });
+
+            migrationBuilder.InsertData(
+                table: "EthnicGroupCeremonies",
+                columns: new[] { "CeremonyId", "EthnicGroupId" },
+                values: new object[,]
+                {
+                    { new Guid("00000000-0000-0000-0003-000000000001"), new Guid("00000000-0000-0000-0001-000000000001") },
+                    { new Guid("00000000-0000-0000-0003-000000000002"), new Guid("00000000-0000-0000-0001-000000000001") },
+                    { new Guid("00000000-0000-0000-0003-000000000008"), new Guid("00000000-0000-0000-0001-000000000001") },
+                    { new Guid("00000000-0000-0000-0003-000000000009"), new Guid("00000000-0000-0000-0001-000000000001") },
+                    { new Guid("00000000-0000-0000-0003-000000000010"), new Guid("00000000-0000-0000-0001-000000000001") },
+                    { new Guid("00000000-0000-0000-0003-000000000001"), new Guid("00000000-0000-0000-0001-000000000002") },
+                    { new Guid("00000000-0000-0000-0003-000000000002"), new Guid("00000000-0000-0000-0001-000000000002") },
+                    { new Guid("00000000-0000-0000-0003-000000000005"), new Guid("00000000-0000-0000-0001-000000000002") },
+                    { new Guid("00000000-0000-0000-0003-000000000007"), new Guid("00000000-0000-0000-0001-000000000002") },
+                    { new Guid("00000000-0000-0000-0003-000000000001"), new Guid("00000000-0000-0000-0001-000000000003") },
+                    { new Guid("00000000-0000-0000-0003-000000000002"), new Guid("00000000-0000-0000-0001-000000000003") },
+                    { new Guid("00000000-0000-0000-0003-000000000001"), new Guid("00000000-0000-0000-0001-000000000005") },
+                    { new Guid("00000000-0000-0000-0003-000000000007"), new Guid("00000000-0000-0000-0001-000000000007") },
+                    { new Guid("00000000-0000-0000-0003-000000000001"), new Guid("00000000-0000-0000-0001-000000000008") },
+                    { new Guid("00000000-0000-0000-0003-000000000004"), new Guid("00000000-0000-0000-0001-000000000008") },
+                    { new Guid("00000000-0000-0000-0003-000000000011"), new Guid("00000000-0000-0000-0001-000000000009") },
+                    { new Guid("00000000-0000-0000-0003-000000000003"), new Guid("00000000-0000-0000-0001-000000000010") },
+                    { new Guid("00000000-0000-0000-0003-000000000006"), new Guid("00000000-0000-0000-0001-000000000010") },
+                    { new Guid("00000000-0000-0000-0003-000000000012"), new Guid("00000000-0000-0000-0001-000000000010") },
+                    { new Guid("00000000-0000-0000-0003-000000000003"), new Guid("00000000-0000-0000-0001-000000000011") },
+                    { new Guid("00000000-0000-0000-0003-000000000006"), new Guid("00000000-0000-0000-0001-000000000011") },
+                    { new Guid("00000000-0000-0000-0003-000000000003"), new Guid("00000000-0000-0000-0001-000000000012") },
+                    { new Guid("00000000-0000-0000-0003-000000000006"), new Guid("00000000-0000-0000-0001-000000000012") },
+                    { new Guid("00000000-0000-0000-0003-000000000012"), new Guid("00000000-0000-0000-0001-000000000012") }
+                });
+
+            migrationBuilder.InsertData(
+                table: "Instruments",
+                columns: new[] { "Id", "Category", "ConstructionMethod", "Description", "ImageUrl", "Name", "OriginEthnicGroupId", "TuningSystem" },
+                values: new object[,]
+                {
+                    { new Guid("00000000-0000-0000-0002-000000000001"), "String", null, "Đàn một dây, biểu tượng âm nhạc Việt Nam", null, "Đàn bầu", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000002"), "String", null, "Đàn 16 dây, zither truyền thống", null, "Đàn tranh", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000003"), "String", null, "Đàn hai dây mặt tròn như mặt trăng", null, "Đàn nguyệt", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000004"), "String", null, "Đàn hai dây kéo cung, fiddle truyền thống", null, "Đàn nhị", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000005"), "String", null, "Đàn bốn dây giống pipa", null, "Đàn tỳ bà", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000006"), "String", null, "Đàn ba dây phím dài, dùng trong ca trù", null, "Đàn đáy", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000007"), "Wind", null, "Sáo ngang bằng trúc", null, "Sáo trúc", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000008"), "Wind", null, "Sáo dọc bằng trúc", null, "Tiêu", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000009"), "Wind", null, "Kèn ống bầu truyền thống", null, "Kèn bầu", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000010"), "Percussion", null, "Trống hai mặt dùng trong nhạc cung đình", null, "Trống cơm", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000011"), "Percussion", null, "Trống đồng cổ, biểu tượng văn hóa Đông Sơn", null, "Trống đồng", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000012"), "Percussion", null, "Nhạc cụ gõ bằng tre, dùng trong ca trù", null, "Phách", new Guid("00000000-0000-0000-0001-000000000001"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000013"), "Percussion", null, "Đàn tre xylophone của Tây Nguyên", null, "T'rưng", new Guid("00000000-0000-0000-0001-000000000010"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000014"), "Percussion", null, "Bộ cồng chiêng Tây Nguyên - Di sản UNESCO", null, "Cồng chiêng", new Guid("00000000-0000-0000-0001-000000000010"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000015"), "Wind", null, "Sáo mũi của người Ê Đê", null, "Đing năm", new Guid("00000000-0000-0000-0001-000000000011"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000016"), "Wind", null, "Ống tre vỗ tay của Tây Nguyên", null, "Klong put", new Guid("00000000-0000-0000-0001-000000000012"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000017"), "Wind", null, "Kèn bầu nhiều ống của người H'Mông", null, "Khèn", new Guid("00000000-0000-0000-0001-000000000008"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000018"), "String", null, "Đàn hai dây của người Tày", null, "Đàn tính", new Guid("00000000-0000-0000-0001-000000000002"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000019"), "String", null, "Đàn tre môi của người Ra Glai", null, "Đàn Chapi", new Guid("00000000-0000-0000-0001-000000000019"), null },
+                    { new Guid("00000000-0000-0000-0002-000000000020"), "String", null, "Đàn kéo cung một dây của Tây Nguyên", null, "Đàn K'ní", new Guid("00000000-0000-0000-0001-000000000010"), null }
+                });
+
+            migrationBuilder.InsertData(
+                table: "VocalStyles",
+                columns: new[] { "Id", "Description", "EthnicGroupId", "Name" },
+                values: new object[,]
+                {
+                    { new Guid("00000000-0000-0000-0004-000000000001"), "Hát then của người Tày, Nùng - Di sản UNESCO", new Guid("00000000-0000-0000-0001-000000000002"), "Hát then" },
+                    { new Guid("00000000-0000-0000-0004-000000000002"), "Hát xoan Phú Thọ - Di sản UNESCO", new Guid("00000000-0000-0000-0001-000000000001"), "Hát xoan" },
+                    { new Guid("00000000-0000-0000-0004-000000000003"), "Hát văn trong nghi lễ hầu đồng", new Guid("00000000-0000-0000-0001-000000000001"), "Hát chầu văn" },
+                    { new Guid("00000000-0000-0000-0004-000000000004"), "Dân ca quan họ Bắc Ninh - Di sản UNESCO", new Guid("00000000-0000-0000-0001-000000000001"), "Hát quan họ" },
+                    { new Guid("00000000-0000-0000-0004-000000000005"), "Nghệ thuật ca trù - Di sản UNESCO", new Guid("00000000-0000-0000-0001-000000000001"), "Ca trù" },
+                    { new Guid("00000000-0000-0000-0004-000000000006"), "Ví, giặm Nghệ Tĩnh - Di sản UNESCO", new Guid("00000000-0000-0000-0001-000000000001"), "Hát ví" },
+                    { new Guid("00000000-0000-0000-0004-000000000007"), "Hát ru con ngủ, phổ biến toàn quốc", new Guid("00000000-0000-0000-0001-000000000001"), "Hát ru" },
+                    { new Guid("00000000-0000-0000-0004-000000000008"), "Đờn ca tài tử Nam Bộ - Di sản UNESCO", new Guid("00000000-0000-0000-0001-000000000001"), "Đờn ca tài tử" },
+                    { new Guid("00000000-0000-0000-0004-000000000009"), "Hát bội (tuồng) miền Trung", new Guid("00000000-0000-0000-0001-000000000001"), "Hát bội" },
+                    { new Guid("00000000-0000-0000-0004-000000000010"), "Cải lương Nam Bộ", new Guid("00000000-0000-0000-0001-000000000001"), "Cải lương" },
+                    { new Guid("00000000-0000-0000-0004-000000000011"), "Hát A Đay của người Ê Đê", new Guid("00000000-0000-0000-0001-000000000011"), "Hát A Đay" },
+                    { new Guid("00000000-0000-0000-0004-000000000012"), "Hát khắp của người Thái", new Guid("00000000-0000-0000-0001-000000000003"), "Hát khắp" }
+                });
+
+            migrationBuilder.InsertData(
+                table: "InstrumentEthnicGroups",
+                columns: new[] { "EthnicGroupId", "InstrumentId" },
+                values: new object[,]
+                {
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000001") },
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000002") },
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000003") },
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000004") },
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000005") },
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000006") },
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000007") },
+                    { new Guid("00000000-0000-0000-0001-000000000002"), new Guid("00000000-0000-0000-0002-000000000007") },
+                    { new Guid("00000000-0000-0000-0001-000000000003"), new Guid("00000000-0000-0000-0002-000000000007") },
+                    { new Guid("00000000-0000-0000-0001-000000000004"), new Guid("00000000-0000-0000-0002-000000000007") },
+                    { new Guid("00000000-0000-0000-0001-000000000008"), new Guid("00000000-0000-0000-0002-000000000007") },
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000008") },
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000009") },
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000010") },
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000011") },
+                    { new Guid("00000000-0000-0000-0001-000000000001"), new Guid("00000000-0000-0000-0002-000000000012") },
+                    { new Guid("00000000-0000-0000-0001-000000000010"), new Guid("00000000-0000-0000-0002-000000000013") },
+                    { new Guid("00000000-0000-0000-0001-000000000012"), new Guid("00000000-0000-0000-0002-000000000013") },
+                    { new Guid("00000000-0000-0000-0001-000000000010"), new Guid("00000000-0000-0000-0002-000000000014") },
+                    { new Guid("00000000-0000-0000-0001-000000000011"), new Guid("00000000-0000-0000-0002-000000000014") },
+                    { new Guid("00000000-0000-0000-0001-000000000012"), new Guid("00000000-0000-0000-0002-000000000014") },
+                    { new Guid("00000000-0000-0000-0001-000000000013"), new Guid("00000000-0000-0000-0002-000000000014") },
+                    { new Guid("00000000-0000-0000-0001-000000000020"), new Guid("00000000-0000-0000-0002-000000000014") },
+                    { new Guid("00000000-0000-0000-0001-000000000011"), new Guid("00000000-0000-0000-0002-000000000015") },
+                    { new Guid("00000000-0000-0000-0001-000000000012"), new Guid("00000000-0000-0000-0002-000000000016") },
+                    { new Guid("00000000-0000-0000-0001-000000000008"), new Guid("00000000-0000-0000-0002-000000000017") },
+                    { new Guid("00000000-0000-0000-0001-000000000002"), new Guid("00000000-0000-0000-0002-000000000018") },
+                    { new Guid("00000000-0000-0000-0001-000000000007"), new Guid("00000000-0000-0000-0002-000000000018") },
+                    { new Guid("00000000-0000-0000-0001-000000000019"), new Guid("00000000-0000-0000-0002-000000000019") },
+                    { new Guid("00000000-0000-0000-0001-000000000010"), new Guid("00000000-0000-0000-0002-000000000020") },
+                    { new Guid("00000000-0000-0000-0001-000000000012"), new Guid("00000000-0000-0000-0002-000000000020") }
                 });
 
             migrationBuilder.CreateIndex(

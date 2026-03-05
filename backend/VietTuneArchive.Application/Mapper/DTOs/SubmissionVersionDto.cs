@@ -10,4 +10,15 @@ namespace VietTuneArchive.Application.Mapper.DTOs
         public string? ChangesJson { get; set; }
         public DateTime CreatedAt { get; set; }
     }
+
+    public class CreateSubmissionVersionDto
+    {
+        public Guid SubmissionId { get; set; }
+        public string? ChangesJson { get; set; }
+    }
+
+    public class UpdateSubmissionVersionDto
+    {
+        public string? ChangesJson { get; set; }
+    }
 }
