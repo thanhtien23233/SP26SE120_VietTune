@@ -18,7 +18,7 @@ var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 var connectionString = builder.Configuration.GetConnectionString("Database");
-builder.Services.AddDbContext<DBContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddDbContext<DBContext>(options => options.UseNpgsql(connectionString));
 
 var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"]!);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -196,12 +196,12 @@ var app = builder.Build();
 app.UseExceptionHandler("/error");
 app.MapGet("/error", () => Results.Problem("An error occurred", statusCode: StatusCodes.Status500InternalServerError));
 
-if (app.Environment.IsDevelopment())  // ✅ Fix: Chỉ Development
+app.UseSwagger();
+app.UseSwaggerUI();
+
+if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-    
-    // ✅ Auto-open browser to Swagger UI
+    // ✅ Auto-open browser to Swagger UI (Only in Development)
     var task = Task.Run(async () =>
     {
         await Task.Delay(1000); // Wait for server to start

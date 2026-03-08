@@ -14,7 +14,7 @@ namespace VietTuneArchive.Domain.Context
         {
             services.AddDbContext<DBContext>(options =>
             {
-                options.UseSqlServer(connectionString);
+                options.UseNpgsql(connectionString);
             });
 
             return services;

@@ -23,7 +23,7 @@ namespace VietTuneArchive.Domain.Context
             var optionsBuilder = new DbContextOptionsBuilder<DBContext>();
             var connectionString = config.GetConnectionString("Database");
 
-            optionsBuilder.UseSqlServer(connectionString);
+            optionsBuilder.UseNpgsql(connectionString);
 
             return new DBContext(optionsBuilder.Options);
         }
