@@ -27,7 +27,12 @@ namespace VietTuneArchive.Application.Mapper
             CreateMap<AuditLog, AuditLogDto>().ReverseMap();
 
             // ============= RECORDING & RELATED =============
-            CreateMap<Recording, RecordingDto>().ReverseMap();
+            CreateMap<Recording, RecordingDto>()
+                .ForMember(dest => dest.InstrumentIds, 
+                    opt => opt.MapFrom(src => src.RecordingInstruments != null 
+                        ? src.RecordingInstruments.Select(ri => ri.InstrumentId).ToList() 
+                        : new List<Guid>()))
+                .ReverseMap();
             CreateMap<RecordingImage, RecordingImageDto>().ReverseMap();
 
             // ============= SUBMISSION & REVIEW =============

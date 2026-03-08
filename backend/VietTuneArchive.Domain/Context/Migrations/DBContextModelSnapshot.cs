@@ -286,6 +286,368 @@ namespace VietTuneArchive.Domain.Context.Migrations
                     b.HasIndex("DistrictId");
 
                     b.ToTable("Communes");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000001"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000001"),
+                            Name = "Phường Hàng Bạc"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000002"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000001"),
+                            Name = "Phường Cửa Đông"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000003"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000002"),
+                            Name = "Phường Cát Linh"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000004"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000002"),
+                            Name = "Phường Văn Miếu"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000005"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000008"),
+                            Name = "Thị trấn Đồng Văn"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000006"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000008"),
+                            Name = "Xã Lũng Cú"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000007"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000008"),
+                            Name = "Xã Sà Phìn"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000008"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000009"),
+                            Name = "Thị trấn Mèo Vạc"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000009"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000009"),
+                            Name = "Xã Pải Lủng"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000010"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000011"),
+                            Name = "Phường Sa Pa"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000011"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000011"),
+                            Name = "Xã Tả Van"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000012"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000011"),
+                            Name = "Xã San Sả Hồ"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000013"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000011"),
+                            Name = "Xã Tả Phìn"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000014"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000012"),
+                            Name = "Thị trấn Bắc Hà"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000015"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000012"),
+                            Name = "Xã Bản Phố"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000016"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000016"),
+                            Name = "Thị trấn Mộc Châu"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000017"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000016"),
+                            Name = "Xã Chiềng Hắc"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000018"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000018"),
+                            Name = "Thị trấn Mai Châu"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000019"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000018"),
+                            Name = "Xã Chiềng Châu"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000020"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000018"),
+                            Name = "Xã Pom Coọng"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000021"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000020"),
+                            Name = "Thị trấn Lim"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000022"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000020"),
+                            Name = "Xã Nội Duệ"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000023"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000021"),
+                            Name = "Phường Thọ Sơn"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000024"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000021"),
+                            Name = "Xã Phượng Lâu"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000025"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000023"),
+                            Name = "Phường Kim Long"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000026"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000023"),
+                            Name = "Phường Phú Hội"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000027"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000027"),
+                            Name = "Phường Yên Đỗ"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000028"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000027"),
+                            Name = "Phường Hoa Lư"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000029"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000029"),
+                            Name = "Xã Ia O"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000030"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000029"),
+                            Name = "Xã Ia Sao"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000031"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000030"),
+                            Name = "Phường Tân Lợi"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000032"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000030"),
+                            Name = "Phường Ea Tam"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000033"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000032"),
+                            Name = "Thị trấn Liên Sơn"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000034"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000032"),
+                            Name = "Xã Yang Tao"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000035"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000033"),
+                            Name = "Phường Quang Trung"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000036"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000033"),
+                            Name = "Phường Thống Nhất"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000037"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000034"),
+                            Name = "Thị trấn Đắk Glei"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000038"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000034"),
+                            Name = "Xã Đắk Blô"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000039"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000036"),
+                            Name = "Thị trấn Lạc Dương"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000040"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000036"),
+                            Name = "Xã Lát"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000041"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000038"),
+                            Name = "Thị trấn Phước Dân"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000042"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000038"),
+                            Name = "Xã Hữu Đức"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000043"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000040"),
+                            Name = "Phường 1"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000044"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000040"),
+                            Name = "Phường 7"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000045"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000045"),
+                            Name = "Phường Vĩnh Phước"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000046"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000045"),
+                            Name = "Xã Lai Hòa"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000047"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000047"),
+                            Name = "Thị trấn Cầu Kè"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000048"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000047"),
+                            Name = "Xã Hòa Tân"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000049"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000059"),
+                            Name = "Thị trấn Tri Tôn"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000050"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000059"),
+                            Name = "Xã Ô Lâm"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000051"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000049"),
+                            Name = "Thị trấn Bắc Sơn"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000052"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000049"),
+                            Name = "Xã Vũ Lăng"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000053"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000026"),
+                            Name = "Thị trấn Con Cuông"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000054"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000026"),
+                            Name = "Xã Môn Sơn"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000055"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000043"),
+                            Name = "Xã Mỹ Khánh"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000056"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000043"),
+                            Name = "Xã Nhơn Ái"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000057"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000054"),
+                            Name = "Phường Minh An"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000058"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000054"),
+                            Name = "Phường Cẩm Phô"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000059"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000013"),
+                            Name = "Phường Tân Thanh"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0010-000000000060"),
+                            DistrictId = new Guid("00000000-0000-0000-0009-000000000013"),
+                            Name = "Phường Nam Thanh"
+                        });
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.District", b =>
@@ -307,6 +669,362 @@ namespace VietTuneArchive.Domain.Context.Migrations
                     b.HasIndex("ProvinceId");
 
                     b.ToTable("Districts");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000001"),
+                            Name = "Quận Hoàn Kiếm",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000002"),
+                            Name = "Quận Đống Đa",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000003"),
+                            Name = "Quận Ba Đình",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000004"),
+                            Name = "Quận Hai Bà Trưng",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000005"),
+                            Name = "Quận Cầu Giấy",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000006"),
+                            Name = "Quận Tây Hồ",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000007"),
+                            Name = "Thành phố Hà Giang",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000002")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000008"),
+                            Name = "Huyện Đồng Văn",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000002")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000009"),
+                            Name = "Huyện Mèo Vạc",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000002")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000010"),
+                            Name = "Thành phố Lào Cai",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000006")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000011"),
+                            Name = "Thị xã Sa Pa",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000006")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000012"),
+                            Name = "Huyện Bắc Hà",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000006")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000013"),
+                            Name = "TP. Điện Biên Phủ",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000007")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000014"),
+                            Name = "Huyện Điện Biên Đông",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000007")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000015"),
+                            Name = "Thành phố Sơn La",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000009")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000016"),
+                            Name = "Huyện Mộc Châu",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000009")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000017"),
+                            Name = "Thành phố Hòa Bình",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000018"),
+                            Name = "Huyện Mai Châu",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000019"),
+                            Name = "Thành phố Bắc Ninh",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000018")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000020"),
+                            Name = "Huyện Tiên Du",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000018")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000021"),
+                            Name = "TP. Việt Trì",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000016")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000022"),
+                            Name = "Huyện Lâm Thao",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000016")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000023"),
+                            Name = "Thành phố Huế",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000031")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000024"),
+                            Name = "Huyện Phong Điền",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000031")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000025"),
+                            Name = "Thành phố Vinh",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000027")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000026"),
+                            Name = "Huyện Con Cuông",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000027")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000027"),
+                            Name = "TP. Pleiku",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000041")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000028"),
+                            Name = "Thị xã Chư Sê",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000041")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000029"),
+                            Name = "Huyện Ia Grai",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000041")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000030"),
+                            Name = "TP. Buôn Ma Thuột",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000042")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000031"),
+                            Name = "Huyện Cư M'gar",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000042")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000032"),
+                            Name = "Huyện Lắk",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000042")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000033"),
+                            Name = "Thành phố Kon Tum",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000040")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000034"),
+                            Name = "Huyện Đắk Glei",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000040")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000035"),
+                            Name = "Thành phố Đà Lạt",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000044")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000036"),
+                            Name = "Huyện Lạc Dương",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000044")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000037"),
+                            Name = "TP. Phan Rang - Tháp Chàm",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000038")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000038"),
+                            Name = "Huyện Ninh Phước",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000038")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000039"),
+                            Name = "Quận 1",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000050")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000040"),
+                            Name = "Quận 5",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000050")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000041"),
+                            Name = "TP. Thủ Đức",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000050")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000042"),
+                            Name = "Quận Ninh Kiều",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000059")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000043"),
+                            Name = "Huyện Phong Điền",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000059")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000044"),
+                            Name = "TP. Sóc Trăng",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000061")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000045"),
+                            Name = "Thị xã Vĩnh Châu",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000061")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000046"),
+                            Name = "TP. Trà Vinh",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000054")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000047"),
+                            Name = "Huyện Cầu Kè",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000054")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000048"),
+                            Name = "TP. Lạng Sơn",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000013")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000049"),
+                            Name = "Huyện Bắc Sơn",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000013")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000050"),
+                            Name = "TP. Cao Bằng",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000003")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000051"),
+                            Name = "Huyện Nguyên Bình",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000003")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000052"),
+                            Name = "TP. Gia Nghĩa",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000043")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000053"),
+                            Name = "Huyện Đắk Song",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000043")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000054"),
+                            Name = "TP. Hội An",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000033")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000055"),
+                            Name = "Thị xã Điện Bàn",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000033")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000056"),
+                            Name = "TP. Quy Nhơn",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000035")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000057"),
+                            Name = "Huyện Tây Sơn",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000035")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000058"),
+                            Name = "TP. Long Xuyên",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000057")
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0009-000000000059"),
+                            Name = "Huyện Tri Tôn",
+                            ProvinceId = new Guid("00000000-0000-0000-0008-000000000057")
+                        });
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.EthnicGroup", b =>
@@ -1435,6 +2153,386 @@ namespace VietTuneArchive.Domain.Context.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Provinces");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000001"),
+                            Name = "Hà Nội",
+                            RegionCode = "01"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000002"),
+                            Name = "Hà Giang",
+                            RegionCode = "02"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000003"),
+                            Name = "Cao Bằng",
+                            RegionCode = "04"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000004"),
+                            Name = "Bắc Kạn",
+                            RegionCode = "06"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000005"),
+                            Name = "Tuyên Quang",
+                            RegionCode = "08"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000006"),
+                            Name = "Lào Cai",
+                            RegionCode = "10"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000007"),
+                            Name = "Điện Biên",
+                            RegionCode = "11"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000008"),
+                            Name = "Lai Châu",
+                            RegionCode = "12"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000009"),
+                            Name = "Sơn La",
+                            RegionCode = "14"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000010"),
+                            Name = "Yên Bái",
+                            RegionCode = "15"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000011"),
+                            Name = "Hòa Bình",
+                            RegionCode = "17"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000012"),
+                            Name = "Thái Nguyên",
+                            RegionCode = "19"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000013"),
+                            Name = "Lạng Sơn",
+                            RegionCode = "20"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000014"),
+                            Name = "Quảng Ninh",
+                            RegionCode = "22"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000015"),
+                            Name = "Bắc Giang",
+                            RegionCode = "24"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000016"),
+                            Name = "Phú Thọ",
+                            RegionCode = "25"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000017"),
+                            Name = "Vĩnh Phúc",
+                            RegionCode = "26"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000018"),
+                            Name = "Bắc Ninh",
+                            RegionCode = "27"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000019"),
+                            Name = "Hải Dương",
+                            RegionCode = "30"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000020"),
+                            Name = "Hải Phòng",
+                            RegionCode = "31"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000021"),
+                            Name = "Hưng Yên",
+                            RegionCode = "33"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000022"),
+                            Name = "Thái Bình",
+                            RegionCode = "34"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000023"),
+                            Name = "Hà Nam",
+                            RegionCode = "35"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000024"),
+                            Name = "Nam Định",
+                            RegionCode = "36"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000025"),
+                            Name = "Ninh Bình",
+                            RegionCode = "37"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000026"),
+                            Name = "Thanh Hóa",
+                            RegionCode = "38"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000027"),
+                            Name = "Nghệ An",
+                            RegionCode = "40"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000028"),
+                            Name = "Hà Tĩnh",
+                            RegionCode = "42"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000029"),
+                            Name = "Quảng Bình",
+                            RegionCode = "44"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000030"),
+                            Name = "Quảng Trị",
+                            RegionCode = "45"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000031"),
+                            Name = "Thừa Thiên Huế",
+                            RegionCode = "46"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000032"),
+                            Name = "Đà Nẵng",
+                            RegionCode = "48"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000033"),
+                            Name = "Quảng Nam",
+                            RegionCode = "49"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000034"),
+                            Name = "Quảng Ngãi",
+                            RegionCode = "51"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000035"),
+                            Name = "Bình Định",
+                            RegionCode = "52"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000036"),
+                            Name = "Phú Yên",
+                            RegionCode = "54"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000037"),
+                            Name = "Khánh Hòa",
+                            RegionCode = "56"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000038"),
+                            Name = "Ninh Thuận",
+                            RegionCode = "58"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000039"),
+                            Name = "Bình Thuận",
+                            RegionCode = "60"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000040"),
+                            Name = "Kon Tum",
+                            RegionCode = "62"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000041"),
+                            Name = "Gia Lai",
+                            RegionCode = "64"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000042"),
+                            Name = "Đắk Lắk",
+                            RegionCode = "66"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000043"),
+                            Name = "Đắk Nông",
+                            RegionCode = "67"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000044"),
+                            Name = "Lâm Đồng",
+                            RegionCode = "68"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000045"),
+                            Name = "Bình Phước",
+                            RegionCode = "70"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000046"),
+                            Name = "Tây Ninh",
+                            RegionCode = "72"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000047"),
+                            Name = "Bình Dương",
+                            RegionCode = "74"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000048"),
+                            Name = "Đồng Nai",
+                            RegionCode = "75"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000049"),
+                            Name = "Bà Rịa - Vũng Tàu",
+                            RegionCode = "77"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000050"),
+                            Name = "TP. Hồ Chí Minh",
+                            RegionCode = "79"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000051"),
+                            Name = "Long An",
+                            RegionCode = "80"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000052"),
+                            Name = "Tiền Giang",
+                            RegionCode = "82"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000053"),
+                            Name = "Bến Tre",
+                            RegionCode = "83"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000054"),
+                            Name = "Trà Vinh",
+                            RegionCode = "84"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000055"),
+                            Name = "Vĩnh Long",
+                            RegionCode = "86"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000056"),
+                            Name = "Đồng Tháp",
+                            RegionCode = "87"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000057"),
+                            Name = "An Giang",
+                            RegionCode = "89"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000058"),
+                            Name = "Kiên Giang",
+                            RegionCode = "91"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000059"),
+                            Name = "Cần Thơ",
+                            RegionCode = "92"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000060"),
+                            Name = "Hậu Giang",
+                            RegionCode = "93"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000061"),
+                            Name = "Sóc Trăng",
+                            RegionCode = "94"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000062"),
+                            Name = "Bạc Liêu",
+                            RegionCode = "95"
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0008-000000000063"),
+                            Name = "Cà Mau",
+                            RegionCode = "96"
+                        });
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.QAConversation", b =>

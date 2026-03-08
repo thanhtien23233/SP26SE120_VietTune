@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
@@ -7,6 +8,7 @@ namespace VietTuneArchive.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class RecordingController : ControllerBase
     {
         private readonly IRecordingService _service;
@@ -53,6 +55,17 @@ namespace VietTuneArchive.API.Controllers
         {
             var result = await _service.DeleteAsync(id);
             return result.Success ? Ok(result) : BadRequest(result);
+        }
+        [HttpPut("{id}/upload")]
+        [Authorize(Roles = "Admin,Contributor,Expert")]
+        public async Task<ActionResult<ServiceResponse<RecordingDto>>> UploadRecordInfo(Guid id, [FromBody] RecordingDto dto)
+        {
+            var result = await _service.UploadRecordInfo(dto);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
         }
     }
 }

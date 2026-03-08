@@ -1,19 +1,18 @@
 using System;
+using System.Collections.Generic;
 
 namespace VietTuneArchive.Application.Mapper.DTOs
 {
     public class RecordingDto
     {
-        public string Title { get; set; } = default!;
+        public string Title { get; set; }
         public string? Description { get; set; }
-        public string AudioFileUrl { get; set; } = default!;
         public string? VideoFileUrl { get; set; }
-        public string AudioFormat { get; set; } = default!;
+        public string? AudioFormat { get; set; }
         public int? DurationSeconds { get; set; }
         public long? FileSizeBytes { get; set; }
-        public Guid UploadedById { get; set; }
         public Guid? CommuneId { get; set; }
-        public Guid EthnicGroupId { get; set; }
+        public Guid? EthnicGroupId { get; set; }
         public Guid? CeremonyId { get; set; }
         public Guid? VocalStyleId { get; set; }
         public Guid? MusicalScaleId { get; set; }
@@ -27,5 +26,6 @@ namespace VietTuneArchive.Application.Mapper.DTOs
         public decimal? GpsLongitude { get; set; }
         public decimal? Tempo { get; set; }
         public string? KeySignature { get; set; }
+        public List<Guid> InstrumentIds { get; set; } = new List<Guid>();
     }
 }

@@ -23,7 +23,7 @@ namespace VietTuneArchive.Application.Services
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _recordingRepository = recordingRepository ?? throw new ArgumentNullException(nameof(recordingRepository));
         }
-        public async Task<Result<SubmissionDto>> CreateAsync(SubmissionDto dto)
+        public async Task<Result<SubmissionResponseDto>> CreateAsync(SubmissionDto dto)
         {
             try
             {
@@ -53,12 +53,19 @@ namespace VietTuneArchive.Application.Services
                     ContributorId = dto.UploadedById
                 };
                 await _submissionRepository.AddAsync(submission);
-                var createdDto = _mapper.Map<SubmissionDto>(submission);
-                return Result<SubmissionDto>.Success(createdDto, "Submission created successfully");
+                var createdDto = new SubmissionResponseDto
+                {
+                    SubmissionId = submission.Id,
+                    RecordingId = recording.Id,
+                    UploadedById = submission.ContributorId,
+                    AudioFileUrl = recording.AudioFileUrl
+                };
+                createdDto.AudioFileUrl = recording.AudioFileUrl;
+                return Result<SubmissionResponseDto>.Success(createdDto, "Submission created successfully");
             }
             catch (Exception ex)
             {
-                return Result<SubmissionDto>.Failure($"Failed to create submission: {ex.Message}");
+                return Result<SubmissionResponseDto>.Failure($"Failed to create submission: {ex.Message}");
             }
         }
         /// <summary>

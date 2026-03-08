@@ -1,4 +1,5 @@
 using AutoMapper;
+using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Application.Responses;
@@ -10,13 +11,81 @@ namespace VietTuneArchive.Application.Services
     public class RecordingService : GenericService<Recording, RecordingDto>, IRecordingService
     {
         private readonly IRecordingRepository _recordingRepository;
-
-        public RecordingService(IRecordingRepository repository, IMapper mapper)
+        private readonly IMapper _mapper;
+        private readonly ICommuneRepository _communeRepository;
+        private readonly IEthnicGroupRepository _ethnicGroupRepository;
+        private readonly ICeremonyRepository _ceremonyRepository;
+        private readonly IMusicalScaleRepository _musicalScaleRepository;
+        private readonly IInstrumentRepository _instrumentRepository;
+        private readonly IVocalStyleRepository _vocalStyleRepository;
+        public RecordingService(IRecordingRepository repository, IMapper mapper, ICommuneRepository communeRepository, IEthnicGroupRepository ethnicGroupRepository, ICeremonyRepository ceremonyRepository, IMusicalScaleRepository musicalScaleRepository, IInstrumentRepository instrumentRepository, IVocalStyleRepository vocalStyleRepository)
             : base(repository, mapper)
         {
             _recordingRepository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _communeRepository = communeRepository;
+            _ethnicGroupRepository = ethnicGroupRepository;
+            _ceremonyRepository = ceremonyRepository;
+            _musicalScaleRepository = musicalScaleRepository;
+            _instrumentRepository = instrumentRepository;
+            _vocalStyleRepository = vocalStyleRepository;
         }
+        public async Task<Result<RecordingDto>> UploadRecordInfo(RecordingDto recordingDto) { 
+            try
+            {
+                if (recordingDto == null)
+                    throw new ArgumentNullException(nameof(recordingDto), "Recording data cannot be null");
+                var communeExists = recordingDto.CommuneId.HasValue && await _communeRepository.GetByIdAsync(recordingDto.CommuneId.Value) != null;
+                if (recordingDto.CommuneId.HasValue && !communeExists)
+                    throw new ArgumentException("Invalid commune ID", nameof(recordingDto.CommuneId));
+                var ethnicGroupExists = recordingDto.EthnicGroupId.HasValue && await _ethnicGroupRepository.GetByIdAsync(recordingDto.EthnicGroupId.Value) != null;
+                if (recordingDto.EthnicGroupId.HasValue && !ethnicGroupExists)
+                    throw new ArgumentException("Invalid ethnic group ID", nameof(recordingDto.EthnicGroupId));
+                var ceremonyExists = recordingDto.CeremonyId.HasValue && await _ceremonyRepository.GetByIdAsync(recordingDto.CeremonyId.Value) != null;
+                if (recordingDto.CeremonyId.HasValue && !ceremonyExists)
+                    throw new ArgumentException("Invalid ceremony ID", nameof(recordingDto.CeremonyId));
+                var musicalScaleExists = recordingDto.MusicalScaleId.HasValue && await _musicalScaleRepository.GetByIdAsync(recordingDto.MusicalScaleId.Value) != null;
+                if (recordingDto.MusicalScaleId.HasValue && !musicalScaleExists)
+                    throw new ArgumentException("Invalid musical scale ID", nameof(recordingDto.MusicalScaleId));
+                var vocalStyleExists = recordingDto.VocalStyleId.HasValue && await _vocalStyleRepository.GetByIdAsync(recordingDto.VocalStyleId.Value) != null;
+                if (recordingDto.VocalStyleId.HasValue && !vocalStyleExists)
+                    throw new ArgumentException("Invalid vocal style ID", nameof(recordingDto.VocalStyleId));
 
+                // Validate all instruments exist
+                if (recordingDto.InstrumentIds != null && recordingDto.InstrumentIds.Any())
+                {
+                    foreach (var instrumentId in recordingDto.InstrumentIds)
+                    {
+                        var instrumentExists = await _instrumentRepository.GetByIdAsync(instrumentId) != null;
+                        if (!instrumentExists)
+                            throw new ArgumentException($"Invalid instrument ID: {instrumentId}", nameof(recordingDto.InstrumentIds));
+                    }
+                }
+
+                var recording = _mapper.Map<Recording>(recordingDto);
+                var addedRecording = await _recordingRepository.UpdateAsync(recording);
+                
+                // Update recording instruments if InstrumentIds provided
+                if (recordingDto.InstrumentIds != null && recordingDto.InstrumentIds.Any())
+                {
+                    // Create new recording instruments list
+                    var newInstruments = recordingDto.InstrumentIds.Select(instrumentId => new RecordingInstrument
+                    {
+                        RecordingId = addedRecording.Id,
+                        InstrumentId = instrumentId
+                    }).ToList();
+
+                    addedRecording.RecordingInstruments = newInstruments;
+                    await _recordingRepository.UpdateAsync(addedRecording);
+                }
+
+                var addedDto = _mapper.Map<RecordingDto>(addedRecording);
+                return Result<RecordingDto>.Success(addedDto, "Recording information uploaded successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<RecordingDto>.Failure($"Failed to upload recording information: {ex.Message}");
+            }
+        }
         /// <summary>
         /// Get recordings by ethnic group
         /// </summary>
