@@ -1,77 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { Search, Music, ArrowRight, Sparkles } from "lucide-react";
+import { Search, Sparkles, Music, ArrowRight } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import SearchBar from "@/components/features/SearchBar";
 import RecordingCard from "@/components/features/RecordingCard";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
-import { Recording, SearchFilters, Region, RecordingType, VerificationStatus, RecordingQuality, UserRole, InstrumentCategory } from "@/types";
+import { Recording, SearchFilters, Region, RecordingType, VerificationStatus } from "@/types";
 import { recordingService } from "@/services/recordingService";
-import { getLocalRecordingMetaList, getLocalRecordingFull } from "@/services/recordingStorage";
-import { migrateVideoDataToVideoData } from "@/utils/helpers";
-import { buildTagsFromLocal, PERFORMANCE_KEY_TO_LABEL } from "@/utils/recordingTags";
-import type { LocalRecording } from "@/types";
 
-// Helper: audio duration from data URL
-const getAudioDuration = (audioDataUrl: string): Promise<number> => {
-  return new Promise((resolve) => {
-    const audio = new Audio();
-    audio.addEventListener("loadedmetadata", () => resolve(Math.floor(audio.duration)));
-    audio.addEventListener("error", () => resolve(0));
-    audio.src = audioDataUrl;
-  });
-};
-
-// Convert LocalRecording to Recording for display (RecordingCard)
-const convertLocalToRecording = async (local: LocalRecording): Promise<Recording> => {
-  let duration = 0;
-  const isVideo = local.mediaType === "video" || local.mediaType === "youtube";
-  if (!isVideo && local.audioData) {
-    duration = await getAudioDuration(local.audioData);
-  }
-  let mediaSrc: string | undefined;
-  if (local.mediaType === "video" && local.videoData && typeof local.videoData === "string" && local.videoData.trim()) {
-    mediaSrc = local.videoData;
-  } else if (local.mediaType === "audio" && local.audioData && typeof local.audioData === "string" && local.audioData.trim()) {
-    mediaSrc = local.audioData;
-  } else if (local.videoData && typeof local.videoData === "string" && local.videoData.trim()) {
-    mediaSrc = local.videoData;
-  } else if (local.audioData && typeof local.audioData === "string" && local.audioData.trim()) {
-    mediaSrc = local.audioData;
-  }
-  const isApproved = local.moderation?.status === "APPROVED";
-  return {
-    id: local.id ?? "local-" + Math.random().toString(36).slice(2),
-    title: local.basicInfo?.title || local.title || "Không có tiêu đề",
-    titleVietnamese: local.basicInfo?.title || local.title || "Không có tiêu đề",
-    description: local.description || "Bản thu được tải lên từ thiết bị của bạn",
-    ethnicity: local.ethnicity ?? { id: "local", name: "Không xác định", nameVietnamese: "Không xác định", region: Region.RED_RIVER_DELTA, recordingCount: 0 },
-    region: local.region ?? Region.RED_RIVER_DELTA,
-    recordingType: (() => {
-      if (local.recordingType) return local.recordingType;
-      const key = (local as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType;
-      if (key === "instrumental") return RecordingType.INSTRUMENTAL;
-      if (key === "acappella" || key === "vocal_accompaniment") return RecordingType.VOCAL;
-      return RecordingType.OTHER;
-    })(),
-    duration: local.duration ?? duration,
-    audioUrl: local.audioUrl ?? mediaSrc ?? "",
-    instruments: (local.instruments?.length ? local.instruments : ((local as LocalRecording & { culturalContext?: { instruments?: string[] } }).culturalContext?.instruments ?? []).map((name, i) => ({
-      id: `inst-${i}`, name, nameVietnamese: name, category: InstrumentCategory.IDIOPHONE, images: [], recordingCount: 0,
-    }))),
-    performers: local.performers ?? [],
-    uploadedDate: local.uploadedDate ?? new Date().toISOString(),
-    uploader: typeof local.uploader === "object" && local.uploader != null
-      ? { id: local.uploader?.id ?? "local-user", username: local.uploader?.username ?? "Bạn", email: local.uploader?.email ?? "", fullName: local.uploader?.fullName ?? local.uploader?.username ?? "Người tải lên", role: (typeof local.uploader?.role === "string" ? local.uploader.role : UserRole.USER) as UserRole, createdAt: local.uploader?.createdAt ?? new Date().toISOString(), updatedAt: local.uploader?.updatedAt ?? new Date().toISOString() }
-      : { id: "local-user", username: "Bạn", email: "", fullName: "Người tải lên", role: UserRole.USER, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-    tags: buildTagsFromLocal(local),
-    metadata: { ...local.metadata, recordingQuality: local.metadata?.recordingQuality ?? RecordingQuality.FIELD_RECORDING, lyrics: local.metadata?.lyrics ?? "" },
-    verificationStatus: local.verificationStatus ?? (isApproved ? VerificationStatus.VERIFIED : VerificationStatus.PENDING),
-    viewCount: local.viewCount ?? 0,
-    likeCount: local.likeCount ?? 0,
-    downloadCount: local.downloadCount ?? 0,
-  } as Recording;
-};
 
 function filtersFromSearchParams(searchParams: URLSearchParams): SearchFilters {
   const q = searchParams.get("q")?.trim();
@@ -104,68 +40,7 @@ function searchParamsFromFilters(filters: SearchFilters): Record<string, string>
   return params;
 }
 
-const REGION_MAP: Record<string, Region> = {
-  "Trung du và miền núi Bắc Bộ": Region.NORTHERN_MOUNTAINS,
-  "Đồng bằng Bắc Bộ": Region.RED_RIVER_DELTA,
-  "Bắc Trung Bộ": Region.NORTH_CENTRAL,
-  "Nam Trung Bộ": Region.SOUTH_CENTRAL_COAST,
-  "Cao nguyên Trung Bộ": Region.CENTRAL_HIGHLANDS,
-  "Đông Nam Bộ": Region.SOUTHEAST,
-  "Tây Nam Bộ": Region.MEKONG_DELTA,
-};
 
-function filterLocalRecordings(list: LocalRecording[], filters: SearchFilters): LocalRecording[] {
-  if (!list.length || Object.keys(filters).length === 0) return list;
-  return list.filter((r) => {
-    if (filters.query) {
-      const q = filters.query.toLowerCase();
-      const match = (r.basicInfo?.title || r.title || "").toLowerCase().includes(q)
-        || (r.basicInfo?.artist || "").toLowerCase().includes(q)
-        || (r.basicInfo?.genre || "").toLowerCase().includes(q)
-        || (r.tags || []).some((t) => t.toLowerCase().includes(q));
-      if (!match) return false;
-    }
-    if (filters.tags?.length) {
-      const perfLabel = r.culturalContext?.performanceType ? (PERFORMANCE_KEY_TO_LABEL[r.culturalContext.performanceType] ?? r.culturalContext.performanceType) : "";
-      const recordingTags = [
-        ...(r.basicInfo?.genre ? [r.basicInfo.genre] : []),
-        ...(r.tags || []),
-        ...(r.culturalContext?.instruments || []),
-        ...(r.culturalContext?.eventType ? [r.culturalContext.eventType] : []),
-        ...(r.culturalContext?.province ? [r.culturalContext.province] : []),
-        ...(r.culturalContext?.ethnicity ? [r.culturalContext.ethnicity] : []),
-        ...(r.culturalContext?.region ? [r.culturalContext.region] : []),
-        ...(perfLabel ? [perfLabel] : []),
-      ];
-      const hasTag = filters.tags!.some((ft) =>
-        recordingTags.some((rt) => rt.toLowerCase().includes(ft.toLowerCase()) || ft.toLowerCase().includes(rt.toLowerCase()))
-      );
-      if (!hasTag) return false;
-    }
-    if (filters.regions?.length) {
-      const ok = r.region && filters.regions!.includes(r.region)
-        || (r.culturalContext?.region && REGION_MAP[r.culturalContext.region] && filters.regions!.includes(REGION_MAP[r.culturalContext.region]));
-      if (!ok) return false;
-    }
-    if (filters.recordingTypes?.length) {
-      const t = r.recordingType ?? ((r as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType === "instrumental" ? RecordingType.INSTRUMENTAL : (r as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType === "acappella" || (r as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType === "vocal_accompaniment" ? RecordingType.VOCAL : null);
-      if (!t || !filters.recordingTypes!.includes(t)) return false;
-    }
-    if (filters.verificationStatus?.length) {
-      const approved = r.moderation?.status === "APPROVED";
-      const match = filters.verificationStatus!.some((s) => (s === VerificationStatus.VERIFIED && approved) || (s === VerificationStatus.PENDING && !approved));
-      if (!match) return false;
-    }
-    if (filters.dateFrom || filters.dateTo) {
-      const d = r.basicInfo?.recordingDate || r.recordedDate;
-      if (!d) return false;
-      const date = new Date(d);
-      if (filters.dateFrom && date < new Date(filters.dateFrom)) return false;
-      if (filters.dateTo && date > new Date(filters.dateTo)) return false;
-    }
-    return true;
-  });
-}
 
 type ApiResponseType = { items: Recording[]; total: number; totalPages: number };
 
@@ -200,38 +75,14 @@ export default function ExplorePage() {
       const apiItems = Array.isArray(response?.items) ? response.items : [];
       const apiTotal = typeof response?.total === "number" ? response.total : apiItems.length;
 
-      const metaList = await getLocalRecordingMetaList();
-      const migrated = migrateVideoDataToVideoData(metaList);
-      const approved = migrated.filter((r) => r.moderation?.status === "APPROVED");
-      const filteredLocal = filterLocalRecordings(approved, filters);
-      const fullList = (await Promise.all(filteredLocal.map((r) => getLocalRecordingFull(r.id ?? "")))).filter((r): r is LocalRecording => r != null);
-      const convertedLocal = await Promise.all(fullList.map(convertLocalToRecording));
-
-      const merged = [...convertedLocal, ...apiItems];
-      const sorted = [...merged].sort((a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime());
+      const sorted = [...apiItems].sort((a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime());
 
       setRecordings(sorted);
-      setTotalResults(apiTotal + fullList.length);
+      setTotalResults(apiTotal);
     } catch (error) {
       console.error("Error fetching recordings:", error);
-      // Demo: when API is unavailable, show local approved recordings only
-      try {
-        const metaList = await getLocalRecordingMetaList();
-        const migrated = migrateVideoDataToVideoData(metaList);
-        const approved = migrated.filter((r) => r.moderation?.status === "APPROVED");
-        const filteredLocal = filterLocalRecordings(approved, filters);
-        const fullList = (await Promise.all(filteredLocal.map((r) => getLocalRecordingFull(r.id ?? "")))).filter((r): r is LocalRecording => r != null);
-        const convertedLocal = await Promise.all(fullList.map(convertLocalToRecording));
-        const sorted = [...convertedLocal].sort((a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime());
-        const pageSize = 20;
-        const start = (currentPage - 1) * pageSize;
-        setRecordings(sorted.slice(start, start + pageSize));
-        setTotalResults(sorted.length);
-      } catch (localErr) {
-        console.error("Error loading local recordings:", localErr);
-        setRecordings([]);
-        setTotalResults(0);
-      }
+      setRecordings([]);
+      setTotalResults(0);
     } finally {
       setLoading(false);
     }

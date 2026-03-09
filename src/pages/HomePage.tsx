@@ -6,9 +6,7 @@ import { recordingService } from "@/services/recordingService";
 import RecordingCard from "@/components/features/RecordingCard";
 import logo from "@/components/image/VietTune logo.png";
 import { useAuthStore } from "@/stores/authStore";
-import { getLocalRecordingMetaList, getLocalRecordingFull } from "@/services/recordingStorage";
-import { migrateVideoDataToVideoData } from "@/utils/helpers";
-import { convertLocalToRecording } from "@/utils/localRecordingToRecording";
+
 
 // Section Header Component
 function SectionHeader({
@@ -101,23 +99,11 @@ export default function HomePage() {
       ]);
       setPopularRecordings(popular.data || []);
       setRecentRecordings(recent.data || []);
-    } catch {
-      // Demo: when API is unavailable, show local approved recordings
-      try {
-        const metaList = await getLocalRecordingMetaList();
-        const migrated = migrateVideoDataToVideoData(metaList);
-        const approved = migrated.filter((r) => r.moderation?.status === "APPROVED");
-        const take = Math.min(4, approved.length);
-        const fullList = await Promise.all(
-          approved.slice(0, take).map((r) => getLocalRecordingFull(r.id ?? ""))
-        );
-        const valid = fullList.filter((r): r is NonNullable<typeof r> => r != null);
-        const converted = await Promise.all(valid.map(convertLocalToRecording));
-        setPopularRecordings(converted);
-        setRecentRecordings(converted);
-      } catch (localErr) {
-        console.error("Error loading local recordings:", localErr);
-      }
+    } catch (err) {
+      console.error("Error fetching recordings:", err);
+      // Removed local mock fallback as requested
+      setPopularRecordings([]);
+      setRecentRecordings([]);
     }
   };
 
@@ -134,42 +120,42 @@ export default function HomePage() {
       },
       ...(isAdmin
         ? [
-            {
-              icon: UserPlus,
-              title: "Cấp tài khoản Chuyên gia",
-              description:
-                "Tạo tài khoản Chuyên gia mới để kiểm duyệt và xác minh bản thu âm nhạc truyền thống",
-              to: "/admin/create-expert",
-            },
-          ]
+          {
+            icon: UserPlus,
+            title: "Cấp tài khoản Chuyên gia",
+            description:
+              "Tạo tài khoản Chuyên gia mới để kiểm duyệt và xác minh bản thu âm nhạc truyền thống",
+            to: "/admin/create-expert",
+          },
+        ]
         : [
-            {
-              icon: Sparkles,
-              title: "Tìm theo ý nghĩa",
-              description:
-                "Mô tả bằng ngôn ngữ tự nhiên để tìm bản thu phù hợp theo nghĩa",
-              to: "/semantic-search",
-            },
-          ]),
+          {
+            icon: Sparkles,
+            title: "Tìm theo ý nghĩa",
+            description:
+              "Mô tả bằng ngôn ngữ tự nhiên để tìm bản thu phù hợp theo nghĩa",
+            to: "/semantic-search",
+          },
+        ]),
       ...(isAdmin
         ? [
-            {
-              icon: ShieldCheck,
-              title: "Quản trị hệ thống",
-              description:
-                "Quản lý người dùng, phân tích bộ sưu tập và kiểm duyệt nội dung",
-              to: "/admin",
-            },
-          ]
+          {
+            icon: ShieldCheck,
+            title: "Quản trị hệ thống",
+            description:
+              "Quản lý người dùng, phân tích bộ sưu tập và kiểm duyệt nội dung",
+            to: "/admin",
+          },
+        ]
         : [
-            {
-              icon: Upload,
-              title: "Đóng góp bản thu",
-              description:
-                "Chia sẻ bản thu âm nhạc truyền thống của bạn để cùng gìn giữ di sản văn hóa",
-              to: "/upload",
-            },
-          ]),
+          {
+            icon: Upload,
+            title: "Đóng góp bản thu",
+            description:
+              "Chia sẻ bản thu âm nhạc truyền thống của bạn để cùng gìn giữ di sản văn hóa",
+            to: "/upload",
+          },
+        ]),
     ]
     : [
       {

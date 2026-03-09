@@ -1,7 +1,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
-import { Target, Users, Heart, FileText, Trash2, AlertTriangle, X, UserMinus } from "lucide-react";
+import { Target, Users, Heart, FileText, X, UserMinus } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { User } from "@/types";
 import { notify } from "@/stores/notificationStore";
@@ -9,13 +9,11 @@ import { authService } from "@/services/authService";
 import BackButton from "@/components/common/BackButton";
 import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import { getItem, setItem } from "@/services/storageService";
-import { getLocalRecordingIds, getLocalRecordingFull, setLocalRecording, clearAllLocalRecordings } from "@/services/recordingStorage";
 import { accountDeletionService } from "@/services/accountDeletionService";
 
 export default function ProfilePage() {
   const { user, setUser, logout } = useAuthStore();
   const navigate = useNavigate();
-  const [showDeleteMetadataConfirm, setShowDeleteMetadataConfirm] = useState(false);
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
 
   // Edit profile modal state
@@ -139,23 +137,6 @@ export default function ProfilePage() {
       }
     }
 
-    // Propagate changes to local recordings uploaded by this user (per-recording → no OOM)
-    try {
-      const ids = await getLocalRecordingIds();
-      for (const recId of ids) {
-        const full = await getLocalRecordingFull(recId);
-        if (full && full.uploader && (full.uploader as { id?: string }).id === updated.id) {
-          const merged = {
-            ...full,
-            uploader: { ...full.uploader, username: updated.username },
-          };
-          await setLocalRecording(merged);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to propagate user updates to localRecordings", err);
-    }
-
     setIsEditOpen(false);
     notify.success("Thành công", "Lưu hồ sơ thành công");
   };
@@ -196,7 +177,7 @@ export default function ProfilePage() {
 
   // Disable body scroll when dialogs are open
   useEffect(() => {
-    if (isEditOpen || showDeleteMetadataConfirm || showDeleteAccountConfirm) {
+    if (isEditOpen || showDeleteAccountConfirm) {
       // Save current scroll position
       const scrollY = window.scrollY;
       document.body.style.position = 'fixed';
@@ -221,41 +202,22 @@ export default function ProfilePage() {
       document.body.style.width = '';
       document.body.style.overflow = '';
     };
-  }, [isEditOpen, showDeleteMetadataConfirm, showDeleteAccountConfirm]);
+  }, [isEditOpen, showDeleteAccountConfirm]);
 
   // Handle ESC key to close dialogs
   useEffect(() => {
-    if (!isEditOpen && !showDeleteMetadataConfirm && !showDeleteAccountConfirm) return;
+    if (!isEditOpen && !showDeleteAccountConfirm) return;
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (isEditOpen) setIsEditOpen(false);
-        if (showDeleteMetadataConfirm) setShowDeleteMetadataConfirm(false);
         if (showDeleteAccountConfirm) setShowDeleteAccountConfirm(false);
       }
     };
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isEditOpen, showDeleteMetadataConfirm, showDeleteAccountConfirm]);
-
-
-  const handleDeleteAllMetadata = async () => {
-    try {
-      const ids = await getLocalRecordingIds();
-      const deletedCount = ids.length;
-      if (deletedCount === 0) {
-        notify.success("Thông báo", "Không có dữ liệu để xóa");
-        return;
-      }
-      await clearAllLocalRecordings();
-      notify.success("Thành công", `Đã xóa thành công ${deletedCount} bản thu.`);
-      setShowDeleteMetadataConfirm(false);
-    } catch (err) {
-      console.error("Lỗi khi xóa metadata:", err);
-      notify.error("Lỗi", "Có lỗi xảy ra khi xóa metadata. Vui lòng thử lại.");
-    }
-  };
+  }, [isEditOpen, showDeleteAccountConfirm]);
 
   return (
     <div className="min-h-screen">
@@ -388,27 +350,6 @@ export default function ProfilePage() {
             <p className="text-neutral-700 font-medium">Hỗ trợ việc thu thập, lưu trữ và phổ biến các bản thu truyền thống theo chuẩn khoa học và tôn trọng bản quyền.</p>
           </div>
 
-          {/* Admin Tools - Xóa metadata (chỉ hiển thị trong Hồ sơ của admin) */}
-          {user?.role === "ADMIN" && (
-            <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 mb-8 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h2 className="text-2xl font-semibold mb-2 text-neutral-900">Công cụ quản trị</h2>
-                  <p className="text-neutral-700 font-medium text-sm">
-                    Xóa toàn bộ dữ liệu từ các bản thu để giải phóng dung lượng lưu trữ.
-                    Tất cả thông tin sẽ bị xóa hoàn toàn, bao gồm metadata, media, và cả thông tin hệ thống (ID, thời điểm tải lên, trạng thái kiểm duyệt, người đóng góp).
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowDeleteMetadataConfirm(true)}
-                className="px-4 py-2 rounded-full bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-red-600/40 hover:scale-110 active:scale-95 cursor-pointer flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" strokeWidth={2.5} />
-                Xóa toàn bộ metadata
-              </button>
-            </div>
-          )}
 
           {/* Delete account (Contributor & Expert) */}
           {(user?.role === "CONTRIBUTOR" || user?.role === "EXPERT") && (
@@ -473,79 +414,7 @@ export default function ProfilePage() {
         confirmButtonStyle="bg-red-600 text-white hover:bg-red-500"
       />
 
-      {/* Delete Metadata Confirmation Dialog */}
-      {showDeleteMetadataConfirm && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300 pointer-events-auto"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowDeleteMetadataConfirm(false); }}
-          style={{
-            animation: 'fadeIn 0.3s ease-out',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100vw',
-            height: '100vh',
-            position: 'fixed',
-          }}
-        >
-          <div
-            className="rounded-2xl border border-neutral-300/80 shadow-2xl backdrop-blur-sm max-w-lg w-full p-6 pointer-events-auto transform"
-            style={{
-              backgroundColor: '#FFF2D6',
-              animation: 'slideUp 0.3s ease-out'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100/90 rounded-full shadow-sm">
-                  <AlertTriangle className="h-6 w-6 text-red-600" strokeWidth={2.5} />
-                </div>
-                <h3 className="text-lg font-semibold text-neutral-900">Xác nhận xóa toàn bộ dữ liệu</h3>
-              </div>
-              <button
-                onClick={() => setShowDeleteMetadataConfirm(false)}
-                className="p-1.5 rounded-full hover:bg-neutral-200/50 transition-colors duration-200 text-neutral-600 hover:text-neutral-800 cursor-pointer"
-                aria-label="Đóng"
-              >
-                <X className="h-5 w-5" strokeWidth={2.5} />
-              </button>
-            </div>
-            <p className="text-neutral-700 font-medium mb-6">
-              Bạn có chắc chắn muốn xóa toàn bộ dữ liệu từ tất cả các bản thu không?
-              Hành động này sẽ giải phóng dung lượng lưu trữ và xóa hoàn toàn tất cả các bản thu.
-              <br /><br />
-              <strong>Lưu ý:</strong> Tất cả thông tin sẽ bị xóa hoàn toàn, bao gồm:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Thông tin cơ bản: tiêu đề, nghệ sĩ, thể loại, ngày ghi âm, địa điểm</li>
-                <li>Bối cảnh văn hóa: dân tộc, vùng miền, loại sự kiện, nhạc cụ</li>
-                <li>Ghi chú bổ sung: mô tả, ghi chú thực địa, bản chép nhạc</li>
-                <li>Thông tin quản trị: người thu thập, bản quyền, mã catalog</li>
-                <li>File media: audioData, videoData, youtubeUrl, mediaType, file</li>
-                <li>Thông tin hệ thống: ID, thời điểm tải lên, trạng thái kiểm duyệt, người đóng góp</li>
-              </ul>
-              <br />
-              <strong className="text-red-600">Hành động này không thể hoàn tác!</strong>
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowDeleteMetadataConfirm(false)}
-                className="px-4 py-2 rounded-full bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleDeleteAllMetadata}
-                className="px-4 py-2 rounded-full bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-red-600/40 hover:scale-110 active:scale-95 cursor-pointer flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" strokeWidth={2.5} />
-                Xóa toàn bộ dữ liệu
-              </button>
-            </div>
-          </div>
-        </div>, document.body
-      )}
+
     </div>
   );
 }

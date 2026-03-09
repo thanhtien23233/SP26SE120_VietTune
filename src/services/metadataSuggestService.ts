@@ -45,7 +45,7 @@ export async function suggestMetadata(params: {
       (err as AxiosError)?.response?.data != null &&
       typeof (err as AxiosError).response?.data === "object" &&
       "message" in ((err as AxiosError).response!.data as object)
-        ? String((err as AxiosError).response!.data as { message?: string }).message
+        ? ((err as AxiosError).response!.data as { message?: string })?.message ?? "Lỗi không xác định"
         : (err as Error)?.message ?? "Không kết nối được dịch vụ gợi ý.";
     console.warn("MetadataSuggest API error:", err);
     return { message: msg };

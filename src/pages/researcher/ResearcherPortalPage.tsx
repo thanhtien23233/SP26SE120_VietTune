@@ -8,16 +8,13 @@ import LoadingSpinner from "@/components/common/LoadingSpinner";
 import AudioPlayer from "@/components/features/AudioPlayer";
 import VideoPlayer from "@/components/features/VideoPlayer";
 import { INTELLIGENCE_NAME, REGION_NAMES } from "@/config/constants";
-import { ETHNICITIES, REGIONS, EVENT_TYPES, INSTRUMENTS } from "@/config/musicMetadata";
-import { getLocalRecordingMetaList, getLocalRecordingFull } from "@/services/recordingStorage";
+import { referenceDataService } from "@/services/referenceDataService";
 import { sendResearcherChatMessage } from "@/services/researcherChatService";
 import { getItemAsync, setItem } from "@/services/storageService";
 import { AI_RESPONSES_REVIEW_KEY } from "@/pages/ModerationPage";
-import { migrateVideoDataToVideoData } from "@/utils/helpers";
-import { convertLocalToRecording } from "@/utils/localRecordingToRecording";
 import { isYouTubeUrl } from "@/utils/youtube";
 import { Recording, VerificationStatus } from "@/types";
-import type { LocalRecording } from "@/types";
+import { recordingService } from "@/services/recordingService";
 
 type TabId = "search" | "qa" | "graph" | "compare";
 
@@ -118,7 +115,6 @@ export default function ResearcherPortalPage() {
   const [searchLoading, setSearchLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
   const [playModalRecording, setPlayModalRecording] = useState<Recording | null>(null);
-  const [playModalLocal, setPlayModalLocal] = useState<LocalRecording | null>(null);
   const [playModalLoading, setPlayModalLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: WELCOME_CHAT },
@@ -129,6 +125,41 @@ export default function ResearcherPortalPage() {
   const [compareRightId, setCompareRightId] = useState("");
   const [graphView, setGraphView] = useState<"overview" | "instruments" | "ethnicity">("overview");
   const chatListRef = useRef<HTMLDivElement | null>(null);
+
+  // Reference data from API (replaces hardcoded arrays)
+  const [ETHNICITIES, setETHNICITIES] = useState<string[]>([]);
+  const [REGIONS] = useState<string[]>([
+    "Trung du và miền núi Bắc Bộ",
+    "Đồng bằng Bắc Bộ",
+    "Bắc Trung Bộ",
+    "Nam Trung Bộ",
+    "Cao nguyên Trung Bộ",
+    "Đông Nam Bộ",
+    "Tây Nam Bộ",
+  ]);
+  const [EVENT_TYPES, setEVENT_TYPES] = useState<string[]>([]);
+  const [INSTRUMENTS, setINSTRUMENTS] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const ethnicGroups = await referenceDataService.getEthnicGroups();
+        if (!cancelled && ethnicGroups.length > 0) setETHNICITIES(ethnicGroups.map((e) => e.name));
+      } catch (err) { console.warn("Failed to load ethnic groups", err); }
+
+      try {
+        const ceremonies = await referenceDataService.getCeremonies();
+        if (!cancelled && ceremonies.length > 0) setEVENT_TYPES(ceremonies.map((c) => c.name));
+      } catch (err) { console.warn("Failed to load ceremonies", err); }
+
+      try {
+        const instrumentItems = await referenceDataService.getInstruments();
+        if (!cancelled && instrumentItems.length > 0) setINSTRUMENTS(instrumentItems.map((i) => i.name));
+      } catch (err) { console.warn("Failed to load instruments", err); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Knowledge graph: ethnicities, instruments, and edges from approved recordings (nhạc cụ nào của dân tộc nào)
   const graphData = useMemo(() => {
@@ -161,16 +192,11 @@ export default function ResearcherPortalPage() {
     const load = async () => {
       setSearchLoading(true);
       try {
-        const metaList = await getLocalRecordingMetaList();
-        const migrated = migrateVideoDataToVideoData(metaList);
-        const approved = migrated.filter((r) => r.moderation?.status === "APPROVED");
-        const fullList = await Promise.all(
-          approved.map((r) => getLocalRecordingFull(r.id ?? ""))
-        );
-        const valid = fullList.filter((r): r is NonNullable<typeof r> => r != null);
-        const converted = await Promise.all(valid.map(convertLocalToRecording));
-        if (!cancelled) setApprovedRecordings(converted);
-      } catch {
+        const res = await recordingService.getRecordings(1, 500);
+        const items = Array.isArray((res as any)?.items) ? (res as any).items : (Array.isArray((res as any)?.data?.items) ? (res as any).data.items : (Array.isArray((res as any)?.data) ? (res as any).data : []));
+        if (!cancelled) setApprovedRecordings(items);
+      } catch (err) {
+        console.error("Failed to load approved recordings:", err);
         if (!cancelled) setApprovedRecordings([]);
       } finally {
         if (!cancelled) setSearchLoading(false);
@@ -185,16 +211,12 @@ export default function ResearcherPortalPage() {
   // When Play modal opens, load full local recording to get media src and type
   useEffect(() => {
     if (!playModalRecording?.id) {
-      setPlayModalLocal(null);
       return;
     }
     setPlayModalLoading(true);
-    setPlayModalLocal(null);
-    getLocalRecordingFull(playModalRecording.id)
-      .then((full) => {
-        setPlayModalLocal(full ?? null);
-      })
-      .finally(() => setPlayModalLoading(false));
+    // In actual implementation here we could fetch full API data if needed.
+    // However getRecordings already returns audioUrl
+    setPlayModalLoading(false);
   }, [playModalRecording?.id]);
 
   const filteredResults = useMemo(() => {
@@ -250,7 +272,6 @@ export default function ResearcherPortalPage() {
 
   const handleClosePlayModal = useCallback(() => {
     setPlayModalRecording(null);
-    setPlayModalLocal(null);
   }, []);
 
   const handleDetail = useCallback(
@@ -364,11 +385,10 @@ export default function ResearcherPortalPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 border cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
-                  activeTab === tab.id
-                    ? "bg-primary-600 text-white border-primary-600 shadow-md"
-                    : "text-neutral-700 bg-white border-neutral-200/80 hover:border-primary-300 hover:bg-primary-50/80"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 border cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${activeTab === tab.id
+                  ? "bg-primary-600 text-white border-primary-600 shadow-md"
+                  : "text-neutral-700 bg-white border-neutral-200/80 hover:border-primary-300 hover:bg-primary-50/80"
+                  }`}
                 aria-current={activeTab === tab.id ? "page" : undefined}
               >
                 <tab.icon className="w-5 h-5 flex-shrink-0" strokeWidth={2.5} />
@@ -413,7 +433,7 @@ export default function ResearcherPortalPage() {
                 </div>
               </div>
 
-              {/* Bộ lọc — data từ musicMetadata */}
+              {/* Bộ lọc */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
                   <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
@@ -558,8 +578,8 @@ export default function ResearcherPortalPage() {
                                 <span className="text-neutral-600">
                                   {result.instruments?.length
                                     ? result.instruments
-                                        .map((i) => i.nameVietnamese ?? i.name)
-                                        .join(", ")
+                                      .map((i) => i.nameVietnamese ?? i.name)
+                                      .join(", ")
                                     : "—"}
                                 </span>
                               </div>
@@ -641,52 +661,11 @@ export default function ResearcherPortalPage() {
                           <div className="flex justify-center py-12">
                             <LoadingSpinner size="lg" />
                           </div>
-                        ) : playModalLocal ? (
+                        ) : playModalRecording ? (
                           (() => {
-                            let mediaSrc: string | undefined;
-                            let isVideo = false;
-                            const local = playModalLocal;
-                            if (local.mediaType === "youtube" && local.youtubeUrl?.trim()) {
-                              mediaSrc = local.youtubeUrl.trim();
-                              isVideo = true;
-                            } else if (
-                              local.youtubeUrl &&
-                              typeof local.youtubeUrl === "string" &&
-                              isYouTubeUrl(local.youtubeUrl)
-                            ) {
-                              mediaSrc = local.youtubeUrl.trim();
-                              isVideo = true;
-                            } else if (
-                              local.mediaType === "video" &&
-                              local.videoData &&
-                              typeof local.videoData === "string" &&
-                              local.videoData.trim()
-                            ) {
-                              mediaSrc = local.videoData;
-                              isVideo = true;
-                            } else if (
-                              local.mediaType === "audio" &&
-                              local.audioData &&
-                              typeof local.audioData === "string" &&
-                              local.audioData.trim()
-                            ) {
-                              mediaSrc = local.audioData;
-                              isVideo = false;
-                            } else if (
-                              local.videoData &&
-                              typeof local.videoData === "string" &&
-                              local.videoData.trim()
-                            ) {
-                              mediaSrc = local.videoData;
-                              isVideo = true;
-                            } else if (
-                              local.audioData &&
-                              typeof local.audioData === "string" &&
-                              local.audioData.trim()
-                            ) {
-                              mediaSrc = local.audioData;
-                              isVideo = mediaSrc.startsWith("data:video/");
-                            }
+                            const mediaSrc = playModalRecording.audioUrl;
+                            const isVideo = mediaSrc ? (isYouTubeUrl(mediaSrc) || mediaSrc.match(/\.(mp4|mov|avi|webm|mkv|mpeg|mpg|wmv|3gp|flv)$/i) || mediaSrc.startsWith('data:video/')) : false;
+
                             if (!mediaSrc) {
                               return (
                                 <p className="text-neutral-600 py-4 text-center">
@@ -694,9 +673,7 @@ export default function ResearcherPortalPage() {
                                 </p>
                               );
                             }
-                            const artistName =
-                              local.basicInfo?.artist ??
-                              playModalRecording.performers?.[0]?.name;
+                            const artistName = playModalRecording.performers?.[0]?.name;
                             if (isVideo) {
                               return (
                                 <VideoPlayer
@@ -757,11 +734,10 @@ export default function ResearcherPortalPage() {
                         className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                       >
                         <div
-                          className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                            msg.role === "user"
-                              ? "bg-primary-600 text-white shadow-md"
-                              : "bg-white border-2 border-secondary-200/80 text-neutral-700 shadow-sm"
-                          }`}
+                          className={`max-w-[85%] rounded-2xl px-4 py-3 ${msg.role === "user"
+                            ? "bg-primary-600 text-white shadow-md"
+                            : "bg-white border-2 border-secondary-200/80 text-neutral-700 shadow-sm"
+                            }`}
                         >
                           {msg.role === "assistant" && (
                             <div className="flex items-center gap-2 text-xs font-semibold text-primary-600 mb-1.5">
@@ -887,33 +863,30 @@ export default function ResearcherPortalPage() {
                     <button
                       type="button"
                       onClick={() => setGraphView("overview")}
-                      className={`px-4 py-2 rounded-xl font-semibold text-sm shadow-md cursor-pointer transition-colors ${
-                        graphView === "overview"
-                          ? "bg-primary-600 text-white"
-                          : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
-                      }`}
+                      className={`px-4 py-2 rounded-xl font-semibold text-sm shadow-md cursor-pointer transition-colors ${graphView === "overview"
+                        ? "bg-primary-600 text-white"
+                        : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
+                        }`}
                     >
                       Tổng quan
                     </button>
                     <button
                       type="button"
                       onClick={() => setGraphView("instruments")}
-                      className={`px-4 py-2 rounded-xl font-semibold text-sm shadow-md cursor-pointer transition-colors ${
-                        graphView === "instruments"
-                          ? "bg-primary-600 text-white"
-                          : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
-                      }`}
+                      className={`px-4 py-2 rounded-xl font-semibold text-sm shadow-md cursor-pointer transition-colors ${graphView === "instruments"
+                        ? "bg-primary-600 text-white"
+                        : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
+                        }`}
                     >
                       Nhạc cụ
                     </button>
                     <button
                       type="button"
                       onClick={() => setGraphView("ethnicity")}
-                      className={`px-4 py-2 rounded-xl font-semibold text-sm shadow-md cursor-pointer transition-colors ${
-                        graphView === "ethnicity"
-                          ? "bg-primary-600 text-white"
-                          : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
-                      }`}
+                      className={`px-4 py-2 rounded-xl font-semibold text-sm shadow-md cursor-pointer transition-colors ${graphView === "ethnicity"
+                        ? "bg-primary-600 text-white"
+                        : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
+                        }`}
                     >
                       Dân tộc
                     </button>
@@ -1146,45 +1119,46 @@ export default function ResearcherPortalPage() {
               </div>
             );
             return (
-            <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-              <div className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6" style={{ backgroundColor: "#FFFCF5" }}>
-                <h2 className="text-lg sm:text-xl font-semibold text-primary-800 mb-2">So sánh phân tích</h2>
-                <p className="text-sm text-neutral-600 mb-6">Chọn hai bản thu để xem metadata và nghe song song (mở modal phát từng bản).</p>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-semibold text-primary-800 mb-3">Lựa chọn #1</h3>
-                    {renderCompareCard(leftRecording, "left")}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-primary-800 mb-3">Lựa chọn #2</h3>
-                    {renderCompareCard(rightRecording, "right")}
+              <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+                <div className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6" style={{ backgroundColor: "#FFFCF5" }}>
+                  <h2 className="text-lg sm:text-xl font-semibold text-primary-800 mb-2">So sánh phân tích</h2>
+                  <p className="text-sm text-neutral-600 mb-6">Chọn hai bản thu để xem metadata và nghe song song (mở modal phát từng bản).</p>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="font-semibold text-primary-800 mb-3">Lựa chọn #1</h3>
+                      {renderCompareCard(leftRecording, "left")}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-primary-800 mb-3">Lựa chọn #2</h3>
+                      {renderCompareCard(rightRecording, "right")}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div
-                className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6"
-                style={{ backgroundColor: "#FFFCF5" }}
-              >
-                <h3 className="text-lg font-semibold text-primary-800 mb-3">
-                  Nhận xét từ chuyên gia
-                </h3>
-                <div className="text-neutral-700 leading-relaxed space-y-3">
-                  <p>
-                    <strong className="text-primary-800">Điểm tương đồng:</strong> Cả hai phong
-                    cách đều sử dụng âm giai ngũ cung truyền thống của người Việt, với cấu trúc
-                    giai điệu mang tính tự do và ứng tác theo ngữ điệu tiếng Việt.
-                  </p>
-                  <p>
-                    <strong className="text-primary-800">Điểm khác biệt:</strong> Hát Xoan thể
-                    hiện tính chất nghi lễ với sự kết hợp của đàn nguyệt và trống, tạo nên âm sắc
-                    trang nghiêm. Trong khi đó, nhạc Khèn Mông mang đậm bản sắc văn hóa vùng cao
-                    với kỹ thuật thổi đặc trưng.
-                  </p>
+                <div
+                  className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6"
+                  style={{ backgroundColor: "#FFFCF5" }}
+                >
+                  <h3 className="text-lg font-semibold text-primary-800 mb-3">
+                    Nhận xét từ chuyên gia
+                  </h3>
+                  <div className="text-neutral-700 leading-relaxed space-y-3">
+                    <p>
+                      <strong className="text-primary-800">Điểm tương đồng:</strong> Cả hai phong
+                      cách đều sử dụng âm giai ngũ cung truyền thống của người Việt, với cấu trúc
+                      giai điệu mang tính tự do và ứng tác theo ngữ điệu tiếng Việt.
+                    </p>
+                    <p>
+                      <strong className="text-primary-800">Điểm khác biệt:</strong> Hát Xoan thể
+                      hiện tính chất nghi lễ với sự kết hợp của đàn nguyệt và trống, tạo nên âm sắc
+                      trang nghiêm. Trong khi đó, nhạc Khèn Mông mang đậm bản sắc văn hóa vùng cao
+                      với kỹ thuật thổi đặc trưng.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-            ); })()}
+            );
+          })()}
         </div>
       </div>
     </div>

@@ -1,9 +1,14 @@
 /**
- * Yêu cầu xóa bản thu (Contributor → Admin → Expert) và yêu cầu chỉnh sửa bản thu (Contributor → Admin).
- * Thông báo sau khi xóa bản thu cho Người đóng góp, Chuyên gia, Quản trị viên.
+ * Recording request service — now uses real backend API endpoints.
+ *
+ * Endpoints used:
+ *  - /api/Notification          — notifications CRUD
+ *  - /api/Review                — review/moderation workflows
+ *  - /api/Submission            — submissions management
+ *  - /api/Admin/submissions     — admin submission management
  */
 
-import { setItem, getItemAsync } from "@/services/storageService";
+import { api } from "@/services/api";
 import type {
   DeleteRecordingRequest,
   EditRecordingRequest,
@@ -12,332 +17,366 @@ import type {
 } from "@/types";
 import { UserRole } from "@/types";
 
-const PENDING_DELETE_KEY = "pending_delete_recording_requests";
-const PENDING_EDIT_KEY = "pending_edit_recording_requests";
-const PENDING_EDIT_REVIEW_KEY = "pending_edit_submissions_for_review";
-const APPROVED_EDIT_KEY = "approved_edit_recording_requests";
-const APPROVED_DELETE_KEY = "approved_delete_recording_requests";
-const NOTIFICATIONS_KEY = "app_notifications";
-
-function parseList<T>(raw: string | null): T[] {
-  if (!raw) return [];
-  try {
-    const arr = JSON.parse(raw) as T[];
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
+// Helper: safely extract array from API response
+function safeArray<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  if (data && typeof data === "object" && "data" in data) {
+    const inner = (data as Record<string, unknown>).data;
+    if (Array.isArray(inner)) return inner as T[];
   }
-}
-
-async function getListAsync<T>(key: string): Promise<T[]> {
-  const raw = await getItemAsync(key);
-  return parseList<T>(raw);
+  return [];
 }
 
 export const recordingRequestService = {
-  // --- Xóa bản thu ---
+  // --- Delete recording requests ---
 
-  /** Người đóng góp: gửi yêu cầu xóa bản thu (chỉ bản thu của mình, đã duyệt). */
+  /** Contributor: send delete recording request */
   async requestDeleteRecording(
     recordingId: string,
     recordingTitle: string,
     contributorId: string,
     contributorName: string
   ): Promise<void> {
-    const raw = await getItemAsync(PENDING_DELETE_KEY);
-    const list = parseList<DeleteRecordingRequest>(raw);
-    if (list.some((r) => r.recordingId === recordingId && r.contributorId === contributorId)) return;
-    list.push({
-      id: `del_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      recordingId,
-      recordingTitle,
-      contributorId,
-      contributorName,
-      requestedAt: new Date().toISOString(),
-      status: "pending_admin",
-    });
-    await setItem(PENDING_DELETE_KEY, JSON.stringify(list));
+    try {
+      await api.post("/Review", {
+        submissionId: recordingId,
+        reviewerId: contributorId,
+        decision: "delete_request",
+        stage: "pending_admin",
+        comments: `Yêu cầu xóa bản thu "${recordingTitle}" bởi ${contributorName}`,
+      });
+    } catch (err) {
+      console.error("Failed to request delete recording", err);
+      throw err;
+    }
   },
 
-  /** Admin: lấy danh sách yêu cầu xóa bản thu (pending_admin). */
+  /** Admin: get pending delete requests */
   async getDeleteRecordingRequests(): Promise<DeleteRecordingRequest[]> {
-    return getListAsync<DeleteRecordingRequest>(PENDING_DELETE_KEY);
+    try {
+      const res = await api.get("/Review/decision/delete_request");
+      return safeArray<DeleteRecordingRequest>(res);
+    } catch {
+      return [];
+    }
   },
 
-  /** Admin: chuyển yêu cầu xóa đến Chuyên gia (expert sẽ thực hiện xóa). */
-  async forwardDeleteToExpert(
-    requestId: string,
-    expertId: string
-  ): Promise<void> {
-    const raw = await getItemAsync(PENDING_DELETE_KEY);
-    const list = parseList<DeleteRecordingRequest>(raw);
-    const now = new Date().toISOString();
-    const updated = list.map((r) =>
-      r.id === requestId
-        ? {
-            ...r,
-            status: "forwarded_to_expert" as const,
-            forwardedToExpertId: expertId,
-            forwardedAt: now,
-          }
-        : r
-    );
-    await setItem(PENDING_DELETE_KEY, JSON.stringify(updated));
+  /** Admin: forward delete to expert */
+  async forwardDeleteToExpert(requestId: string, expertId: string): Promise<void> {
+    try {
+      await api.put(`/Review/${requestId}`, {
+        decision: "forwarded_to_expert",
+        reviewerId: expertId,
+      });
+    } catch (err) {
+      console.error("Failed to forward delete to expert", err);
+    }
   },
 
-  /** Chuyên gia: lấy yêu cầu xóa đã được Admin chuyển cho mình. */
+  /** Expert: get forwarded delete requests */
   async getForwardedDeleteRequestsForExpert(expertId: string): Promise<DeleteRecordingRequest[]> {
-    const list = await getListAsync<DeleteRecordingRequest>(PENDING_DELETE_KEY);
-    return list.filter(
-      (r) => r.status === "forwarded_to_expert" && r.forwardedToExpertId === expertId
-    );
+    try {
+      const res = await api.get(`/Review/reviewer/${expertId}`);
+      const all = safeArray<DeleteRecordingRequest & { decision?: string }>(res);
+      return all.filter((r) => r.decision === "forwarded_to_expert" || r.status === "forwarded_to_expert");
+    } catch {
+      return [];
+    }
   },
 
-  /** Chuyên gia: xóa bản thu khỏi hệ thống và gỡ yêu cầu; tạo thông báo cho Contributor, Expert, Admin. */
+  /** Expert: complete delete recording */
   async completeDeleteRecording(
     requestId: string,
     removeRecordingFromStorage: (id: string) => Promise<void>
   ): Promise<{ recordingId: string; recordingTitle: string } | null> {
-    const raw = await getItemAsync(PENDING_DELETE_KEY);
-    const list = parseList<DeleteRecordingRequest>(raw);
-    const req = list.find((r) => r.id === requestId);
-    if (!req) return null;
-    await removeRecordingFromStorage(req.recordingId);
-    const remaining = list.filter((r) => r.id !== requestId);
-    await setItem(PENDING_DELETE_KEY, JSON.stringify(remaining));
+    try {
+      // Get the request details first
+      const res = await api.get<any>(`/Review/${requestId}`);
+      const req = res?.data || res;
+      if (!req) return null;
 
-    await this.addNotification({
-      type: "recording_deleted",
-      title: "Bản thu đã được xóa khỏi hệ thống",
-      body: `Bản thu "${req.recordingTitle}" đã được xóa hoàn toàn khỏi hệ thống.`,
-      forRoles: [UserRole.ADMIN, UserRole.CONTRIBUTOR, UserRole.EXPERT],
-      recordingId: req.recordingId,
-    });
+      const recordingId = req.submissionId || req.recordingId;
+      const recordingTitle = req.recordingTitle || req.comments || "Bản thu";
 
-    return { recordingId: req.recordingId, recordingTitle: req.recordingTitle };
+      await removeRecordingFromStorage(recordingId);
+
+      // Mark as completed
+      await api.put(`/Review/${requestId}`, { decision: "completed" });
+
+      return { recordingId, recordingTitle };
+    } catch (err) {
+      console.error("Failed to complete delete recording", err);
+      return null;
+    }
   },
 
-  /** Xóa một yêu cầu xóa (sau khi đã xử lý hoặc hủy). */
+  /** Remove a delete request */
   async removeDeleteRequest(requestId: string): Promise<void> {
-    const raw = await getItemAsync(PENDING_DELETE_KEY);
-    const list = parseList<DeleteRecordingRequest>(raw).filter((r) => r.id !== requestId);
-    await setItem(PENDING_DELETE_KEY, JSON.stringify(list));
+    try {
+      await api.delete(`/Review/${requestId}`);
+    } catch (err) {
+      console.error("Failed to remove delete request", err);
+    }
   },
 
-  /** Danh sách recordingId mà contributor đã gửi yêu cầu xóa nhưng chưa bị expert từ chối/xử lý (Contributor dùng). */
+  /** Get pending delete recording IDs for contributor */
   async getPendingDeleteRecordingIdsForContributor(contributorId: string): Promise<string[]> {
-    const list = await getListAsync<DeleteRecordingRequest>(PENDING_DELETE_KEY);
-    return list
-      .filter((r) => r.contributorId === contributorId)
-      .map((r) => r.recordingId);
+    try {
+      const res = await api.get(`/Review/reviewer/${contributorId}`);
+      const all = safeArray<any>(res);
+      return all
+        .filter((r: any) => r.decision === "delete_request")
+        .map((r: any) => r.submissionId || r.recordingId);
+    } catch {
+      return [];
+    }
   },
 
-  /** Danh sách recordingId mà admin đã cho phép contributor xóa (Contributor dùng). */
+  /** Get delete-approved recording IDs for contributor */
   async getDeleteApprovedRecordingIdsForContributor(contributorId: string): Promise<string[]> {
-    const raw = await getItemAsync(APPROVED_DELETE_KEY);
-    const list = parseList<{ recordingId: string; contributorId: string }>(raw);
-    return list.filter((a) => a.contributorId === contributorId).map((a) => a.recordingId);
+    try {
+      const res = await api.get(`/Review/reviewer/${contributorId}`);
+      const all = safeArray<any>(res);
+      return all
+        .filter((r: any) => r.decision === "delete_approved")
+        .map((r: any) => r.submissionId || r.recordingId);
+    } catch {
+      return [];
+    }
   },
 
-  /** Admin: cho phép contributor xóa bản thu (sau khi contributor đã gửi yêu cầu xóa). */
+  /** Admin: approve delete for contributor */
   async approveDeleteForContributor(recordingId: string, contributorId: string): Promise<void> {
-    const raw = await getItemAsync(APPROVED_DELETE_KEY);
-    const list = parseList<{ recordingId: string; contributorId: string }>(raw);
-    if (list.some((a) => a.recordingId === recordingId && a.contributorId === contributorId)) return;
-    list.push({ recordingId, contributorId });
-    await setItem(APPROVED_DELETE_KEY, JSON.stringify(list));
+    try {
+      await api.post("/Review", {
+        submissionId: recordingId,
+        reviewerId: contributorId,
+        decision: "delete_approved",
+        stage: "approved",
+      });
+    } catch (err) {
+      console.error("Failed to approve delete for contributor", err);
+    }
   },
 
-  /** Gỡ quyền xóa sau khi contributor đã xóa bản thu (hoặc admin thu hồi). */
-  async revokeDeleteApproval(recordingId: string, contributorId: string): Promise<void> {
-    const raw = await getItemAsync(APPROVED_DELETE_KEY);
-    const list = parseList<{ recordingId: string; contributorId: string }>(raw).filter(
-      (a) => !(a.recordingId === recordingId && a.contributorId === contributorId)
-    );
-    await setItem(APPROVED_DELETE_KEY, JSON.stringify(list));
+  /** Revoke delete approval */
+  async revokeDeleteApproval(recordingId: string, _contributorId: string): Promise<void> {
+    try {
+      // Find and remove the approval review
+      const res = await api.get(`/Review/decision/delete_approved`);
+      const all = safeArray<any>(res);
+      const match = all.find((r: any) => (r.submissionId || r.recordingId) === recordingId);
+      if (match) {
+        await api.delete(`/Review/${match.id}`);
+      }
+    } catch (err) {
+      console.error("Failed to revoke delete approval", err);
+    }
   },
 
-  // --- Chỉnh sửa bản thu (đã duyệt) ---
+  // --- Edit recording requests ---
 
-  /** Người đóng góp: gửi yêu cầu chỉnh sửa bản thu đã được duyệt. */
+  /** Contributor: request to edit an approved recording */
   async requestEditRecording(
     recordingId: string,
     recordingTitle: string,
     contributorId: string,
     contributorName: string
   ): Promise<void> {
-    const raw = await getItemAsync(PENDING_EDIT_KEY);
-    const list = parseList<EditRecordingRequest>(raw);
-    if (list.some((r) => r.recordingId === recordingId && r.contributorId === contributorId && r.status === "pending")) return;
-    list.push({
-      id: `edit_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      recordingId,
-      recordingTitle,
-      contributorId,
-      contributorName,
-      requestedAt: new Date().toISOString(),
-      status: "pending",
-    });
-    await setItem(PENDING_EDIT_KEY, JSON.stringify(list));
-  },
-
-  /** Admin: lấy danh sách yêu cầu chỉnh sửa (pending). */
-  async getEditRecordingRequests(): Promise<EditRecordingRequest[]> {
-    return getListAsync<EditRecordingRequest>(PENDING_EDIT_KEY);
-  },
-
-  /** Admin: duyệt yêu cầu chỉnh sửa → Người đóng góp có thể chỉnh sửa, sau đó gửi Chuyên gia kiểm duyệt. */
-  async approveEditRequest(requestId: string): Promise<void> {
-    const raw = await getItemAsync(PENDING_EDIT_KEY);
-    const list = parseList<EditRecordingRequest>(raw);
-    const req = list.find((r) => r.id === requestId);
-    if (!req) return;
-    const updated = list.map((r) =>
-      r.id === requestId
-        ? { ...r, status: "approved" as const, approvedAt: new Date().toISOString() }
-        : r
-    );
-    await setItem(PENDING_EDIT_KEY, JSON.stringify(updated));
-
-    const approvedRaw = await getItemAsync(APPROVED_EDIT_KEY);
-    const approvedList = parseList<{ recordingId: string; approvedAt: string }>(approvedRaw);
-    if (!approvedList.some((a) => a.recordingId === req.recordingId)) {
-      approvedList.push({ recordingId: req.recordingId, approvedAt: new Date().toISOString() });
-      await setItem(APPROVED_EDIT_KEY, JSON.stringify(approvedList));
+    try {
+      await api.post("/Review", {
+        submissionId: recordingId,
+        reviewerId: contributorId,
+        decision: "edit_request",
+        stage: "pending",
+        comments: `Yêu cầu chỉnh sửa bản thu "${recordingTitle}" bởi ${contributorName}`,
+      });
+    } catch (err) {
+      console.error("Failed to request edit recording", err);
+      throw err;
     }
   },
 
-  /** Kiểm tra bản thu đã được Admin duyệt cho phép chỉnh sửa (Contributor dùng). */
+  /** Admin: get edit recording requests */
+  async getEditRecordingRequests(): Promise<EditRecordingRequest[]> {
+    try {
+      const res = await api.get("/Review/decision/edit_request");
+      return safeArray<EditRecordingRequest>(res);
+    } catch {
+      return [];
+    }
+  },
+
+  /** Admin: approve edit request */
+  async approveEditRequest(requestId: string): Promise<void> {
+    try {
+      await api.put(`/Review/${requestId}`, {
+        decision: "edit_approved",
+        stage: "approved",
+      });
+    } catch (err) {
+      console.error("Failed to approve edit request", err);
+    }
+  },
+
+  /** Check if edit is approved for a recording */
   async isEditApprovedForRecording(recordingId: string): Promise<boolean> {
-    const raw = await getItemAsync(APPROVED_EDIT_KEY);
-    const list = parseList<{ recordingId: string }>(raw);
-    return list.some((a) => a.recordingId === recordingId);
+    try {
+      const res = await api.get("/Review/decision/edit_approved");
+      const all = safeArray<any>(res);
+      return all.some((r: any) => (r.submissionId || r.recordingId) === recordingId);
+    } catch {
+      return false;
+    }
   },
 
-  /** Danh sách recordingId mà contributor đã gửi yêu cầu chỉnh sửa nhưng admin chưa duyệt (Contributor dùng). */
+  /** Get pending edit recording IDs for contributor */
   async getPendingEditRecordingIdsForContributor(contributorId: string): Promise<string[]> {
-    const list = await getListAsync<EditRecordingRequest>(PENDING_EDIT_KEY);
-    return list
-      .filter((r) => r.contributorId === contributorId && r.status === "pending")
-      .map((r) => r.recordingId);
+    try {
+      const res = await api.get(`/Review/reviewer/${contributorId}`);
+      const all = safeArray<any>(res);
+      return all
+        .filter((r: any) => r.decision === "edit_request" && r.stage === "pending")
+        .map((r: any) => r.submissionId || r.recordingId);
+    } catch {
+      return [];
+    }
   },
 
-  /** (Tùy chọn) Gỡ khỏi danh sách đã duyệt chỉnh sửa sau khi Chuyên gia đã duyệt phiên bản mới. */
+  /** Revoke approved edit */
   async revokeApprovedEdit(recordingId: string): Promise<void> {
-    const raw = await getItemAsync(APPROVED_EDIT_KEY);
-    const list = parseList<{ recordingId: string; approvedAt: string }>(raw).filter(
-      (a) => a.recordingId !== recordingId
-    );
-    await setItem(APPROVED_EDIT_KEY, JSON.stringify(list));
+    try {
+      const res = await api.get("/Review/decision/edit_approved");
+      const all = safeArray<any>(res);
+      const match = all.find((r: any) => (r.submissionId || r.recordingId) === recordingId);
+      if (match) {
+        await api.delete(`/Review/${match.id}`);
+      }
+    } catch (err) {
+      console.error("Failed to revoke approved edit", err);
+    }
   },
 
-  // --- Chỉnh sửa chờ chuyên gia duyệt (contributor bấm "Hoàn tất chỉnh sửa" → chờ expert duyệt) ---
+  // --- Edit submissions for expert review ---
 
-  /** Contributor: gửi chỉnh sửa chờ chuyên gia kiểm duyệt (sau khi bấm "Hoàn tất chỉnh sửa"). */
+  /** Contributor: submit edit for expert review */
   async submitEditForExpertReview(
     recordingId: string,
     recordingTitle: string,
     contributorId: string,
     contributorName: string
   ): Promise<void> {
-    const raw = await getItemAsync(PENDING_EDIT_REVIEW_KEY);
-    const list = parseList<EditSubmissionForReview>(raw);
-    if (list.some((r) => r.recordingId === recordingId && r.contributorId === contributorId)) return;
-    list.push({
-      id: `edit_sub_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      recordingId,
-      recordingTitle,
-      contributorId,
-      contributorName,
-      submittedAt: new Date().toISOString(),
-    });
-    await setItem(PENDING_EDIT_REVIEW_KEY, JSON.stringify(list));
+    try {
+      await api.post("/Review", {
+        submissionId: recordingId,
+        reviewerId: contributorId,
+        decision: "edit_submission",
+        stage: "pending_expert",
+        comments: `Chỉnh sửa bản thu "${recordingTitle}" bởi ${contributorName} chờ chuyên gia duyệt`,
+      });
+    } catch (err) {
+      console.error("Failed to submit edit for expert review", err);
+    }
   },
 
-  /** Expert: lấy danh sách chỉnh sửa chờ duyệt. */
+  /** Expert: get pending edit submissions */
   async getPendingEditSubmissionsForExpert(): Promise<EditSubmissionForReview[]> {
-    return getListAsync<EditSubmissionForReview>(PENDING_EDIT_REVIEW_KEY);
+    try {
+      const res = await api.get("/Review/decision/edit_submission");
+      return safeArray<EditSubmissionForReview>(res);
+    } catch {
+      return [];
+    }
   },
 
-  /** Expert: duyệt chỉnh sửa → gỡ quyền chỉnh sửa của contributor, thông báo. */
+  /** Expert: approve edit submission */
   async approveEditSubmission(submissionId: string): Promise<{ recordingId: string; recordingTitle: string } | null> {
-    const raw = await getItemAsync(PENDING_EDIT_REVIEW_KEY);
-    const list = parseList<EditSubmissionForReview>(raw);
-    const req = list.find((r) => r.id === submissionId);
-    if (!req) return null;
-    const remaining = list.filter((r) => r.id !== submissionId);
-    await setItem(PENDING_EDIT_REVIEW_KEY, JSON.stringify(remaining));
-    await this.revokeApprovedEdit(req.recordingId);
-    await this.addNotification({
-      type: "edit_submission_approved",
-      title: "Chỉnh sửa bản thu đã được chuyên gia duyệt",
-      body: `Chỉnh sửa bản thu "${req.recordingTitle}" đã được chuyên gia duyệt. Bạn đã hoàn tất chỉnh sửa.`,
-      forRoles: [UserRole.ADMIN, UserRole.CONTRIBUTOR, UserRole.EXPERT],
-      recordingId: req.recordingId,
-    });
-    return { recordingId: req.recordingId, recordingTitle: req.recordingTitle };
+    try {
+      const res = await api.get<any>(`/Review/${submissionId}`);
+      const req = res?.data || res;
+      if (!req) return null;
+
+      await api.put(`/Review/${submissionId}`, {
+        decision: "edit_submission_approved",
+        stage: "completed",
+      });
+
+      return {
+        recordingId: req.submissionId || req.recordingId || "",
+        recordingTitle: req.recordingTitle || "",
+      };
+    } catch {
+      return null;
+    }
   },
 
-  /** Danh sách recordingId mà contributor đã gửi chỉnh sửa chờ chuyên gia duyệt (Contributor dùng). */
+  /** Get pending edit submission recording IDs for contributor */
   async getPendingEditSubmissionRecordingIdsForContributor(contributorId: string): Promise<string[]> {
-    const list = await getListAsync<EditSubmissionForReview>(PENDING_EDIT_REVIEW_KEY);
-    return list
-      .filter((r) => r.contributorId === contributorId)
-      .map((r) => r.recordingId);
+    try {
+      const res = await api.get(`/Review/reviewer/${contributorId}`);
+      const all = safeArray<any>(res);
+      return all
+        .filter((r: any) => r.decision === "edit_submission")
+        .map((r: any) => r.submissionId || r.recordingId);
+    } catch {
+      return [];
+    }
   },
 
-  // --- Thông báo ---
+  // --- Notifications (uses /api/Notification endpoints) ---
 
   async addNotification(n: Omit<AppNotification, "id" | "createdAt" | "read">): Promise<void> {
-    const raw = await getItemAsync(NOTIFICATIONS_KEY);
-    const list = parseList<AppNotification>(raw);
-    list.push({
-      ...n,
-      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      createdAt: new Date().toISOString(),
-      read: false,
-    });
-    await setItem(NOTIFICATIONS_KEY, JSON.stringify(list));
+    try {
+      await api.post("/Notification", {
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        forRoles: n.forRoles,
+        recordingId: n.recordingId,
+      });
+    } catch (err) {
+      console.error("Failed to add notification", err);
+    }
   },
 
-  /** Lấy thông báo cho vai trò hiện tại (theo user.role). */
-  async getNotificationsForRole(role: UserRole): Promise<AppNotification[]> {
-    const raw = await getItemAsync(NOTIFICATIONS_KEY);
-    const list = parseList<AppNotification>(raw);
-    return list.filter((n) => n.forRoles.includes(role)).sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
+  /** Get notifications for current user role */
+  async getNotificationsForRole(_role: UserRole): Promise<AppNotification[]> {
+    try {
+      const res = await api.get("/Notification");
+      return safeArray<AppNotification>(res);
+    } catch {
+      return [];
+    }
   },
 
   async markNotificationRead(id: string): Promise<void> {
-    const raw = await getItemAsync(NOTIFICATIONS_KEY);
-    const list = parseList<AppNotification>(raw);
-    const updated = list.map((n) => (n.id === id ? { ...n, read: true } : n));
-    await setItem(NOTIFICATIONS_KEY, JSON.stringify(updated));
+    try {
+      await api.put(`/Notification/${id}/read`, {});
+    } catch (err) {
+      console.error("Failed to mark notification read", err);
+    }
   },
 
   async markNotificationUnread(id: string): Promise<void> {
-    const raw = await getItemAsync(NOTIFICATIONS_KEY);
-    const list = parseList<AppNotification>(raw);
-    const updated = list.map((n) => (n.id === id ? { ...n, read: false } : n));
-    await setItem(NOTIFICATIONS_KEY, JSON.stringify(updated));
+    try {
+      // Toggle back — not all backends support this, use PUT with read=false
+      await api.put(`/Notification/${id}`, { read: false });
+    } catch (err) {
+      console.error("Failed to mark notification unread", err);
+    }
   },
 
-  /** Đánh dấu tất cả thông báo hiển thị cho vai trò hiện tại là đã đọc. */
-  async markAllNotificationsReadForRole(role: UserRole): Promise<void> {
-    const raw = await getItemAsync(NOTIFICATIONS_KEY);
-    const list = parseList<AppNotification>(raw);
-    const updated = list.map((n) =>
-      n.forRoles.includes(role) ? { ...n, read: true } : n
-    );
-    await setItem(NOTIFICATIONS_KEY, JSON.stringify(updated));
+  /** Mark all notifications as read for current role */
+  async markAllNotificationsReadForRole(_role: UserRole): Promise<void> {
+    try {
+      await api.put("/Notification/read-all", {});
+    } catch (err) {
+      console.error("Failed to mark all notifications read", err);
+    }
   },
 
-  /** Đánh dấu tất cả thông báo hiển thị cho vai trò hiện tại là chưa đọc. */
-  async markAllNotificationsUnreadForRole(role: UserRole): Promise<void> {
-    const raw = await getItemAsync(NOTIFICATIONS_KEY);
-    const list = parseList<AppNotification>(raw);
-    const updated = list.map((n) =>
-      n.forRoles.includes(role) ? { ...n, read: false } : n
-    );
-    await setItem(NOTIFICATIONS_KEY, JSON.stringify(updated));
+  /** Mark all as unread (no backend endpoint, noop) */
+  async markAllNotificationsUnreadForRole(_role: UserRole): Promise<void> {
+    console.warn("markAllNotificationsUnreadForRole: Not supported by backend API");
   },
 };

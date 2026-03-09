@@ -1,53 +1,20 @@
 import { useParams, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Recording, Region, RecordingType, RecordingQuality, VerificationStatus, UserRole, InstrumentCategory } from "@/types";
+import { Recording } from "@/types";
 import { recordingService } from "@/services/recordingService";
 import { Heart, Download, Share2, Eye, User, Users, MapPin, Music } from "lucide-react";
 import Badge from "@/components/common/Badge";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import Button from "@/components/common/Button";
 import BackButton from "@/components/common/BackButton";
-import { RECORDING_TYPE_NAMES, REGION_NAMES } from "@/config/constants";
+import { RECORDING_TYPE_NAMES } from "@/config/constants";
 
-// Helper function to map Vietnamese region name to Region enum
-const getRegionFromVietnameseName = (vietnameseName: string | undefined): Region | undefined => {
-  if (!vietnameseName) return undefined;
-  const entry = Object.entries(REGION_NAMES).find(([, name]) => name === vietnameseName) as [string, string] | undefined;
-  return entry ? (entry[0] as Region) : undefined;
-};
-import { migrateVideoDataToVideoData, formatDateTime, formatDate, formatDuration } from "@/utils/helpers";
+
+import { formatDateTime, formatDate, formatDuration } from "@/utils/helpers";
 import AudioPlayer from "@/components/features/AudioPlayer";
 import VideoPlayer from "@/components/features/VideoPlayer";
 import { isYouTubeUrl } from "@/utils/youtube";
-import type { LocalRecording } from "@/types";
-import { getLocalRecordingFull } from "@/services/recordingStorage";
-import { buildTagsFromLocal, getRegionDisplayName } from "@/utils/recordingTags";
-
-// Extended type for local recording storage (supports both legacy and new formats)
-type LocalRecordingStorage = LocalRecording & {
-  uploadedAt?: string; // Legacy field
-  culturalContext?: {
-    ethnicity?: string;
-    region?: string; // Vietnamese region name from UploadMusic
-    performanceType?: string;
-    eventType?: string;
-    province?: string;
-    instruments?: string[];
-  };
-  _hasRealRegion?: boolean; // Flag to track if region was actually set by user
-  file?: {
-    duration?: number;
-  };
-};
-
-// Extended Recording type that may include original local data
-type RecordingWithLocalData = Recording & {
-  _originalLocalData?: LocalRecordingStorage & {
-    culturalContext?: {
-      region?: string;
-    };
-  };
-};
+import { getRegionDisplayName } from "@/utils/recordingTags";
 
 type LocationState = { from?: string };
 
@@ -56,7 +23,6 @@ export default function RecordingDetailPage() {
   const location = useLocation();
   const returnTo = (location.state as LocationState | undefined)?.from;
   const [recording, setRecording] = useState<Recording | null>(null);
-  const [localRecordingData, setLocalRecordingData] = useState<LocalRecordingStorage | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -67,105 +33,6 @@ export default function RecordingDetailPage() {
 
   const fetchRecording = async (recordingId: string) => {
     try {
-      // First try to load from per-recording storage (single read → no OOM)
-      try {
-        const full = await getLocalRecordingFull(recordingId);
-        if (full) {
-          const migrated = migrateVideoDataToVideoData([full])[0];
-          const local = migrated as LocalRecordingStorage;
-          if (local) {
-            // Convert local recording to Recording format
-            const converted = {
-              id: local.id ?? "",
-              title: local.basicInfo?.title || local.title || "Không có tiêu đề",
-              titleVietnamese: local.titleVietnamese ?? "",
-              description: local.description ?? "",
-              ethnicity: local.ethnicity ?? {
-                id: "local",
-                name: local.culturalContext?.ethnicity || "Không xác định",
-                nameVietnamese: local.culturalContext?.ethnicity || "Không xác định",
-                region: getRegionFromVietnameseName(local.culturalContext?.region) ?? Region.RED_RIVER_DELTA, // Keep for ethnicity.region compatibility
-                recordingCount: 0,
-              },
-              region: (() => {
-                // Get region from local.region (if it's a Region enum) or from culturalContext.region (Vietnamese name)
-                if (local.region) {
-                  return local.region;
-                }
-                const mappedRegion = getRegionFromVietnameseName(local.culturalContext?.region);
-                if (mappedRegion) {
-                  return mappedRegion;
-                }
-                // No region from user, but Recording type requires a Region, so use RED_RIVER_DELTA as placeholder
-                // We'll check in display logic to show "Không xác định" instead
-                return Region.RED_RIVER_DELTA;
-              })(),
-              recordingType: (() => {
-                if (local.recordingType) return local.recordingType;
-                const key = local.culturalContext?.performanceType;
-                if (key === "instrumental") return RecordingType.INSTRUMENTAL;
-                if (key === "acappella" || key === "vocal_accompaniment") return RecordingType.VOCAL;
-                return RecordingType.OTHER;
-              })(),
-              duration: local.file?.duration ?? local.duration ?? 0,
-              audioUrl: local.audioUrl ?? local.audioData ?? "",
-              waveformUrl: local.waveformUrl ?? "",
-              coverImage: local.coverImage ?? "",
-              instruments: (local.instruments && local.instruments.length > 0)
-                ? local.instruments
-                : (local.culturalContext?.instruments ?? []).map((name, i) => ({
-                    id: `inst-${i}`,
-                    name,
-                    nameVietnamese: name,
-                    category: InstrumentCategory.IDIOPHONE,
-                    images: [],
-                    recordingCount: 0,
-                  })),
-              performers: local.performers ?? [],
-              recordedDate: local.recordedDate ?? "",
-              uploadedDate: local.uploadedDate ?? local.uploadedAt ?? new Date().toISOString(),
-              uploader: typeof local.uploader === "object" && local.uploader !== null ? {
-                id: local.uploader?.id ?? "local-user",
-                username: local.uploader?.username ?? "Bạn",
-                email: local.uploader?.email ?? "",
-                fullName: local.uploader?.fullName ?? local.uploader?.username ?? "Người đóng góp",
-                role: (typeof local.uploader?.role === "string" ? local.uploader?.role : UserRole.USER) as UserRole,
-                createdAt: local.uploader?.createdAt ?? new Date().toISOString(),
-                updatedAt: local.uploader?.updatedAt ?? new Date().toISOString(),
-              } : {
-                id: "local-user",
-                username: "Bạn",
-                email: "",
-                fullName: "Người đóng góp",
-                role: UserRole.USER,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              },
-              tags: (local.tags && local.tags.length > 0) ? local.tags : buildTagsFromLocal(local),
-              metadata: {
-                ...local.metadata,
-                recordingQuality: local.metadata?.recordingQuality ?? RecordingQuality.FIELD_RECORDING,
-                lyrics: local.metadata?.lyrics ?? "",
-              },
-              verificationStatus: local.verificationStatus ?? VerificationStatus.PENDING,
-              verifiedBy: local.verifiedBy ?? undefined,
-              viewCount: local.viewCount ?? 0,
-              likeCount: local.likeCount ?? 0,
-              downloadCount: local.downloadCount ?? 0,
-            } as Recording;
-            (converted as RecordingWithLocalData)._originalLocalData = local;
-            setLocalRecordingData(local);
-            setRecording(converted);
-            setLoading(false);
-            return;
-          }
-        }
-      } catch (localError) {
-        console.error("Error loading local recording:", localError);
-      }
-
-      // If not found in IndexedDB, try API
-      setLocalRecordingData(null);
       const response = await recordingService.getRecordingById(recordingId);
       setRecording(response.data);
     } catch (error) {
@@ -216,72 +83,8 @@ export default function RecordingDetailPage() {
             <div className="mb-6">
               <div>
                 {(() => {
-                  // Use already-loaded local data to avoid OOM (no sync getItem of full list)
-                  const local = localRecordingData;
-                  if (local) {
-                    let mediaSrc: string | undefined;
-                    let isVideo = false;
-
-                    // Check YouTube URL first
-                    if (local.mediaType === "youtube" && local.youtubeUrl && local.youtubeUrl.trim()) {
-                      mediaSrc = local.youtubeUrl.trim();
-                      isVideo = true;
-                    } else if (local.youtubeUrl && typeof local.youtubeUrl === 'string' && local.youtubeUrl.trim() && isYouTubeUrl(local.youtubeUrl)) {
-                      mediaSrc = local.youtubeUrl.trim();
-                      isVideo = true;
-                    }
-                    // Check video data
-                    else if (local.mediaType === "video" && local.videoData && typeof local.videoData === 'string' && local.videoData.trim().length > 0) {
-                      mediaSrc = local.videoData;
-                      isVideo = true;
-                    }
-                    // Check audio data
-                    else if (local.mediaType === "audio" && local.audioData && typeof local.audioData === 'string' && local.audioData.trim().length > 0) {
-                      mediaSrc = local.audioData;
-                      isVideo = false;
-                    }
-                    // Fallback: try to detect from data
-                    else if (local.videoData && typeof local.videoData === 'string' && local.videoData.trim().length > 0) {
-                      mediaSrc = local.videoData;
-                      isVideo = true;
-                    } else if (local.audioData && typeof local.audioData === 'string' && local.audioData.trim().length > 0) {
-                      mediaSrc = local.audioData;
-                      if (mediaSrc.startsWith('data:video/')) {
-                        isVideo = true;
-                      } else {
-                        isVideo = false;
-                      }
-                    }
-
-                    if (mediaSrc) {
-                      const artistName = local.basicInfo?.artist || recording.performers?.[0]?.name;
-                      if (isVideo) {
-                        return (
-                          <VideoPlayer
-                            src={mediaSrc}
-                            title={recording.title}
-                            artist={artistName}
-                            recording={recording}
-                            showContainer={true}
-                          />
-                        );
-                      } else {
-                        return (
-                          <AudioPlayer
-                            src={mediaSrc}
-                            title={recording.title}
-                            artist={artistName}
-                            recording={recording}
-                            showContainer={true}
-                          />
-                        );
-                      }
-                    }
-                  }
-
-                  // Fallback: use audioUrl from recording
                   if (recording.audioUrl) {
-                    const isVideo = isYouTubeUrl(recording.audioUrl) || recording.audioUrl.startsWith('data:video/');
+                    const isVideo = isYouTubeUrl(recording.audioUrl) || recording.audioUrl.match(/\.(mp4|mov|avi|webm|mkv|mpeg|mpg|wmv|3gp|flv)$/i) || recording.audioUrl.startsWith('data:video/');
                     if (isVideo) {
                       return (
                         <VideoPlayer
@@ -448,7 +251,7 @@ export default function RecordingDetailPage() {
                 <div>
                   <dt className="text-sm text-neutral-500">Vùng miền</dt>
                   <dd className="font-medium text-neutral-900">
-                    {getRegionDisplayName(recording.region, (recording as RecordingWithLocalData)._originalLocalData)}
+                    {getRegionDisplayName(recording.region, undefined)}
                   </dd>
                 </div>
                 <div>
@@ -542,7 +345,7 @@ export default function RecordingDetailPage() {
               }
 
               // Region tag: "Không xác định" when contributor did not select region in UploadMusic
-              const regionName = getRegionDisplayName(recording.region, (recording as RecordingWithLocalData)._originalLocalData);
+              const regionName = getRegionDisplayName(recording.region, undefined);
 
               allTags.push(
                 <Badge key="region" variant="secondary" className="inline-flex items-center gap-1">

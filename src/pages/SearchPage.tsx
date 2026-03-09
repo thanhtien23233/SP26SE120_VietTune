@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Search, Sparkles, Download } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
-import { Recording, SearchFilters, Region, RecordingType, VerificationStatus, RecordingQuality, UserRole, InstrumentCategory } from "@/types";
+import { Recording, SearchFilters, Region, RecordingType, VerificationStatus } from "@/types";
 import { recordingService } from "@/services/recordingService";
 import AudioPlayer from "@/components/features/AudioPlayer";
 import VideoPlayer from "@/components/features/VideoPlayer";
@@ -10,147 +10,6 @@ import { isYouTubeUrl } from "@/utils/youtube";
 import SearchBar from "@/components/features/SearchBar";
 import Pagination from "@/components/common/Pagination";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
-import { migrateVideoDataToVideoData } from "@/utils/helpers";
-import { getLocalRecordingMetaList, getLocalRecordingFull, removeLocalRecording } from "@/services/recordingStorage";
-
-import type { LocalRecording } from "@/types";
-import { buildTagsFromLocal, PERFORMANCE_KEY_TO_LABEL } from "@/utils/recordingTags";
-
-// Extended Recording type that may include original local data
-type RecordingWithLocalData = Recording & {
-  _originalLocalData?: LocalRecording & {
-    culturalContext?: {
-      region?: string;
-    };
-  };
-};
-
-// Helper function to get audio duration from data URL
-const getAudioDuration = (audioDataUrl: string): Promise<number> => {
-  return new Promise((resolve) => {
-    const audio = new Audio();
-    audio.addEventListener("loadedmetadata", () => {
-      resolve(Math.floor(audio.duration));
-    });
-    audio.addEventListener("error", () => {
-      resolve(0); // Return 0 if error loading
-    });
-    audio.src = audioDataUrl;
-  });
-};
-
-// Convert LocalRecording to Recording format for display (async to get duration)
-const convertLocalToRecording = async (
-  local: LocalRecording,
-): Promise<Recording> => {
-  // Get actual duration - only for audio files
-  let duration = 0;
-  const isVideo = local.mediaType === "video" || local.mediaType === "youtube";
-
-  if (!isVideo && local.audioData) {
-    duration = await getAudioDuration(local.audioData);
-  }
-
-  // VideoPlayer CHỈ nhận videoData hoặc YouTubeURL, AudioPlayer CHỈ nhận audioData
-  let mediaSrc: string | undefined;
-
-  // Kiểm tra YouTube URL trước (cho VideoPlayer)
-  if (local.mediaType === "youtube" && local.youtubeUrl && local.youtubeUrl.trim()) {
-    mediaSrc = local.youtubeUrl.trim();
-  } else if (local.youtubeUrl && typeof local.youtubeUrl === 'string' && local.youtubeUrl.trim() && isYouTubeUrl(local.youtubeUrl)) {
-    mediaSrc = local.youtubeUrl.trim();
-  }
-  // Nếu là video, CHỈ dùng videoData (không fallback về audioData)
-  else if (local.mediaType === "video") {
-    if (local.videoData && typeof local.videoData === 'string' && local.videoData.trim().length > 0) {
-      mediaSrc = local.videoData;
-    }
-    // Không fallback về audioData - VideoPlayer chỉ phát videoData
-  }
-  // Nếu là audio, CHỈ dùng audioData
-  else if (local.mediaType === "audio") {
-    if (local.audioData && typeof local.audioData === 'string' && local.audioData.trim().length > 0) {
-      mediaSrc = local.audioData;
-    }
-  }
-  // Nếu mediaType chưa được set, thử phát hiện từ dữ liệu có sẵn
-  else {
-    // Ưu tiên videoData nếu có
-    if (local.videoData && typeof local.videoData === 'string' && local.videoData.trim().length > 0) {
-      mediaSrc = local.videoData;
-    }
-    // Sau đó thử audioData
-    else if (local.audioData && typeof local.audioData === 'string' && local.audioData.trim().length > 0) {
-      mediaSrc = local.audioData;
-    }
-  }
-
-  const isApproved = local.moderation?.status === "APPROVED";
-
-  return {
-    id: local.id ?? "local-" + Math.random().toString(36).slice(2),
-    title: local.basicInfo?.title || local.title || "Không có tiêu đề",
-    titleVietnamese: local.basicInfo?.title || local.title || "Không có tiêu đề",
-    description: local.description || `Bản thu được tải lên từ thiết bị của bạn`,
-    ethnicity: local.ethnicity ?? {
-      id: "local",
-      name: "Không xác định",
-      nameVietnamese: "Không xác định",
-      region: Region.RED_RIVER_DELTA,
-      recordingCount: 0,
-    },
-    region: local.region ?? Region.RED_RIVER_DELTA,
-    recordingType: (() => {
-      if (local.recordingType) return local.recordingType;
-      const key = (local as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType;
-      if (key === "instrumental") return RecordingType.INSTRUMENTAL;
-      if (key === "acappella" || key === "vocal_accompaniment") return RecordingType.VOCAL;
-      return RecordingType.OTHER;
-    })(),
-    duration: local.duration ?? duration,
-    audioUrl: local.audioUrl ?? mediaSrc ?? "",
-    instruments: (local.instruments && local.instruments.length > 0)
-      ? local.instruments
-      : ((local as LocalRecording & { culturalContext?: { instruments?: string[] } }).culturalContext?.instruments ?? []).map((name, i) => ({
-        id: `inst-${i}`,
-        name,
-        nameVietnamese: name,
-        category: InstrumentCategory.IDIOPHONE,
-        images: [],
-        recordingCount: 0,
-      })),
-    performers: local.performers ?? [],
-    uploadedDate: local.uploadedDate ?? new Date().toISOString(),
-    uploader: typeof local.uploader === "object" && local.uploader !== null ? {
-      id: local.uploader?.id ?? "local-user",
-      username: local.uploader?.username ?? "Bạn",
-      email: local.uploader?.email ?? "",
-      fullName: local.uploader?.fullName ?? local.uploader?.username ?? "Người tải lên",
-      role: (typeof local.uploader?.role === "string" ? local.uploader?.role : UserRole.USER) as UserRole,
-      createdAt: local.uploader?.createdAt ?? new Date().toISOString(),
-      updatedAt: local.uploader?.updatedAt ?? new Date().toISOString(),
-    } : {
-      id: "local-user",
-      username: "Bạn",
-      email: "",
-      fullName: "Người tải lên",
-      role: UserRole.USER,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    tags: buildTagsFromLocal(local),
-    metadata: {
-      ...local.metadata,
-      recordingQuality: local.metadata?.recordingQuality ?? RecordingQuality.FIELD_RECORDING,
-      lyrics: local.metadata?.lyrics ?? "",
-    },
-    verificationStatus: local.verificationStatus ?? (isApproved ? VerificationStatus.VERIFIED : VerificationStatus.PENDING),
-    viewCount: local.viewCount ?? 0,
-    likeCount: local.likeCount ?? 0,
-    downloadCount: local.downloadCount ?? 0,
-    _originalLocalData: local,
-  } as Recording & { _originalLocalData?: LocalRecording };
-};
 
 // Build SearchFilters from URL search params (restore filter state from shareable links)
 function filtersFromSearchParams(searchParams: URLSearchParams): SearchFilters {
@@ -205,7 +64,6 @@ export default function SearchPage() {
   );
 
   const [recordings, setRecordings] = useState<Recording[]>([]);
-  const [localRecordingsList, setLocalRecordingsList] = useState<LocalRecording[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(() => Object.keys(initialFiltersFromUrl).length > 0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -216,8 +74,8 @@ export default function SearchPage() {
   const fetchRecordings = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch API recordings
-      let response;
+      type ApiResponseType = { items: Recording[]; total: number; totalPages: number };
+      let response: any;
       if (Object.keys(filters).length > 0) {
         response = await recordingService.searchRecordings(
           filters,
@@ -228,298 +86,24 @@ export default function SearchPage() {
         response = await recordingService.getRecordings(currentPage, 20);
       }
 
-      // Load local recordings (meta only for list → then full only for approved → no OOM)
-      const metaList = await getLocalRecordingMetaList();
-      const migrated = migrateVideoDataToVideoData(metaList);
-      let approvedLocalRecordings = migrated.filter(
-        (r) => r.moderation?.status === "APPROVED",
-      );
-
-      // Apply filters to local recordings
-      if (Object.keys(filters).length > 0) {
-        approvedLocalRecordings = approvedLocalRecordings.filter((r) => {
-          // Filter by query (search in title, artist, genre)
-          if (filters.query) {
-            const queryLower = filters.query.toLowerCase();
-            const titleMatch = (r.basicInfo?.title || r.title || "").toLowerCase().includes(queryLower);
-            const artistMatch = (r.basicInfo?.artist || "").toLowerCase().includes(queryLower);
-            const genreMatch = (r.basicInfo?.genre || "").toLowerCase().includes(queryLower);
-            const tagsMatch = (r.tags || []).some(tag => tag.toLowerCase().includes(queryLower));
-            if (!titleMatch && !artistMatch && !genreMatch && !tagsMatch) {
-              return false;
-            }
-          }
-
-          // Filter by tags (genres, instruments, eventType, province, ethnicity, region, performanceType)
-          if (filters.tags && filters.tags.length > 0) {
-            const perfLabel = r.culturalContext?.performanceType
-              ? (PERFORMANCE_KEY_TO_LABEL[r.culturalContext.performanceType] ?? r.culturalContext.performanceType)
-              : "";
-            const recordingTags = [
-              ...(r.basicInfo?.genre ? [r.basicInfo.genre] : []),
-              ...(r.tags || []),
-              ...(r.culturalContext?.instruments || []),
-              ...(r.culturalContext?.eventType ? [r.culturalContext.eventType] : []),
-              ...(r.culturalContext?.province ? [r.culturalContext.province] : []),
-              ...(r.culturalContext?.ethnicity ? [r.culturalContext.ethnicity] : []),
-              ...(r.culturalContext?.region ? [r.culturalContext.region] : []),
-              ...(perfLabel ? [perfLabel] : []),
-            ];
-            const hasMatchingTag = filters.tags.some(filterTag =>
-              recordingTags.some(recordingTag =>
-                recordingTag.toLowerCase().includes(filterTag.toLowerCase()) ||
-                filterTag.toLowerCase().includes(recordingTag.toLowerCase())
-              )
-            );
-            if (!hasMatchingTag) {
-              return false;
-            }
-          }
-
-          // Filter by region
-          if (filters.regions && filters.regions.length > 0) {
-            if (!r.region || !filters.regions.includes(r.region)) {
-              // Also check culturalContext.region (Vietnamese name)
-              if (r.culturalContext?.region) {
-                const regionMap: Record<string, Region> = {
-                  "Trung du và miền núi Bắc Bộ": Region.NORTHERN_MOUNTAINS,
-                  "Đồng bằng Bắc Bộ": Region.RED_RIVER_DELTA,
-                  "Bắc Trung Bộ": Region.NORTH_CENTRAL,
-                  "Nam Trung Bộ": Region.SOUTH_CENTRAL_COAST,
-                  "Cao nguyên Trung Bộ": Region.CENTRAL_HIGHLANDS,
-                  "Đông Nam Bộ": Region.SOUTHEAST,
-                  "Tây Nam Bộ": Region.MEKONG_DELTA,
-                };
-                const mappedRegion = regionMap[r.culturalContext.region];
-                if (!mappedRegion || !filters.regions.includes(mappedRegion)) {
-                  return false;
-                }
-              } else {
-                return false;
-              }
-            }
-          }
-
-          // Filter by recording type (derive from culturalContext.performanceType for local recordings)
-          if (filters.recordingTypes && filters.recordingTypes.length > 0) {
-            const effectiveType = r.recordingType ?? (
-              (r as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType === "instrumental"
-                ? RecordingType.INSTRUMENTAL
-                : (r as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType === "acappella" ||
-                  (r as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType === "vocal_accompaniment"
-                  ? RecordingType.VOCAL
-                  : null
-            );
-            if (!effectiveType || !filters.recordingTypes.includes(effectiveType)) {
-              return false;
-            }
-          }
-
-          // Filter by verification status
-          if (filters.verificationStatus && filters.verificationStatus.length > 0) {
-            const isVerified = r.moderation?.status === "APPROVED";
-            const hasMatchingStatus = filters.verificationStatus.some(status => {
-              if (status === VerificationStatus.VERIFIED && isVerified) return true;
-              if (status === VerificationStatus.PENDING && !isVerified) return true;
-              return false;
-            });
-            if (!hasMatchingStatus) {
-              return false;
-            }
-          }
-
-          // Filter by date range
-          if (filters.dateFrom || filters.dateTo) {
-            const recordingDate = r.basicInfo?.recordingDate || r.recordedDate;
-            if (recordingDate) {
-              const date = new Date(recordingDate);
-              if (filters.dateFrom && date < new Date(filters.dateFrom)) {
-                return false;
-              }
-              if (filters.dateTo && date > new Date(filters.dateTo)) {
-                return false;
-              }
-            } else {
-              // If no date and filters require date, exclude
-              if (filters.dateFrom || filters.dateTo) {
-                return false;
-              }
-            }
-          }
-
-          return true;
-        });
-      }
-
-      // Load full data only for approved locals (for playback and duration) — no OOM
-      const fullApproved = await Promise.all(
-        approvedLocalRecordings.map((r) => getLocalRecordingFull(r.id ?? "")),
-      );
-      const fullList = fullApproved.filter((r): r is LocalRecording => r != null);
-      setLocalRecordingsList(fullList);
-
-      // Convert local recordings to Recording format (async to get durations)
-      const convertedLocalRecordings = await Promise.all(
-        fullList.map(convertLocalToRecording),
-      );
-
-      // Merge: put local recordings first, then API recordings (defensive checks in case API returns unexpected shape)
-      type ApiResponseType = { items: Recording[]; total: number; totalPages: number };
       const apiItems = response && Array.isArray((response as ApiResponseType).items)
         ? (response as ApiResponseType).items
         : [];
-      const allRecordings = [...convertedLocalRecordings, ...apiItems];
 
-      setRecordings(allRecordings);
+      setRecordings(apiItems);
       setTotalPages((response as ApiResponseType)?.totalPages ?? 1);
       const apiTotal = (response && typeof (response as ApiResponseType).total === 'number')
         ? (response as ApiResponseType).total
         : apiItems.length;
-      setTotalResults(apiTotal + fullList.length);
+      setTotalResults(apiTotal);
     } catch (error) {
       console.error("Error fetching recordings:", error);
-
-      // Even if API fails, try to show local recordings (per-recording storage → no OOM)
-      try {
-        const metaList = await getLocalRecordingMetaList();
-        const migrated = migrateVideoDataToVideoData(metaList);
-        let approvedLocalRecordings = migrated.filter(
-          (r) => r.moderation?.status === "APPROVED",
-        );
-
-        // Apply filters to local recordings (same logic as above)
-        if (Object.keys(filters).length > 0) {
-          approvedLocalRecordings = approvedLocalRecordings.filter((r) => {
-            if (filters.query) {
-              const queryLower = filters.query.toLowerCase();
-              const titleMatch = (r.basicInfo?.title || r.title || "").toLowerCase().includes(queryLower);
-              const artistMatch = (r.basicInfo?.artist || "").toLowerCase().includes(queryLower);
-              const genreMatch = (r.basicInfo?.genre || "").toLowerCase().includes(queryLower);
-              const tagsMatch = (r.tags || []).some(tag => tag.toLowerCase().includes(queryLower));
-              if (!titleMatch && !artistMatch && !genreMatch && !tagsMatch) {
-                return false;
-              }
-            }
-
-            if (filters.tags && filters.tags.length > 0) {
-              const perfLabel = r.culturalContext?.performanceType
-                ? (PERFORMANCE_KEY_TO_LABEL[r.culturalContext.performanceType] ?? r.culturalContext.performanceType)
-                : "";
-              const recordingTags = [
-                ...(r.basicInfo?.genre ? [r.basicInfo.genre] : []),
-                ...(r.tags || []),
-                ...(r.culturalContext?.instruments || []),
-                ...(r.culturalContext?.eventType ? [r.culturalContext.eventType] : []),
-                ...(r.culturalContext?.province ? [r.culturalContext.province] : []),
-                ...(r.culturalContext?.ethnicity ? [r.culturalContext.ethnicity] : []),
-                ...(r.culturalContext?.region ? [r.culturalContext.region] : []),
-                ...(perfLabel ? [perfLabel] : []),
-              ];
-              const hasMatchingTag = filters.tags.some(filterTag =>
-                recordingTags.some(recordingTag =>
-                  recordingTag.toLowerCase().includes(filterTag.toLowerCase()) ||
-                  filterTag.toLowerCase().includes(recordingTag.toLowerCase())
-                )
-              );
-              if (!hasMatchingTag) {
-                return false;
-              }
-            }
-
-            if (filters.regions && filters.regions.length > 0) {
-              if (!r.region || !filters.regions.includes(r.region)) {
-                if (r.culturalContext?.region) {
-                  const regionMap: Record<string, Region> = {
-                    "Trung du và miền núi Bắc Bộ": Region.NORTHERN_MOUNTAINS,
-                    "Đồng bằng Bắc Bộ": Region.RED_RIVER_DELTA,
-                    "Bắc Trung Bộ": Region.NORTH_CENTRAL,
-                    "Nam Trung Bộ": Region.SOUTH_CENTRAL_COAST,
-                    "Cao nguyên Trung Bộ": Region.CENTRAL_HIGHLANDS,
-                    "Đông Nam Bộ": Region.SOUTHEAST,
-                    "Tây Nam Bộ": Region.MEKONG_DELTA,
-                  };
-                  const mappedRegion = regionMap[r.culturalContext.region];
-                  if (!mappedRegion || !filters.regions.includes(mappedRegion)) {
-                    return false;
-                  }
-                } else {
-                  return false;
-                }
-              }
-            }
-
-            if (filters.recordingTypes && filters.recordingTypes.length > 0) {
-              const effectiveType = r.recordingType ?? (
-                (r as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType === "instrumental"
-                  ? RecordingType.INSTRUMENTAL
-                  : (r as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType === "acappella" ||
-                    (r as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType === "vocal_accompaniment"
-                    ? RecordingType.VOCAL
-                    : null
-              );
-              if (!effectiveType || !filters.recordingTypes.includes(effectiveType)) {
-                return false;
-              }
-            }
-
-            if (filters.verificationStatus && filters.verificationStatus.length > 0) {
-              const isVerified = r.moderation?.status === "APPROVED";
-              const hasMatchingStatus = filters.verificationStatus.some(status => {
-                if (status === VerificationStatus.VERIFIED && isVerified) return true;
-                if (status === VerificationStatus.PENDING && !isVerified) return true;
-                return false;
-              });
-              if (!hasMatchingStatus) {
-                return false;
-              }
-            }
-
-            if (filters.dateFrom || filters.dateTo) {
-              const recordingDate = r.basicInfo?.recordingDate || r.recordedDate;
-              if (recordingDate) {
-                const date = new Date(recordingDate);
-                if (filters.dateFrom && date < new Date(filters.dateFrom)) {
-                  return false;
-                }
-                if (filters.dateTo && date > new Date(filters.dateTo)) {
-                  return false;
-                }
-              } else {
-                if (filters.dateFrom || filters.dateTo) {
-                  return false;
-                }
-              }
-            }
-
-            return true;
-          });
-        }
-
-        const fullApproved = await Promise.all(
-          approvedLocalRecordings.map((r) => getLocalRecordingFull(r.id ?? "")),
-        );
-        const fullList = fullApproved.filter((r): r is LocalRecording => r != null);
-        setLocalRecordingsList(fullList);
-        const convertedLocalRecordings = await Promise.all(
-          fullList.map(convertLocalToRecording),
-        );
-        setRecordings(convertedLocalRecordings);
-        setTotalResults(fullList.length);
-      } catch (localError) {
-        console.error("Error loading local recordings:", localError);
-      }
+      setRecordings([]);
+      setTotalResults(0);
     } finally {
       setLoading(false);
     }
   }, [currentPage, filters]);
-
-  const handleDeleteRecording = async (id: string) => {
-    const updated = recordings.filter((rec) => rec.id !== id);
-    setRecordings(updated);
-    await removeLocalRecording(id);
-    setLocalRecordingsList((prev) => prev.filter((r) => r.id !== id));
-    setTotalResults((prev) => Math.max(0, prev - 1));
-  };
 
   useEffect(() => {
     if (hasSearched) {
@@ -641,126 +225,6 @@ export default function SearchPage() {
                 <div className="space-y-4 mb-8">
                   {recordings.map((recording, idx) => {
                     try {
-                      // Check if this is a local recording (guard audioUrl access)
-                      const isLocalRecording =
-                        recording.uploader?.id === "local-user" ||
-                        (typeof recording.audioUrl === "string" && recording.audioUrl.startsWith("data:audio"));
-
-                      // Use in-memory list (loaded once per fetch) to avoid OOM from large storage
-                      const localRecordingData = isLocalRecording
-                        ? localRecordingsList.find((r) => r.id === recording.id)
-                        : undefined;
-
-                      // Delete handler for local recordings
-                      const handleDelete = isLocalRecording ? handleDeleteRecording : undefined;
-
-                      // Use LocalRecording data directly like HomePage.tsx
-                      if (localRecordingData) {
-                        // Determine media source
-                        let mediaSrc: string | undefined;
-                        if (localRecordingData.mediaType === "youtube" && localRecordingData.youtubeUrl) {
-                          mediaSrc = localRecordingData.youtubeUrl;
-                        } else if (localRecordingData.mediaType === "video") {
-                          // VideoPlayer CHỈ nhận videoData, không fallback về audioData
-                          if (localRecordingData.videoData && typeof localRecordingData.videoData === 'string' && localRecordingData.videoData.trim().length > 0) {
-                            mediaSrc = localRecordingData.videoData;
-                          }
-                        } else if (localRecordingData.mediaType === "audio") {
-                          // AudioPlayer CHỈ nhận audioData
-                          if (localRecordingData.audioData && typeof localRecordingData.audioData === 'string' && localRecordingData.audioData.trim().length > 0) {
-                            mediaSrc = localRecordingData.audioData;
-                          }
-                        } else if (localRecordingData.audioData) {
-                          // Fallback cho trường hợp mediaType chưa được set
-                          mediaSrc = localRecordingData.audioData;
-                        }
-
-                        // Determine if it's video/YouTube
-                        let isVideo = false;
-                        if (localRecordingData.mediaType === "video" || localRecordingData.mediaType === "youtube") {
-                          isVideo = true;
-                        } else if (mediaSrc && (isYouTubeUrl(mediaSrc) || (typeof mediaSrc === 'string' && mediaSrc.startsWith('data:video/')))) {
-                          isVideo = true;
-                        }
-
-                        if (!mediaSrc) {
-                          return null;
-                        }
-
-                        // Convert LocalRecording to Recording for type safety
-                        const convertedRecording = {
-                          id: localRecordingData.id ?? "local-" + Math.random().toString(36).slice(2),
-                          title: localRecordingData.basicInfo?.title || localRecordingData.title || "Không có tiêu đề",
-                          titleVietnamese: localRecordingData.basicInfo?.title || localRecordingData.title || "Không có tiêu đề",
-                          description: localRecordingData.description || `Bản thu được tải lên từ thiết bị của bạn`,
-                          ethnicity: localRecordingData.ethnicity ?? {
-                            id: "local",
-                            name: "Không xác định",
-                            nameVietnamese: "Không xác định",
-                            region: Region.RED_RIVER_DELTA,
-                            recordingCount: 0,
-                          },
-                          region: localRecordingData.region ?? Region.RED_RIVER_DELTA,
-                          recordingType: localRecordingData.recordingType ?? RecordingType.OTHER,
-                          duration: localRecordingData.duration ?? 0,
-                          audioUrl: localRecordingData.audioUrl ?? mediaSrc ?? "",
-                          instruments: localRecordingData.instruments ?? [],
-                          performers: localRecordingData.performers ?? [],
-                          uploadedDate: localRecordingData.uploadedDate ?? new Date().toISOString(),
-                          uploader: typeof localRecordingData.uploader === "object" && localRecordingData.uploader !== null ? {
-                            id: localRecordingData.uploader?.id ?? "local-user",
-                            username: localRecordingData.uploader?.username ?? "Bạn",
-                            email: localRecordingData.uploader?.email ?? "",
-                            fullName: localRecordingData.uploader?.fullName ?? localRecordingData.uploader?.username ?? "Người tải lên",
-                            role: (typeof localRecordingData.uploader?.role === "string" ? localRecordingData.uploader?.role : UserRole.USER) as UserRole,
-                            createdAt: localRecordingData.uploader?.createdAt ?? new Date().toISOString(),
-                            updatedAt: localRecordingData.uploader?.updatedAt ?? new Date().toISOString(),
-                          } : {
-                            id: "local-user",
-                            username: "Bạn",
-                            email: "",
-                            fullName: "Người tải lên",
-                            role: UserRole.USER,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                          },
-                          tags: buildTagsFromLocal(localRecordingData),
-                          metadata: {
-                            ...localRecordingData.metadata,
-                            recordingQuality: localRecordingData.metadata?.recordingQuality ?? RecordingQuality.FIELD_RECORDING,
-                            lyrics: localRecordingData.metadata?.lyrics ?? "",
-                          },
-                          verificationStatus: localRecordingData.verificationStatus ?? (localRecordingData.moderation?.status === "APPROVED" ? VerificationStatus.VERIFIED : VerificationStatus.PENDING),
-                          viewCount: localRecordingData.viewCount ?? 0,
-                          likeCount: localRecordingData.likeCount ?? 0,
-                          downloadCount: localRecordingData.downloadCount ?? 0,
-                          _originalLocalData: localRecordingData,
-                        } as RecordingWithLocalData;
-
-                        return isVideo ? (
-                          <VideoPlayer
-                            key={recording.id || `local-${idx}`}
-                            src={mediaSrc}
-                            title={localRecordingData.basicInfo?.title || localRecordingData.title || "Không có tiêu đề"}
-                            artist={localRecordingData.basicInfo?.artist}
-                            recording={convertedRecording}
-                            showContainer={true}
-                            returnTo={returnTo}
-                          />
-                        ) : (
-                          <AudioPlayer
-                            key={recording.id || `local-${idx}`}
-                            src={mediaSrc}
-                            title={localRecordingData.basicInfo?.title || localRecordingData.title || "Không có tiêu đề"}
-                            artist={localRecordingData.basicInfo?.artist}
-                            recording={convertedRecording}
-                            onDelete={handleDelete}
-                            showContainer={true}
-                            returnTo={returnTo}
-                          />
-                        );
-                      }
-
                       // For API recordings, check if it's video/YouTube
                       const apiSrc = typeof recording.audioUrl === "string" ? recording.audioUrl : "";
                       const isApiVideo = apiSrc && (isYouTubeUrl(apiSrc) || apiSrc.match(/\.(mp4|mov|avi|webm|mkv|mpeg|mpg|wmv|3gp|flv)$/i));

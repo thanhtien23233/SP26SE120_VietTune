@@ -6,9 +6,7 @@ import { Recording } from "@/types";
 import { recordingService } from "@/services/recordingService";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import RecordingCard from "@/components/features/RecordingCard";
-import { getLocalRecordingMetaList, getLocalRecordingFull } from "@/services/recordingStorage";
-import { migrateVideoDataToVideoData } from "@/utils/helpers";
-import { convertLocalToRecording } from "@/utils/localRecordingToRecording";
+
 
 const SUGGESTED_QUERIES = [
   "dân ca quan họ Bắc Ninh",
@@ -95,21 +93,11 @@ export default function SemanticSearchPage() {
       try {
         const res = await recordingService.getRecordings(1, 500);
         apiItems = Array.isArray(res?.items) ? res.items : [];
-      } catch {
-        // API unavailable: continue with local only
+      } catch (err) {
+        console.error("Failed to fetch recordings for semantic search:", err);
       }
       if (cancelled) return;
-      try {
-        const metaList = await getLocalRecordingMetaList();
-        const migrated = migrateVideoDataToVideoData(metaList);
-        const approved = migrated.filter((r) => r.moderation?.status === "APPROVED");
-        const fullList = await Promise.all(approved.map((r) => getLocalRecordingFull(r.id ?? "")));
-        const valid = fullList.filter((r): r is NonNullable<typeof r> => r != null);
-        const converted = await Promise.all(valid.map(convertLocalToRecording));
-        setAllRecordings([...converted, ...apiItems]);
-      } catch {
-        setAllRecordings(apiItems);
-      }
+      setAllRecordings(apiItems);
     };
     load();
     return () => {
