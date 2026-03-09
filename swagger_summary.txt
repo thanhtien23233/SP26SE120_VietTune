@@ -40,7 +40,8 @@ GET /api/AuditLog/{id}
 PUT /api/AuditLog/{id}
 DELETE /api/AuditLog/{id}
 POST /api/Auth/login
-POST /api/Auth/register
+POST /api/Auth/register-contributor
+POST /api/Auth/register-researcher
 GET /api/Auth/confirm-email
 POST /api/Auth/forgot-password
 POST /api/Auth/reset-password
@@ -129,6 +130,7 @@ POST /api/Recording
 GET /api/Recording/{id}
 PUT /api/Recording/{id}
 DELETE /api/Recording/{id}
+PUT /api/Recording/{id}/upload
 GET /api/RecordingImage
 POST /api/RecordingImage
 GET /api/RecordingImage/{id}
@@ -181,14 +183,12 @@ GET /api/Song/recent
 GET /api/Song/popular
 GET /api/Song/by-ethnic-group/{id}
 GET /api/Song/by-genre/{id}
+GET /api/Submission/get-by-status
 POST /api/Submission/create-submission
 GET /api/Submission/my
 GET /api/Submission/{id}
-PUT /api/Submission/{id}
 DELETE /api/Submission/{id}
-GET /api/Submission/stage/{stage}
-GET /api/Submission/recent
-GET /api/Submission/paginated
+GET /api/Submission/get-all
 GET /api/SubmissionVersion
 POST /api/SubmissionVersion
 GET /api/SubmissionVersion/{id}

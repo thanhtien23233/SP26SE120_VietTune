@@ -39,6 +39,20 @@ export const recordingService = {
     return api.put<ApiResponse<Recording>>(`/Recording/${id}`, data);
   },
 
+  // Create submission (backend: POST /api/Submission/create-submission)
+  createSubmission: async (data: { audioFileUrl: string; uploadedById: string }) => {
+    return api.post<{
+      isSuccess: boolean;
+      message: string;
+      data: {
+        audioFileUrl: string;
+        uploadedById: string;
+        submissionId: string;
+        recordingId: string;
+      };
+    }>('/Submission/create-submission', data);
+  },
+
   // Delete recording (backend: DELETE /api/Recording/{id})
   deleteRecording: async (id: string) => {
     return api.delete<ApiResponse<void>>(`/Recording/${id}`);

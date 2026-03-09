@@ -11,7 +11,7 @@ import { sessionGetItem } from "@/services/storageService";
 import { getLocalRecordingFull } from "@/services/recordingStorage";
 import { suggestMetadata } from "@/services/metadataSuggestService";
 import { getAddressFromCoordinates } from "@/services/geocodeService";
-import { referenceDataService, type EthnicGroupItem, type CeremonyItem, type ProvinceItem, type DistrictItem, type CommuneItem, type VocalStyleItem, type MusicalScaleItem } from "@/services/referenceDataService";
+import { referenceDataService, type EthnicGroupItem, type CeremonyItem, type ProvinceItem, type DistrictItem, type CommuneItem, type VocalStyleItem, type MusicalScaleItem, type InstrumentItem } from "@/services/referenceDataService";
 import { uploadFileToSupabase } from "@/services/uploadService";
 import { recordingService } from "@/services/recordingService";
 import { REGION_NAMES } from "@/config/constants";
@@ -1757,6 +1757,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     sampleRate?: number;
   } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [createdRecordingId, setCreatedRecordingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
@@ -1804,6 +1806,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   const [EVENT_TYPES, setEVENT_TYPES] = useState<string[]>([]);
   const [ceremoniesData, setCeremoniesData] = useState<CeremonyItem[]>([]);
   const [INSTRUMENTS, setINSTRUMENTS] = useState<string[]>([]);
+  const [instrumentsData, setInstrumentsData] = useState<InstrumentItem[]>([]);
 
   // Administrative units mapping
   const [provincesData, setProvincesData] = useState<ProvinceItem[]>([]);
@@ -1842,6 +1845,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       try {
         const instrumentItems = await referenceDataService.getInstruments();
         if (!cancelled && instrumentItems.length > 0) {
+          setInstrumentsData(instrumentItems);
           // Use Set to remove any duplicate instrument names from the backend API
           setINSTRUMENTS(Array.from(new Set(instrumentItems.map((i) => i.name))));
         }
@@ -2153,6 +2157,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       }));
       setFile(null);
       setAudioInfo(null);
+      setCreatedRecordingId(null);
       setIsAnalyzing(false);
       cleanup();
     };
@@ -2278,7 +2283,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     const newErrors: Record<string, string> = {};
 
     if (uploadWizardStep === 1) {
@@ -2286,6 +2291,52 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         newErrors.file = mediaType === "audio"
           ? "Vui lòng chọn file âm thanh"
           : "Vui lòng chọn file video";
+      }
+
+      // Upload file right after Step 1 and call create-submission
+      if (Object.keys(newErrors).length === 0 && file && !createdRecordingId) {
+        setIsUploadingMedia(true);
+        setErrors((prev) => {
+          const next = { ...prev };
+          delete next.file;
+          return next;
+        });
+
+        try {
+          // Upload to Supabase first
+          const publicUrl = await uploadFileToSupabase(file);
+
+          if (!isEditMode) {
+            // New upload: Call create-submission API
+            const uploaderId = currentUser?.id?.length === 36 ? currentUser.id : "00000000-0000-0000-0007-000000000002";
+
+            const res = await recordingService.createSubmission({
+              audioFileUrl: publicUrl,
+              uploadedById: uploaderId
+            });
+
+            // Response shape: { isSuccess, data: { recordingId, submissionId, ... } }
+            const recordingId = res?.data?.recordingId;
+            if (recordingId) {
+              setCreatedRecordingId(recordingId);
+            } else {
+              throw new Error("Không nhận được ID bản thu từ hệ thống.");
+            }
+          } else {
+            // In Edit mode, just store a dummy ID to avoid re-uploading in same session
+            setCreatedRecordingId("EDIT_MODE_UPLOADED");
+          }
+        } catch (error: any) {
+          console.error("Lỗi khi tải lên file hoặc tạo bản thu:", error);
+          setErrors((prev) => ({
+            ...prev,
+            file: "Có lỗi khi tải lên. Vui lòng thử lại sau.",
+          }));
+          setIsUploadingMedia(false);
+          return; // Stop here, do not go to step 2
+        } finally {
+          setIsUploadingMedia(false);
+        }
       }
     } else if (uploadWizardStep === 2) {
       if (!title.trim()) newErrors.title = "Vui lòng nhập tiêu đề";
@@ -2550,30 +2601,17 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setSubmitStatus("idle");
     setSubmitMessage("");
 
+    const targetId = isEditMode ? editingRecordingId : createdRecordingId;
+
+    if (!targetId) {
+      setSubmitStatus("error");
+      setSubmitMessage("Không tìm thấy ID bản thu. Vui lòng thử tải lại file ở Bước 1.");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
-      let audioUrl = "";
-      let videoUrl = "";
-
-      // 1. Upload File to Supabase if a new file is selected
-      if (file) {
-        const publicUrl = await uploadFileToSupabase(file);
-        if (mediaType === "audio") {
-          audioUrl = publicUrl;
-        } else {
-          videoUrl = publicUrl;
-        }
-      } else if (isEditMode && editingRecordingId && existingMediaSrc) {
-        // Keep existing URL if editing and not replacing file
-        if (mediaType === "audio") {
-          audioUrl = existingMediaSrc;
-        } else {
-          videoUrl = existingMediaSrc;
-        }
-      } else {
-        throw new Error("Vui lòng chọn file âm thanh hoặc video.");
-      }
-
-      // 2. Resolve IDs from Reference Data string names
+      // 1. Resolve IDs from Reference Data string names
       const finalEthnicity = ethnicity === "Khác" ? customEthnicity : ethnicity;
       const ethnicGroupId = ethnicGroupsData.find(e => e.name === finalEthnicity)?.id;
 
@@ -2588,50 +2626,51 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       const selectedVocalStyleId = vocalStylesData.find(v => v.name === vocalStyle)?.id;
       const selectedMusicalScaleId = musicalScalesData.find(m => m.name === musicalScale)?.id;
 
-      // Ensure duration and size are correctly processed
-      const durationSeconds = audioInfo?.duration || 0;
-      const audioFormat = audioInfo?.type || file?.type || "";
+      // Map instrument names to IDs
+      const selectedInstrumentIds = instruments
+        .map((name: string) => instrumentsData.find((i: InstrumentItem) => i.name === name)?.id)
+        .filter((id): id is string => !!id);
 
-      // 3. Construct API Payload
+      // Ensure duration and size are correctly processed
+      const durationSeconds = audioInfo?.duration || existingMediaInfo?.duration || 0;
+      const audioFormat = audioInfo?.type || existingMediaInfo?.type || file?.type || "";
+      const fileSizeBytes = audioInfo?.size || existingMediaInfo?.size || file?.size || 0;
+
+      // 2. Construct API Payload matching the user's requested structure (PUT /api/Recording/{id})
       const payload: any = {
-        title: title || "Không có tiêu đề",
-        description: description || "Không có mô tả",
-        audioFileUrl: audioUrl || null,
-        videoFileUrl: videoUrl || null,
-        audioFormat: audioFormat || "unknown",
+        title: title || undefined,
+        description: description || undefined,
+        videoFileUrl: mediaType === "video" ? (file ? "" : existingMediaSrc) : undefined, // videoUrl logic might need sync with FE state
+        audioFormat: audioFormat || undefined,
         durationSeconds: durationSeconds,
-        // ASP.NET strictly requires a 36-char UUID format. Fallback to a dummy GUID if currentUser id is mocked.
+        fileSizeBytes: fileSizeBytes,
         uploadedById: currentUser?.id?.length === 36 ? currentUser.id : "00000000-0000-0000-0007-000000000002",
-        // Valid references or fallback defaults
-        communeId: selectedCommuneId || null,
-        ethnicGroupId: ethnicGroupId || null,
-        ceremonyId: ceremonyId || null,
-        vocalStyleId: selectedVocalStyleId || null,
-        musicalScaleId: selectedMusicalScaleId || null,
-        performanceContext: performanceType || "",
-        lyricsOriginal: transcription || "",
-        lyricsVietnamese: "",
-        performerName: artistUnknown ? "Không rõ nghệ sĩ" : artist,
+        communeId: selectedCommuneId || undefined,
+        ethnicGroupId: ethnicGroupId || undefined,
+        ceremonyId: ceremonyId || undefined,
+        vocalStyleId: selectedVocalStyleId || undefined,
+        musicalScaleId: selectedMusicalScaleId || undefined,
+        performanceContext: performanceType || undefined,
+        lyricsOriginal: transcription || undefined,
+        lyricsVietnamese: undefined,
+        performerName: artistUnknown ? "Không rõ nghệ sĩ" : (artist || undefined),
         performerAge: 0,
         recordingDate: recordingDate ? new Date(recordingDate).toISOString() : new Date().toISOString(),
         gpsLatitude: 0,
         gpsLongitude: 0,
         tempo: 0,
-        keySignature: ""
+        keySignature: undefined,
+        instrumentIds: selectedInstrumentIds
       };
 
-      // 4. Send POST/PUT Request to Backend
-      if (isEditMode && editingRecordingId) {
-        await recordingService.updateRecording(editingRecordingId, payload);
-        setSubmitStatus("success");
-        setSubmitMessage("Cập nhật bản thu thành công!");
-      } else {
-        await recordingService.uploadRecording(payload);
-        setSubmitStatus("success");
-        setSubmitMessage("Tải lên thành công! Bản thu của bạn đã được gửi để duyệt.");
-      }
+      // 3. Send PUT Request to Backend
+      await recordingService.updateRecording(targetId, payload);
+      setSubmitStatus("success");
+      setSubmitMessage(isEditMode ? "Cập nhật bản thu thành công!" : "Tải lên thành công! Bản thu của bạn đã được gửi để duyệt.");
+
     } catch (error: any) {
-      console.error("Lỗi khi tải lên hoặc lưu dữ liệu:", error);
+      console.error("Lỗi khi lưu dữ liệu:", error);
+      // ... error handling logic ...
 
       // Extract detailed validation errors from Axios response if available
       let errorDetail = "Lỗi không xác định khi lưu dữ liệu. Vui lòng thử lại.";
@@ -2705,6 +2744,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setErrors({});
     setSubmitStatus("idle");
     setSubmitMessage("");
+    setCreatedRecordingId(null);
     setIsSubmitting(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -3730,9 +3770,17 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
               <button
                 type="button"
                 onClick={handleNextStep}
-                className="px-6 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium cursor-pointer"
+                disabled={isUploadingMedia}
+                className="px-6 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium cursor-pointer disabled:opacity-60 flex items-center gap-2"
               >
-                Tiếp theo
+                {isUploadingMedia && uploadWizardStep === 1 ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                    Đang tải file...
+                  </>
+                ) : (
+                  "Tiếp theo"
+                )}
               </button>
             ) : null}
           </div>
