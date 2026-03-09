@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Application.Responses;
+using VietTuneArchive.Domain.Entities.Enum;
 
 namespace VietTuneArchive.API.Controllers
 {
@@ -13,11 +14,23 @@ namespace VietTuneArchive.API.Controllers
     public class SubmissionController : ControllerBase
     {
         private readonly ISubmissionService2 _submissionService;
-        private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
 
         public SubmissionController(ISubmissionService2 submissionService)
         {
             _submissionService = submissionService;
+        }
+
+        [HttpGet("get-by-status")]
+        public async Task<IActionResult> GetSubmissionsByStatus(SubmissionStatus status,
+    [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var result = await _submissionService.GetSubmissionsByStatusAsync(status);
+
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
         }
 
         [HttpPost("create-submission")]
@@ -32,42 +45,28 @@ namespace VietTuneArchive.API.Controllers
             return BadRequest(result);
         }
 
-        // GET: /api/submissions/my
         [HttpGet("my")]
-        public async Task<ActionResult<PagedResponse<SubmissionDto>>> GetMySubmissions(
+        public async Task<IActionResult> GetMySubmissions(Guid userId,
             [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var userId = Guid.Parse(CurrentUserId);
-            var result = await _submissionService.GetByContributorAsync(userId);
-            if (!result.Success)
-                return NotFound(result);
-            
-            var pagedResult = new PagedResponse<SubmissionDto>
+            var result = await _submissionService.GetSubmissionsByUserIdAsync(userId);
+
+            if (result.IsSuccess)
             {
-                Success = true,
-                Data = result.Data ?? new List<SubmissionDto>(),
-                Page = page,
-                PageSize = pageSize,
-                Total = result.Data?.Count ?? 0,
-                Message = "Retrieved successfully"
-            };
-            return Ok(pagedResult);
+                return Ok(result);
+            }
+            return BadRequest(result);
         }
 
-        // GET: /api/submissions/{id}
         [HttpGet("{id}")]
-        public async Task<ActionResult<ServiceResponse<SubmissionDto>>> GetById(Guid id)
+        public async Task<IActionResult> GetById(Guid id)
         {
-            var result = await _submissionService.GetByIdAsync(id);
-            return result.Success ? Ok(result) : NotFound(result);
-        }
-
-        // PUT: /api/submissions/{id}
-        [HttpPut("{id}")]
-        public async Task<ActionResult<ServiceResponse<SubmissionDto>>> Update(Guid id, [FromBody] SubmissionDto dto)
-        {
-            var result = await _submissionService.UpdateAsync(id, dto);
-            return result.Success ? Ok(result) : BadRequest(result);
+            var result = await _submissionService.GetSubmissionByIdAsync(id);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
         }
 
         // DELETE: /api/submissions/{id}
@@ -77,30 +76,17 @@ namespace VietTuneArchive.API.Controllers
             var result = await _submissionService.DeleteAsync(id);
             return result.Success ? Ok(result) : BadRequest(result);
         }
-
-
-        // GET: /api/submissions/stage/{stage}
-        [HttpGet("stage/{stage}")]
-        public async Task<ActionResult<ServiceResponse<List<SubmissionDto>>>> GetByStage(int stage)
+        [HttpGet("get-all")]
+        public async Task<IActionResult> GetAllSubmissions (
+    [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var result = await _submissionService.GetByStageAsync(stage);
-            return result.Success ? Ok(result) : NotFound(result);
-        }
+            var result = await _submissionService.GetAllSubmissionsAsync();
 
-        // GET: /api/submissions/recent
-        [HttpGet("recent")]
-        public async Task<ActionResult<ServiceResponse<List<SubmissionDto>>>> GetRecent([FromQuery] int count = 10)
-        {
-            var result = await _submissionService.GetRecentAsync(count);
-            return result.Success ? Ok(result) : NotFound(result);
-        }
-
-        // POST: /api/submissions/{id}/paginated
-        [HttpGet("paginated")]
-        public async Task<ActionResult<PagedResponse<SubmissionDto>>> GetPaginated([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
-        {
-            var result = await _submissionService.GetPaginatedAsync(page, pageSize);
-            return Ok(result);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
         }
     }
 }

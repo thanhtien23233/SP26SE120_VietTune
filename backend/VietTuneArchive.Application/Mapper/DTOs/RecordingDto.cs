@@ -11,6 +11,7 @@ namespace VietTuneArchive.Application.Mapper.DTOs
         public string? AudioFormat { get; set; }
         public int? DurationSeconds { get; set; }
         public long? FileSizeBytes { get; set; }
+        public Guid UploadedById { get; set; }
         public Guid? CommuneId { get; set; }
         public Guid? EthnicGroupId { get; set; }
         public Guid? CeremonyId { get; set; }

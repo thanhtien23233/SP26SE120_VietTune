@@ -116,7 +116,7 @@ namespace VietTuneArchive.Application.Services
                 return Result<AuthDTO>.Success(msg);
             }
 
-            user.Role = string.IsNullOrWhiteSpace(user.Role) ? "Customer" : user.Role;
+            user.Role = string.IsNullOrWhiteSpace(user.Role) ? "Researcher" : user.Role;
 
             user.PasswordHash = HashPassword(password);
 

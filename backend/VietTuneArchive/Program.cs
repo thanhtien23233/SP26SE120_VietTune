@@ -107,6 +107,7 @@ builder.Services.AddScoped<IRecordingImageRepository, RecordingImageRepository>(
 
 // ✅ REPOSITORIES - Submission & Review
 builder.Services.AddScoped<IGenericRepository<Submission>, GenericRepository<Submission>>();
+builder.Services.AddScoped<ISubmissionRepository, SubmissionRepository>();
 builder.Services.AddScoped<ISubmissionVersionRepository, SubmissionVersionRepository>();
 builder.Services.AddScoped<IGenericRepository<Review>, GenericRepository<Review>>();
 builder.Services.AddScoped<IReviewRepository, ReviewRepository>();

@@ -12,13 +12,15 @@ namespace VietTuneArchive.Application.Services
     public class SubmissionService2 : GenericService<Submission, SubmissionDto>, ISubmissionService2
     {
         private readonly IGenericRepository<Submission> _submissionRepository;
+        private readonly ISubmissionRepository _submissionRepo;
         private readonly IMapper _mapper;
         private readonly IUserRepository _userRepository;
         private readonly IRecordingRepository _recordingRepository;
-        public SubmissionService2(IGenericRepository<Submission> repository, IMapper mapper, IUserRepository userRepository, IRecordingRepository recordingRepository)
+        public SubmissionService2(IGenericRepository<Submission> repository, ISubmissionRepository submissionRepo, IMapper mapper, IUserRepository userRepository, IRecordingRepository recordingRepository)
             : base(repository, mapper)
         {
             _submissionRepository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _submissionRepo = submissionRepo ?? throw new ArgumentNullException(nameof(submissionRepo));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _recordingRepository = recordingRepository ?? throw new ArgumentNullException(nameof(recordingRepository));
@@ -188,6 +190,64 @@ namespace VietTuneArchive.Application.Services
                     Message = ex.Message,
                     Errors = new List<string> { ex.Message }
                 };
+            }
+        }
+        public async Task<Result<GetSubmissionDto>> GetSubmissionByIdAsync(Guid id)
+        {
+            try
+            {
+                if (id == Guid.Empty)
+                    throw new ArgumentException("Submission id cannot be empty", nameof(id));
+                var submission = await _submissionRepo.GetSubmissionByIdAsync(id);
+                if (submission == null)
+                    return Result<GetSubmissionDto>.Failure("Submission not found");
+                var dto = _mapper.Map<GetSubmissionDto>(submission);
+                return Result<GetSubmissionDto>.Success(dto, "Submission retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<GetSubmissionDto>.Failure($"Failed to retrieve submission: {ex.Message}");
+            }
+        }
+        public async Task<Result<IEnumerable<GetSubmissionDto>>> GetAllSubmissionsAsync()
+        {
+            try
+            {
+                var submissions = await _submissionRepo.GetAllSubmissionsAsync();
+                var dtos = _mapper.Map<List<GetSubmissionDto>>(submissions);
+                return Result<IEnumerable<GetSubmissionDto>>.Success(dtos, $"Retrieved {dtos.Count} submissions");
+            }
+            catch (Exception ex)
+            {
+                return Result<IEnumerable<GetSubmissionDto>>.Failure($"Failed to retrieve submissions: {ex.Message}");
+            }
+        }
+        public async Task<Result<IEnumerable<GetSubmissionDto>>> GetSubmissionsByUserIdAsync(Guid userId)
+        {
+            try
+            {
+                if (userId == Guid.Empty)
+                    throw new ArgumentException("User id cannot be empty", nameof(userId));
+                var submissions = await _submissionRepo.GetByUserIdAsync(userId);
+                var dtos = _mapper.Map<List<GetSubmissionDto>>(submissions);
+                return Result<IEnumerable<GetSubmissionDto>>.Success(dtos, $"Retrieved {dtos.Count} submissions for user {userId}");
+            }
+            catch (Exception ex)
+            {
+                return Result<IEnumerable<GetSubmissionDto>>.Failure($"Failed to retrieve submissions: {ex.Message}");
+            }
+        }
+        public async Task<Result<IEnumerable<GetSubmissionDto>>> GetSubmissionsByStatusAsync(SubmissionStatus status)
+        {
+            try
+            {
+                var submissions = await _submissionRepo.GetByStatusAsync(status);
+                var dtos = _mapper.Map<List<GetSubmissionDto>>(submissions);
+                return Result<IEnumerable<GetSubmissionDto>>.Success(dtos, $"Retrieved {dtos.Count} submissions with status {status}");
+            }
+            catch (Exception ex)
+            {
+                return Result<IEnumerable<GetSubmissionDto>>.Failure($"Failed to retrieve submissions: {ex.Message}");
             }
         }
     }

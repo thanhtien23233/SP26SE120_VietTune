@@ -58,8 +58,8 @@ namespace VietTuneArchive.API.Controllers
             }
         }
 
-        [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterModel model)
+        [HttpPost("register-contributor")]
+        public async Task<IActionResult> RegisterForContributor([FromBody] RegisterModel model)
         {
             var user = new User
             {
@@ -67,6 +67,32 @@ namespace VietTuneArchive.API.Controllers
                 Password = model.Password,
                 FullName = model.FullName,
                 Phone = model.PhoneNumber,
+                Role = "Contributor"
+            };
+            await _authService.Register(user, model.Password);
+
+            var response = new
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                FullName = user.FullName,
+                PhoneNumber = user.Phone,
+                CreatedAt = user.CreatedAt,
+                Message = "Đăng ký thành công!"
+            };
+
+            return Ok(response);
+        }
+        [HttpPost("register-researcher")]
+        public async Task<IActionResult> RegisterForResearcher([FromBody] RegisterModel model)
+        {
+            var user = new User
+            {
+                Email = model.Email,
+                Password = model.Password,
+                FullName = model.FullName,
+                Phone = model.PhoneNumber,
+                Role = "Researcher"
             };
             await _authService.Register(user, model.Password);
 

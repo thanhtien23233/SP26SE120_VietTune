@@ -37,6 +37,7 @@ namespace VietTuneArchive.Application.Mapper
 
             // ============= SUBMISSION & REVIEW =============
             CreateMap<Submission, SubmissionDto>().ReverseMap();
+            CreateMap<Submission, GetSubmissionDto>();
             CreateMap<SubmissionVersion, SubmissionVersionDto>().ReverseMap();
             CreateMap<Review, ReviewDto>().ReverseMap();
 
