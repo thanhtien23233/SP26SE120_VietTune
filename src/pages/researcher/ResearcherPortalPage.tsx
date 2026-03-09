@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, MessageSquare, Network, GitCompare, Play, FileText, Check, Send, Bot, Lightbulb, Info, X } from "lucide-react";
+import { Search, MessageSquare, Network, GitCompare, Play, FileText, Check, Send, Bot, Lightbulb, Info, X, Download } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import SearchableDropdown from "@/components/common/SearchableDropdown";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
@@ -11,6 +11,8 @@ import { INTELLIGENCE_NAME, REGION_NAMES } from "@/config/constants";
 import { ETHNICITIES, REGIONS, EVENT_TYPES, INSTRUMENTS } from "@/config/musicMetadata";
 import { getLocalRecordingMetaList, getLocalRecordingFull } from "@/services/recordingStorage";
 import { sendResearcherChatMessage } from "@/services/researcherChatService";
+import { getItemAsync, setItem } from "@/services/storageService";
+import { AI_RESPONSES_REVIEW_KEY } from "@/pages/ModerationPage";
 import { migrateVideoDataToVideoData } from "@/utils/helpers";
 import { convertLocalToRecording } from "@/utils/localRecordingToRecording";
 import { isYouTubeUrl } from "@/utils/youtube";
@@ -123,8 +125,8 @@ export default function ResearcherPortalPage() {
   ]);
   const [chatInput, setChatInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [compareLeft, setCompareLeft] = useState("");
-  const [compareRight, setCompareRight] = useState("");
+  const [compareLeftId, setCompareLeftId] = useState("");
+  const [compareRightId, setCompareRightId] = useState("");
   const [graphView, setGraphView] = useState<"overview" | "instruments" | "ethnicity">("overview");
   const chatListRef = useRef<HTMLDivElement | null>(null);
 
@@ -210,6 +212,32 @@ export default function ResearcherPortalPage() {
     return applyFilters(list, filters);
   }, [approvedRecordings, searchQuery, filters]);
 
+  const handleExportDataset = useCallback(() => {
+    const payload = filteredResults.map((r) => ({
+      id: r.id,
+      title: r.title,
+      titleVietnamese: r.titleVietnamese,
+      description: r.description,
+      ethnicity: r.ethnicity,
+      region: r.region,
+      instruments: r.instruments?.map((i) => i.nameVietnamese ?? i.name) ?? [],
+      tags: r.tags,
+      recordedDate: r.recordedDate,
+      uploadedDate: r.uploadedDate,
+      verificationStatus: r.verificationStatus,
+    }));
+    const blob = new Blob(
+      [JSON.stringify({ exportedAt: new Date().toISOString(), total: payload.length, recordings: payload }, null, 2)],
+      { type: "application/json" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `viettune-researcher-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filteredResults]);
+
   const handleSearchClick = useCallback(() => {
     setIsSearching(true);
     const minSearchDelayMs = 450;
@@ -236,6 +264,26 @@ export default function ResearcherPortalPage() {
     chatListRef.current?.scrollTo({ top: chatListRef.current.scrollHeight, behavior: "smooth" });
   }, [chatMessages, isTyping]);
 
+  const pushAiResponseForExpertReview = useCallback(async (question: string, answer: string) => {
+    try {
+      const raw = await getItemAsync(AI_RESPONSES_REVIEW_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      const next = [
+        ...(Array.isArray(list) ? list : []),
+        {
+          id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          question,
+          answer,
+          source: "Cổng nghiên cứu",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      await setItem(AI_RESPONSES_REVIEW_KEY, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const handleSendMessage = useCallback(async () => {
     const text = chatInput.trim();
     if (!text) return;
@@ -244,16 +292,15 @@ export default function ResearcherPortalPage() {
     setIsTyping(true);
     try {
       const reply = await sendResearcherChatMessage(text);
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: reply ?? CHAT_API_FALLBACK },
-      ]);
+      const content = reply ?? CHAT_API_FALLBACK;
+      setChatMessages((prev) => [...prev, { role: "assistant", content }]);
+      void pushAiResponseForExpertReview(text, content);
     } catch {
       setChatMessages((prev) => [...prev, { role: "assistant", content: CHAT_API_FALLBACK }]);
     } finally {
       setIsTyping(false);
     }
-  }, [chatInput]);
+  }, [chatInput, pushAiResponseForExpertReview]);
 
   const handleQaKeyDown = async (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -276,16 +323,15 @@ export default function ResearcherPortalPage() {
     setIsTyping(true);
     try {
       const reply = await sendResearcherChatMessage(text);
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: reply ?? CHAT_API_FALLBACK },
-      ]);
+      const content = reply ?? CHAT_API_FALLBACK;
+      setChatMessages((prev) => [...prev, { role: "assistant", content }]);
+      void pushAiResponseForExpertReview(text, content);
     } catch {
       setChatMessages((prev) => [...prev, { role: "assistant", content: CHAT_API_FALLBACK }]);
     } finally {
       setIsTyping(false);
     }
-  }, []);
+  }, [pushAiResponseForExpertReview]);
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
     { id: "search", label: "Tìm kiếm nâng cao", icon: Search },
@@ -424,13 +470,24 @@ export default function ResearcherPortalPage() {
                 <h2 className="text-lg sm:text-xl font-semibold text-primary-800">
                   Kết quả tìm kiếm
                 </h2>
-                <span className="text-sm text-neutral-600 font-medium">
-                  {searchLoading
-                    ? "Đang tải..."
-                    : isSearching
-                      ? "Đang tìm kiếm bản thu phù hợp..."
-                      : `Tìm thấy ${filteredResults.length} bản ghi đã kiểm duyệt`}
-                </span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm text-neutral-600 font-medium">
+                    {searchLoading
+                      ? "Đang tải..."
+                      : isSearching
+                        ? "Đang tìm kiếm bản thu phù hợp..."
+                        : `Tìm thấy ${filteredResults.length} bản ghi đã kiểm duyệt`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleExportDataset}
+                    disabled={searchLoading || filteredResults.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-primary-300/80 bg-primary-50/90 text-primary-700 hover:bg-primary-100/90 font-medium transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Download className="h-4 w-4" strokeWidth={2.5} />
+                    Xuất dataset (JSON)
+                  </button>
+                </div>
               </div>
 
               {searchLoading ? (
@@ -1026,127 +1083,82 @@ export default function ResearcherPortalPage() {
             </div>
           )}
 
-          {/* Tab: So sánh phân tích */}
-          {activeTab === "compare" && (
-            <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-              <div
-                className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6"
-                style={{ backgroundColor: "#FFFCF5" }}
-              >
-                <h2 className="text-lg sm:text-xl font-semibold text-primary-800 mb-6">
-                  So sánh phân tích
-                </h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  <div
-                    className="rounded-xl border-2 border-secondary-200/80 p-4"
-                    style={{ background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)" }}
-                  >
-                    <h3 className="font-semibold text-primary-800 mb-3">Lựa chọn #1</h3>
-                    <SearchableDropdown
-                      value={compareLeft}
-                      onChange={setCompareLeft}
-                      options={approvedRecordings.map((r) => r.title)}
-                      placeholder="Chọn bản ghi âm..."
-                      searchable={false}
-                    />
-                    <div className="mt-4 rounded-lg bg-white border border-primary-200/80 p-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-semibold text-neutral-700">Bản ghi âm</span>
-                        <button
-                          type="button"
-                          className="p-1 text-primary-600 hover:bg-primary-50 rounded cursor-pointer"
-                          aria-label="Phát"
-                        >
-                          <Play className="w-4 h-4" strokeWidth={2.5} />
-                        </button>
-                      </div>
-                      <div
-                        className="h-16 rounded-lg flex items-center justify-center text-primary-600 font-semibold text-sm"
-                        style={{
-                          background: "linear-gradient(90deg, #fecaca 0%, #fef3c7 50%, #fecaca 100%)",
-                        }}
+          {/* Tab: So sánh phân tích — chọn 2 bản thu, xem metadata thật, phát song song (mở modal) */}
+          {activeTab === "compare" && (() => {
+            const compareOptions = approvedRecordings.map((r) => r.title ?? "");
+            const leftRecording = approvedRecordings.find((r) => r.id === compareLeftId);
+            const rightRecording = approvedRecordings.find((r) => r.id === compareRightId);
+            const renderCompareCard = (rec: Recording | undefined, side: "left" | "right") => (
+              <div className="rounded-xl border-2 border-secondary-200/80 p-4" style={{ background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)" }}>
+                <SearchableDropdown
+                  value={rec?.title ?? ""}
+                  onChange={(title) => {
+                    const r = approvedRecordings.find((x) => x.title === title);
+                    if (side === "left") setCompareLeftId(r?.id ?? "");
+                    else setCompareRightId(r?.id ?? "");
+                  }}
+                  options={compareOptions}
+                  placeholder="Chọn bản ghi âm..."
+                  searchable
+                />
+                <div className="mt-4 rounded-lg bg-white border border-primary-200/80 p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-semibold text-neutral-700">Bản ghi âm</span>
+                    {rec && (
+                      <button
+                        type="button"
+                        onClick={() => setPlayModalRecording(rec)}
+                        className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg cursor-pointer inline-flex items-center gap-1"
+                        aria-label="Phát"
                       >
-                        Waveform
-                      </div>
-                    </div>
-                    <div className="mt-3 rounded-lg bg-white border border-primary-200/80 p-3 space-y-1.5 text-sm">
+                        <Play className="w-4 h-4" strokeWidth={2.5} />
+                        <span className="text-sm font-medium">Phát</span>
+                      </button>
+                    )}
+                  </div>
+                  {!rec ? (
+                    <p className="text-neutral-500 text-sm py-4 text-center">Chọn bản thu để xem metadata và phát</p>
+                  ) : (
+                    <div className="mt-3 space-y-1.5 text-sm">
                       <div className="flex justify-between">
                         <span className="text-neutral-600">Dân tộc:</span>
-                        <span className="font-semibold text-primary-800">Kinh</span>
+                        <span className="font-semibold text-primary-800">{rec.ethnicity?.nameVietnamese ?? rec.ethnicity?.name ?? "—"}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-neutral-600">Nhạc cụ:</span>
-                        <span className="font-semibold text-primary-800">Đàn nguyệt, Trống</span>
+                        <span className="font-semibold text-primary-800">
+                          {rec.instruments?.map((i) => i.nameVietnamese ?? i.name).join(", ") || "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-neutral-600">Tempo:</span>
-                        <span className="font-semibold text-primary-800">120 BPM</span>
+                        <span className="text-neutral-600">Vùng miền:</span>
+                        <span className="font-semibold text-primary-800">
+                          {rec.region ? REGION_NAMES[rec.region as keyof typeof REGION_NAMES] : "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-neutral-600">Âm giai:</span>
-                        <span className="font-semibold text-primary-800">Ngũ cung</span>
+                        <span className="text-neutral-600">Thể loại / Tags:</span>
+                        <span className="font-semibold text-primary-800">{(rec.tags ?? []).slice(0, 3).join(", ") || "—"}</span>
                       </div>
                     </div>
-                  </div>
-                  <div
-                    className="rounded-xl border-2 border-secondary-200/80 p-4"
-                    style={{ background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)" }}
-                  >
-                    <h3 className="font-semibold text-primary-800 mb-3">Lựa chọn #2</h3>
-                    <SearchableDropdown
-                      value={compareRight}
-                      onChange={setCompareRight}
-                      options={approvedRecordings.map((r) => r.title)}
-                      placeholder="Chọn bản ghi âm..."
-                      searchable={false}
-                    />
-                    <div className="mt-4 rounded-lg bg-white border border-primary-200/80 p-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-semibold text-neutral-700">Bản ghi âm</span>
-                        <button
-                          type="button"
-                          className="p-1 text-primary-600 hover:bg-primary-50 rounded cursor-pointer"
-                          aria-label="Phát"
-                        >
-                          <Play className="w-4 h-4" strokeWidth={2.5} />
-                        </button>
-                      </div>
-                      <div
-                        className="h-16 rounded-lg flex items-center justify-center text-primary-600 font-semibold text-sm"
-                        style={{
-                          background: "linear-gradient(90deg, #fecaca 0%, #fef3c7 50%, #fecaca 100%)",
-                        }}
-                      >
-                        Waveform
-                      </div>
-                    </div>
-                    <div className="mt-3 rounded-lg bg-white border border-primary-200/80 p-3 space-y-1.5 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-neutral-600">Dân tộc:</span>
-                        <span className="font-semibold text-primary-800">H'Mông</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-neutral-600">Nhạc cụ:</span>
-                        <span className="font-semibold text-primary-800">Khèn</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-neutral-600">Tempo:</span>
-                        <span className="font-semibold text-primary-800">110 BPM</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-neutral-600">Âm giai:</span>
-                        <span className="font-semibold text-primary-800">Ngũ âm</span>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
-                <div className="text-center">
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold shadow-md hover:shadow-lg transition-all cursor-pointer"
-                  >
-                    Bắt đầu so sánh
-                  </button>
+              </div>
+            );
+            return (
+            <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+              <div className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6" style={{ backgroundColor: "#FFFCF5" }}>
+                <h2 className="text-lg sm:text-xl font-semibold text-primary-800 mb-2">So sánh phân tích</h2>
+                <p className="text-sm text-neutral-600 mb-6">Chọn hai bản thu để xem metadata và nghe song song (mở modal phát từng bản).</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="font-semibold text-primary-800 mb-3">Lựa chọn #1</h3>
+                    {renderCompareCard(leftRecording, "left")}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-primary-800 mb-3">Lựa chọn #2</h3>
+                    {renderCompareCard(rightRecording, "right")}
+                  </div>
                 </div>
               </div>
 
@@ -1172,7 +1184,7 @@ export default function ResearcherPortalPage() {
                 </div>
               </div>
             </div>
-          )}
+            ); })()}
         </div>
       </div>
     </div>

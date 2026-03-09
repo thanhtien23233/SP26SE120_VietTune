@@ -8,11 +8,25 @@ import { isYouTubeUrl } from "@/utils/youtube";
 import { migrateVideoDataToVideoData, formatDateTime, getModerationStatusLabel } from "@/utils/helpers";
 import { buildTagsFromLocal } from "@/utils/recordingTags";
 import { createPortal } from "react-dom";
-import { ChevronDown, Search, AlertCircle, X, FileText, MessageSquare, BookOpen, MapPin, Music, User as UserIcon, CheckCircle, Trash2 } from "lucide-react";
+import { ChevronDown, Search, AlertCircle, X, FileText, MessageSquare, BookOpen, MapPin, Music, User as UserIcon, CheckCircle, Trash2, Flag } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import ForbiddenPage from "@/pages/ForbiddenPage";
 import { getLocalRecordingMetaList, getLocalRecordingFull, setLocalRecording, toMeta, removeLocalRecording } from "@/services/recordingStorage";
 import { recordingRequestService } from "@/services/recordingRequestService";
+import { getItemAsync, setItem } from "@/services/storageService";
+
+export const AI_RESPONSES_REVIEW_KEY = "viettune_ai_responses_review";
+
+export interface AiResponseForReview {
+  id: string;
+  question: string;
+  answer: string;
+  source?: string;
+  createdAt: string;
+  flagged?: boolean;
+  flagNote?: string;
+  flaggedAt?: string;
+}
 
 // ===== UTILITY FUNCTIONS =====
 // Check if click is on scrollbar
@@ -294,6 +308,10 @@ export default function ModerationPage() {
     const [activeTab, setActiveTab] = useState<ExpertTabId>("review");
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [selectedItemFull, setSelectedItemFull] = useState<LocalRecordingMini | null>(null);
+    const [aiResponses, setAiResponses] = useState<AiResponseForReview[]>([]);
+    const [aiResponsesLoaded, setAiResponsesLoaded] = useState(false);
+    const [flagNoteId, setFlagNoteId] = useState<string | null>(null);
+    const [flagNoteValue, setFlagNoteValue] = useState("");
 
     const load = useCallback(async () => {
         try {
@@ -340,6 +358,42 @@ export default function ModerationPage() {
         const interval = setInterval(load, 3000); // refresh to pick up changes in same tab
         return () => clearInterval(interval);
     }, [load]);
+
+    // Load AI responses for review (tab "Giám sát phản hồi AI")
+    useEffect(() => {
+        if (activeTab !== "ai") return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const raw = await getItemAsync(AI_RESPONSES_REVIEW_KEY);
+                const list: AiResponseForReview[] = raw ? JSON.parse(raw) : [];
+                if (!cancelled) {
+                    setAiResponses(Array.isArray(list) ? list : []);
+                    setAiResponsesLoaded(true);
+                }
+            } catch {
+                if (!cancelled) {
+                    setAiResponses([]);
+                    setAiResponsesLoaded(true);
+                }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [activeTab]);
+
+    const handleFlagAiResponse = useCallback((id: string, flagged: boolean, note?: string) => {
+        setAiResponses((prev) => {
+            const next = prev.map((r) =>
+                r.id === id
+                    ? { ...r, flagged, flagNote: note ?? r.flagNote, flaggedAt: flagged ? new Date().toISOString() : undefined }
+                    : r
+            );
+            void setItem(AI_RESPONSES_REVIEW_KEY, JSON.stringify(next));
+            return next;
+        });
+        setFlagNoteId(null);
+        setFlagNoteValue("");
+    }, []);
 
     // Clear dialog full recording when dialog closes to release media blobs and avoid OOM
     useEffect(() => {
@@ -1161,12 +1215,104 @@ export default function ModerationPage() {
                         </div>
                     )}
 
-                    {/* Tab: Giám sát AI */}
+                    {/* Tab: Giám sát AI — review câu trả lời AI và báo lỗi */}
                     {activeTab === "ai" && (
-                        <div className="p-6 sm:p-8 min-h-[400px] flex flex-col items-center justify-center text-center">
-                            <MessageSquare className="h-16 w-16 text-primary-300 mb-4" />
-                            <h2 className="text-xl font-semibold text-neutral-900 mb-2">Giám sát phản hồi AI</h2>
-                            <p className="text-neutral-600 max-w-md">Theo dõi và chỉnh sửa các phản hồi do AI tạo ra trước khi hiển thị cho người dùng.</p>
+                        <div className="p-6 sm:p-8 min-h-[400px]">
+                            <h2 className="text-xl font-semibold text-neutral-900 mb-2 flex items-center gap-2">
+                                <MessageSquare className="h-6 w-6 text-primary-600" strokeWidth={2.5} />
+                                Giám sát phản hồi AI
+                            </h2>
+                            <p className="text-neutral-600 text-sm mb-6 max-w-2xl">
+                                Xem lại các phản hồi do AI tạo ra (ví dụ từ Hỏi đáp thông minh). Nếu phát hiện sai sót, hãy báo lỗi và ghi chú để điều chỉnh.
+                            </p>
+                            {!aiResponsesLoaded ? (
+                                <div className="text-neutral-500 text-sm">Đang tải...</div>
+                            ) : aiResponses.length === 0 ? (
+                                <div className="rounded-2xl border-2 border-dashed border-neutral-200/80 p-8 text-center" style={{ backgroundColor: "#FFFCF5" }}>
+                                    <MessageSquare className="h-12 w-12 text-neutral-300 mx-auto mb-3" />
+                                    <p className="text-neutral-600 font-medium">Chưa có phản hồi AI nào cần duyệt</p>
+                                    <p className="text-neutral-500 text-sm mt-1">Khi có câu trả lời AI từ Cổng nghiên cứu (Hỏi đáp thông minh) hoặc chatbot, chúng sẽ xuất hiện tại đây để chuyên gia xem và báo lỗi nếu cần.</p>
+                                </div>
+                            ) : (
+                                <ul className="space-y-4">
+                                    {aiResponses.map((item) => (
+                                        <li
+                                            key={item.id}
+                                            className={`rounded-2xl border-2 p-4 sm:p-6 transition-all ${item.flagged ? "border-amber-400/80 bg-amber-50/50" : "border-neutral-200/80 bg-white"}`}
+                                            style={item.flagged ? undefined : { backgroundColor: "#FFFCF5" }}
+                                        >
+                                            <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+                                                <span className="text-xs text-neutral-500">
+                                                    {item.createdAt ? formatDateTime(item.createdAt) : ""}
+                                                    {item.source && ` · ${item.source}`}
+                                                </span>
+                                                {item.flagged && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-200/80 text-amber-900 text-xs font-medium">
+                                                        <Flag className="w-3.5 h-3.5" />
+                                                        Đã báo lỗi
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-neutral-800 font-medium mb-1">Câu hỏi:</p>
+                                            <p className="text-neutral-700 text-sm mb-3 whitespace-pre-wrap">{item.question}</p>
+                                            <p className="text-neutral-800 font-medium mb-1">Câu trả lời AI:</p>
+                                            <p className="text-neutral-700 text-sm mb-4 whitespace-pre-wrap">{item.answer}</p>
+                                            {flagNoteId === item.id ? (
+                                                <div className="space-y-2">
+                                                    <textarea
+                                                        value={flagNoteValue}
+                                                        onChange={(e) => setFlagNoteValue(e.target.value)}
+                                                        placeholder="Mô tả lỗi (tùy chọn)..."
+                                                        rows={2}
+                                                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-neutral-900 text-sm focus:outline-none focus:border-primary-500"
+                                                    />
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleFlagAiResponse(item.id, true, flagNoteValue)}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium cursor-pointer"
+                                                        >
+                                                            <Flag className="w-4 h-4" />
+                                                            Xác nhận báo lỗi
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setFlagNoteId(null); setFlagNoteValue(""); }}
+                                                            className="px-3 py-1.5 rounded-xl border border-neutral-300 text-neutral-700 text-sm hover:bg-neutral-100 cursor-pointer"
+                                                        >
+                                                            Hủy
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex gap-2">
+                                                    {!item.flagged ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setFlagNoteId(item.id)}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 text-sm font-medium cursor-pointer"
+                                                        >
+                                                            <Flag className="w-4 h-4" />
+                                                            Báo lỗi
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleFlagAiResponse(item.id, false)}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-300 text-neutral-700 text-sm hover:bg-neutral-100 cursor-pointer"
+                                                        >
+                                                            Gỡ báo lỗi
+                                                        </button>
+                                                    )}
+                                                    {item.flagNote && (
+                                                        <p className="text-sm text-amber-800/90">Ghi chú: {item.flagNote}</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
                     )}
 

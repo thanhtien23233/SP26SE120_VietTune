@@ -7,9 +7,11 @@ using Microsoft.OpenApi.Models;
 using Service.EmailConfirmation;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Text;
+using System.Text.Json;
 using VietTuneArchive.Application.Common.Email;
 using VietTuneArchive.Application.Mapper;
 using VietTuneArchive.Domain.Context;
+using VietTuneArchive.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 var smtpSettings = builder.Configuration.GetSection("SmtpSettings");
@@ -17,7 +19,7 @@ var connectionString = builder.Configuration.GetConnectionString("Database");
 builder.Services.AddDbContext<DBContext>(options =>
     options.UseSqlServer(connectionString));
 
-var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"]);
+var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"] ?? "");
 builder.Services.AddAuthentication(x =>
 {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -40,7 +42,9 @@ builder.Services.AddAuthentication(x =>
 builder.Services.Configure<SmtpSettings>(smtpSettings);
 builder.Services.AddSingleton<EmailService>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
+builder.Services.AddHttpClient();
 builder.Services.AddControllersWithViews()
     .AddJsonOptions(x =>
         x.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve);
@@ -76,18 +80,28 @@ builder.Services.AddSwaggerGen(option =>
     });
 });
 
-//CORS
+// CORS: mặc định gồm localhost (Vite 5173, React 3000, backend 7200). Có thể ghi đè bằng appsettings "Cors:AllowedOrigins" (mảng) hoặc env Cors__AllowedOrigins (chuỗi cách nhau bởi dấu phẩy).
+var defaultCorsOrigins = new[] { "http://localhost:3000", "https://localhost:7200", "http://localhost:5173", "http://127.0.0.1:5173", "http://127.0.0.1:3000" };
+var fromSection = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+var corsOriginsSetting = builder.Configuration["Cors:AllowedOrigins"]; // env var (chuỗi)
+var corsOrigins = defaultCorsOrigins.ToList();
+if (fromSection?.Length > 0)
+    corsOrigins = corsOrigins.Union(fromSection).Distinct().ToList();
+if (!string.IsNullOrWhiteSpace(corsOriginsSetting))
+    corsOrigins = corsOrigins.Union(corsOriginsSetting.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).Distinct().ToList();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
-        policy.WithOrigins("http://localhost:3000", "https://localhost:7200")
+        policy.WithOrigins(corsOrigins.ToArray())
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
 
 // Repositories
 
-// Services
+// Services — Gemini: toàn bộ hệ thống VietTune dùng chung key qua IGeminiService (appsettings Gemini:ApiKey, Gemini:Model)
+builder.Services.AddScoped<IGeminiService, GeminiService>();
 
 //Others
 builder.Services.Configure<SmtpSettings>(smtpSettings);
@@ -103,7 +117,9 @@ if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Chỉ bật HTTPS redirect khi có HTTPS (tránh warning "Failed to determine the https port" khi chạy profile http)
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
 
 app.UseCors("AllowReactApp");
 

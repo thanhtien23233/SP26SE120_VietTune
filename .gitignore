@@ -652,6 +652,11 @@ obj/
 *.vsidx
 /.vs/EVStation-basedRentalSystem/FileContentIndex
 /.vs/EVStation-basedRentalSystem/DesignTimeBuild
+
+# Backend secrets (Gemini API key, JWT, SMTP, etc.) — do not commit
 appsettings.Development.json
 appsettings.Local.json
 appsettings.json
+backend/**/appsettings.Development.json
+backend/**/appsettings.Local.json
+backend/**/appsettings.json

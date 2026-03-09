@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { ModerationStatus } from "@/types";
-import { ChevronDown, Upload, Music, MapPin, FileAudio, Info, Shield, Check, Search, Plus, AlertCircle, Video, X } from "lucide-react";
+import { ChevronDown, Upload, Music, MapPin, FileAudio, Info, Shield, Check, Search, Plus, AlertCircle, Video, X, Navigation, Sparkles } from "lucide-react";
 import { createPortal } from "react-dom";
 import UploadProgressDialog from "@/components/common/UploadProgressDialog";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -10,6 +10,8 @@ import { UserRole } from "@/types";
 import { sessionGetItem, sessionRemoveItem } from "@/services/storageService";
 import { getLocalRecordingFull, setLocalRecording } from "@/services/recordingStorage";
 import { recordingRequestService } from "@/services/recordingRequestService";
+import { suggestMetadata } from "@/services/metadataSuggestService";
+import { getAddressFromCoordinates } from "@/services/geocodeService";
 import { ETHNICITIES, REGIONS, EVENT_TYPES, INSTRUMENTS } from "@/config/musicMetadata";
 
 // Extended type for local recording storage (supports both legacy and new formats)
@@ -1857,6 +1859,13 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   >("idle");
   const [submitMessage, setSubmitMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Wizard steps for new submission (1=Upload, 2=Metadata, 3=GPS+AI, 4=Review). When isEditMode, all sections shown.
+  const [uploadWizardStep, setUploadWizardStep] = useState(1);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+  const [aiSuggestError, setAiSuggestError] = useState<string | null>(null);
+  const [aiSuggestSuccess, setAiSuggestSuccess] = useState<string | null>(null);
   // success popup removed; use submitStatus === 'success' to show confirmations
 
   const requiresInstruments =
@@ -1876,6 +1885,91 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     }
     return null;
   }, [genre, ethnicity]);
+
+  const showWizard = !isEditMode;
+
+  const handleGetGpsLocation = () => {
+    if (!navigator.geolocation) {
+      setGpsError("Trình duyệt không hỗ trợ GPS.");
+      return;
+    }
+    setGpsError(null);
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const gpsText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        try {
+          const res = await getAddressFromCoordinates(latitude, longitude);
+          const display = res.address?.trim() || `Tọa độ: ${gpsText}`;
+          setRecordingLocation((prev) => (prev ? `${prev}; ${display}` : display));
+          if (res.addressFromService === false || display.startsWith("Tọa độ:")) {
+            setGpsError("Không lấy được tên địa chỉ từ dịch vụ; đã lưu tọa độ. Bạn có thể chỉnh sửa ô địa điểm ở bước Metadata.");
+          } else {
+            setGpsError(null);
+          }
+        } catch {
+          setRecordingLocation((prev) => (prev ? `${prev} (Tọa độ: ${gpsText})` : `Tọa độ: ${gpsText}`));
+          setGpsError("Không kết nối được dịch vụ địa chỉ; đã lưu tọa độ. Bạn có thể chỉnh sửa ô địa điểm.");
+        }
+        setGpsLoading(false);
+      },
+      (err) => {
+        setGpsError(err.message === "User denied Geolocation" ? "Bạn đã từ chối quyền vị trí." : "Không lấy được tọa độ. Kiểm tra quyền vị trí hoặc kết nối.");
+        setGpsLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
+  const handleAiSuggestMetadata = async () => {
+    setAiSuggestError(null);
+    setAiSuggestSuccess(null);
+    setAiSuggestLoading(true);
+    try {
+      const res = await suggestMetadata({
+        genre: genre || undefined,
+        title: title?.trim() || undefined,
+        description: description?.trim() || undefined,
+      });
+      const hasSuggestions = res.ethnicity || res.region || (res.instruments && res.instruments.length > 0);
+      if (res.message && !hasSuggestions) {
+        setAiSuggestError(res.message);
+      } else {
+        const parts: string[] = [];
+        if (res.ethnicity) {
+          setEthnicity(res.ethnicity);
+          parts.push(`Dân tộc: ${res.ethnicity}`);
+        }
+        if (res.region) {
+          setRegion(res.region);
+          parts.push(`Vùng: ${res.region}`);
+        }
+        if (res.instruments && res.instruments.length > 0) {
+          setInstruments((prev) => {
+            const combined = [...prev];
+            for (const name of res.instruments!) {
+              if (name && !combined.includes(name)) combined.push(name);
+            }
+            return combined.length > 0 ? combined : res.instruments;
+          });
+          parts.push(`Nhạc cụ: ${res.instruments.join(", ")}`);
+        }
+        if (parts.length > 0) {
+          setAiSuggestSuccess(`Đã áp dụng gợi ý: ${parts.join(" · ")}. Xem lại ở Bước 2.`);
+          setUploadWizardStep(2);
+        }
+      }
+    } catch {
+      if (genre && GENRE_ETHNICITY_MAP[genre]) {
+        const suggested = GENRE_ETHNICITY_MAP[genre][0];
+        if (suggested && !ethnicity) setEthnicity(suggested);
+      }
+      setAiSuggestError("Không kết nối được dịch vụ gợi ý. Kiểm tra backend và thử lại.");
+    } finally {
+      setAiSuggestLoading(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -2716,6 +2810,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   };
 
   const resetForm = () => {
+    if (showWizard) setUploadWizardStep(1);
     setMediaType("audio");
     setFile(null);
     setAudioInfo(null);
@@ -2799,6 +2894,36 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           <span>Trường bắt buộc</span>
         </div>
 
+        {/* Submission wizard stepper (chỉ khi đóng góp mới, không chỉnh sửa) */}
+        {showWizard && (
+          <div className="border border-primary-200/80 rounded-2xl p-4 sm:p-6 bg-white shadow-md" style={{ backgroundColor: "#FFFCF5" }}>
+            <p className="text-sm font-semibold text-primary-800 mb-3">Luồng đóng góp</p>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+              {[
+                { step: 1, label: "Tải lên", icon: Upload },
+                { step: 2, label: "Metadata", icon: Info },
+                { step: 3, label: "GPS & Gợi ý AI", icon: MapPin },
+                { step: 4, label: "Xem lại & Gửi", icon: Check },
+              ].map(({ step, label, icon: Icon }) => (
+                <button
+                  key={step}
+                  type="button"
+                  onClick={() => setUploadWizardStep(step)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium border transition-all cursor-pointer ${
+                    uploadWizardStep === step
+                      ? "bg-primary-600 text-white border-primary-600"
+                      : "bg-white border-neutral-200/80 text-neutral-700 hover:border-primary-300"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" strokeWidth={2.5} />
+                  <span>Bước {step}:</span>
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Removed duplicate yellow notice for non-Contributor users */}
 
         {submitStatus === "error" && (
@@ -2808,6 +2933,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           </div>
         )}
 
+        {(uploadWizardStep === 1 || !showWizard) && (
         <div
           className="border border-neutral-200/80 rounded-2xl p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
           style={{ backgroundColor: "#FFFCF5" }}
@@ -3059,7 +3185,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
             </div>
           }
         </div>
+        )}
 
+        {(uploadWizardStep === 2 || !showWizard) && (
+        <>
         <div
           className="border border-neutral-200/80 rounded-2xl p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
           style={{ backgroundColor: "#FFFCF5" }}
@@ -3471,7 +3600,80 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
             )}
           </div>
         </CollapsibleSection>
+        </>
+        )}
 
+        {/* Bước 3: GPS & Gợi ý metadata từ AI */}
+        {(uploadWizardStep === 3 || !showWizard) && (
+        <div
+          className="border border-neutral-200/80 rounded-2xl p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
+          style={{ backgroundColor: "#FFFCF5" }}
+        >
+          <SectionHeader
+            icon={Navigation}
+            title="Gắn GPS"
+            subtitle="Lấy tọa độ hiện tại để gắn vào địa điểm ghi âm"
+            optional
+          />
+          <div className="space-y-2 mb-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleGetGpsLocation}
+                disabled={isFormDisabled || gpsLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer"
+              >
+                <Navigation className="w-4 h-4" strokeWidth={2.5} />
+                {gpsLoading ? "Đang lấy vị trí và địa chỉ..." : "Lấy vị trí hiện tại"}
+              </button>
+              <span className="text-sm text-neutral-600">Địa điểm sẽ được thêm vào Địa điểm ghi âm ở Bước 2.</span>
+            </div>
+            {gpsError && (
+              <p className="text-sm text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" />
+                {gpsError}
+              </p>
+            )}
+          </div>
+          <SectionHeader
+            icon={Sparkles}
+            title="Gợi ý metadata từ AI"
+            subtitle="Dựa trên thể loại đã chọn, AI gợi ý dân tộc phù hợp (bạn có thể chỉnh sửa)"
+            optional
+          />
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleAiSuggestMetadata}
+                disabled={isFormDisabled || aiSuggestLoading || !genre}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" strokeWidth={2.5} />
+                {aiSuggestLoading ? "Đang gợi ý..." : "Lấy gợi ý từ AI"}
+              </button>
+              {!genre && (
+                <span className="text-sm text-neutral-600">Chọn thể loại ở Bước 2 trước khi dùng gợi ý AI.</span>
+              )}
+            </div>
+            {aiSuggestError && (
+              <p className="text-sm text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" />
+                {aiSuggestError}
+              </p>
+            )}
+            {aiSuggestSuccess && (
+              <p className="text-sm text-green-700 flex items-center gap-1">
+                <Check className="w-4 h-4" />
+                {aiSuggestSuccess}
+              </p>
+            )}
+          </div>
+        </div>
+        )}
+
+        {(uploadWizardStep === 4 || !showWizard) && (
+        <>
         <CollapsibleSection
           icon={Info}
           title="Ghi chú bổ sung"
@@ -3600,6 +3802,31 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
             </button>
           </div>
         </div>
+        </>
+        )}
+
+        {/* Wizard navigation (chỉ khi đóng góp mới) */}
+        {showWizard && (
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-neutral-200/80">
+            <button
+              type="button"
+              onClick={() => setUploadWizardStep((s) => Math.max(1, s - 1))}
+              disabled={uploadWizardStep === 1}
+              className="px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Quay lại
+            </button>
+            {uploadWizardStep < 4 ? (
+              <button
+                type="button"
+                onClick={() => setUploadWizardStep((s) => Math.min(4, s + 1))}
+                className="px-6 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium cursor-pointer"
+              >
+                Tiếp theo
+              </button>
+            ) : null}
+          </div>
+        )}
       </form>
 
       {/* Upload in progress pop-up — same UI/UX as ConfirmationDialog */}
