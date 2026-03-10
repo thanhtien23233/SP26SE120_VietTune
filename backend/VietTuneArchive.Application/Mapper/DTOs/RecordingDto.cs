@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using VietTuneArchive.Domain.Entities.Enum;
 
 namespace VietTuneArchive.Application.Mapper.DTOs
 {
@@ -28,6 +29,7 @@ namespace VietTuneArchive.Application.Mapper.DTOs
         public decimal? GpsLongitude { get; set; }
         public decimal? Tempo { get; set; }
         public string? KeySignature { get; set; }
+        public SubmissionStatus Status { get; set; }
         public List<Guid> InstrumentIds { get; set; } = new List<Guid>();
     }
 }

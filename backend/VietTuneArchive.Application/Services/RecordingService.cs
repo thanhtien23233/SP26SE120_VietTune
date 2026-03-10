@@ -4,6 +4,7 @@ using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Application.Responses;
 using VietTuneArchive.Domain.Entities;
+using VietTuneArchive.Domain.Entities.Enum;
 using VietTuneArchive.Domain.IRepositories;
 
 namespace VietTuneArchive.Application.Services
@@ -18,11 +19,13 @@ namespace VietTuneArchive.Application.Services
         private readonly IMusicalScaleRepository _musicalScaleRepository;
         private readonly IInstrumentRepository _instrumentRepository;
         private readonly IVocalStyleRepository _vocalStyleRepository;
-        public RecordingService(IRecordingRepository repository, IMapper mapper, ICommuneRepository communeRepository, IEthnicGroupRepository ethnicGroupRepository, ICeremonyRepository ceremonyRepository, IMusicalScaleRepository musicalScaleRepository, IInstrumentRepository instrumentRepository, IVocalStyleRepository vocalStyleRepository)
+        private readonly ISubmissionRepository _submissionRepository;
+        public RecordingService(IRecordingRepository repository, IMapper mapper, ICommuneRepository communeRepository, IEthnicGroupRepository ethnicGroupRepository, ICeremonyRepository ceremonyRepository, IMusicalScaleRepository musicalScaleRepository, IInstrumentRepository instrumentRepository, IVocalStyleRepository vocalStyleRepository, ISubmissionRepository submissionRepository)
             : base(repository, mapper)
         {
             _recordingRepository = repository ?? throw new ArgumentNullException(nameof(repository));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _submissionRepository = submissionRepository ?? throw new ArgumentNullException(nameof(submissionRepository));
             _communeRepository = communeRepository;
             _ethnicGroupRepository = ethnicGroupRepository;
             _ceremonyRepository = ceremonyRepository;
@@ -91,6 +94,7 @@ namespace VietTuneArchive.Application.Services
                 existingRecording.Tempo = recordingDto.Tempo;
                 existingRecording.KeySignature = recordingDto.KeySignature;
                 existingRecording.UpdatedAt = DateTime.UtcNow;
+                existingRecording.Status = SubmissionStatus.Pending;
 
                 // Update instruments
                 if (recordingDto.InstrumentIds != null && recordingDto.InstrumentIds.Any())

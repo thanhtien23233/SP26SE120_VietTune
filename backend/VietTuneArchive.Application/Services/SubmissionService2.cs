@@ -70,6 +70,32 @@ namespace VietTuneArchive.Application.Services
                 return Result<SubmissionResponseDto>.Failure($"Failed to create submission: {ex.Message}");
             }
         }
+        public async Task<Result<bool>> ConfirmSubmit(Guid submissionId)
+        {
+            try
+            {
+                if (submissionId == Guid.Empty)
+                    throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
+                var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
+                if (submission == null)
+                    return Result<bool>.Failure("Submission not found");
+
+                var recording = await _recordingRepository.GetByIdAsync(submission.RecordingId.Value);
+                if (recording == null)
+                    return Result<bool>.Failure("Associated recording not found");
+                if (recording.Status != SubmissionStatus.Pending)
+                    return Result<bool>.Failure("Recording is not in a state that can be submitted");
+
+                submission.Status = SubmissionStatus.Pending;
+                submission.UpdatedAt = DateTime.UtcNow;
+                await _submissionRepo.UpdateAsync(submission);
+                return Result<bool>.Success(true, "Submission confirmed successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<bool>.Failure($"Failed to confirm submission: {ex.Message}");
+            }
+        }
         /// <summary>
         /// Get submissions by contributor
         /// </summary>

@@ -88,12 +88,13 @@ namespace VietTuneArchive.Domain.Entities
         public DateTime CreatedAt { get; set; }
 
         public DateTime? UpdatedAt { get; set; }
+        public Guid? SubmissionId { get; set; }
+        public Submission? Submission { get; set; }
 
         // Navigation properties
         public ICollection<RecordingImage>? RecordingImages { get; set; }
         public ICollection<RecordingInstrument>? RecordingInstruments { get; set; }
         public ICollection<RecordingTag>? RecordingTags { get; set; }
-        public ICollection<Submission>? Submissions { get; set; }
         public ICollection<Annotation>? Annotations { get; set; }
         public ICollection<VectorEmbedding>? VectorEmbeddings { get; set; }
         public ICollection<AudioAnalysisResult>? AudioAnalysisResults { get; set; }

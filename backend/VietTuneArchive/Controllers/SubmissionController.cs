@@ -45,6 +45,18 @@ namespace VietTuneArchive.API.Controllers
             return BadRequest(result);
         }
 
+        [HttpPut("confirm-submit-submission")]
+        [Authorize(Roles = "Admin,Expert,Contributor")]
+        public async Task<IActionResult> ConfirmSubmitSubmission(Guid submissionId)
+        {
+            var result = await _submissionService.ConfirmSubmit(submissionId);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
         [HttpGet("my")]
         public async Task<IActionResult> GetMySubmissions(Guid userId,
             [FromQuery] int page = 1, [FromQuery] int pageSize = 10)

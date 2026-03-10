@@ -323,6 +323,7 @@ namespace VietTuneArchive.Domain.Context
                 entity.Property(e => e.Status).IsRequired();
                 entity.Property(e => e.CreatedAt);
                 entity.Property(e => e.UpdatedAt);
+                entity.Property(e => e.SubmissionId);
 
                 entity.HasMany(e => e.RecordingImages)
                     .WithOne(ri => ri.Recording)
@@ -337,11 +338,6 @@ namespace VietTuneArchive.Domain.Context
                 entity.HasMany(e => e.RecordingTags)
                     .WithOne(rt => rt.Recording)
                     .HasForeignKey(rt => rt.RecordingId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasMany(e => e.Submissions)
-                    .WithOne(s => s.Recording)
-                    .HasForeignKey(s => s.RecordingId)
                     .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasMany(e => e.Annotations)

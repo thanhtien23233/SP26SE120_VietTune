@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Application.Mapper.DTOs.Response;
@@ -69,19 +70,14 @@ namespace VietTuneArchive.API.Controllers
                 Phone = model.PhoneNumber,
                 Role = "Contributor"
             };
-            await _authService.Register(user, model.Password);
+            var result = await _authService.Register(user, model.Password);
 
-            var response = new
+            if (result.IsSuccess)
             {
-                UserId = user.Id,
-                Email = user.Email,
-                FullName = user.FullName,
-                PhoneNumber = user.Phone,
-                CreatedAt = user.CreatedAt,
-                Message = "Đăng ký thành công!"
-            };
+                return Ok(result);
+            }
 
-            return Ok(response);
+            return BadRequest(result);
         }
         [HttpPost("register-researcher")]
         public async Task<IActionResult> RegisterForResearcher([FromBody] RegisterModel model)
@@ -94,19 +90,14 @@ namespace VietTuneArchive.API.Controllers
                 Phone = model.PhoneNumber,
                 Role = "Researcher"
             };
-            await _authService.Register(user, model.Password);
+            var result = await _authService.Register(user, model.Password);
 
-            var response = new
+            if (result.IsSuccess)
             {
-                UserId = user.Id,
-                Email = user.Email,
-                FullName = user.FullName,
-                PhoneNumber = user.Phone,
-                CreatedAt = user.CreatedAt,
-                Message = "Đăng ký thành công!"
-            };
+                return Ok(result);
+            }
 
-            return Ok(response);
+            return BadRequest(result);
         }
 
         [HttpGet("confirm-email")]
