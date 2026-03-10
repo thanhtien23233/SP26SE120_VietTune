@@ -181,7 +181,9 @@ builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
 
 // Email + AutoMapper
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
+builder.Services.Configure<GmailApiSettings>(builder.Configuration.GetSection("GmailApiSettings"));
 builder.Services.AddTransient<EmailService>();
+builder.Services.AddHttpClient<EmailService>();
 
 builder.Services.AddCors(o => 
 {

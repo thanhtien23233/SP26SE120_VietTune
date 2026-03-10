@@ -1,225 +1,134 @@
-﻿using MailKit.Security;
-using Microsoft.Extensions.Options;
-using MimeKit;
-using Service.EmailConfirmation;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-//using System.Net.Mail;
-using MailKit.Net.Smtp;
+﻿using Microsoft.Extensions.Options;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace VietTuneArchive.Application.Common.Email
 {
+    public class GmailApiSettings
+    {
+        public string ClientId { get; set; }
+        public string ClientSecret { get; set; }
+        public string RefreshToken { get; set; }
+        public string SenderEmail { get; set; }
+    }
+
     public class EmailService
     {
-        private readonly SmtpSettings _smtpSettings;
+        private readonly GmailApiSettings _settings;
+        private readonly HttpClient _httpClient;
 
-        public EmailService(IOptions<SmtpSettings> smtpSettings)
+        public EmailService(IOptions<GmailApiSettings> options, HttpClient httpClient)
         {
-            _smtpSettings = smtpSettings.Value;
+            _settings = options.Value;
+            _httpClient = httpClient;
         }
 
-        //        public async Task SendConfirmationEmail(string email, string token)
-        //        {
-        //            if (string.IsNullOrWhiteSpace(email) || !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email))
-        //            {
-        //                throw new ArgumentException("Địa chỉ email không hợp lệ.", nameof(email));
-        //            }
-        //            // Tạo nội dung email với mã xác nhận (token) thay vì đường link
-        //            var emailSubject = "[VietTuneArchive] Mã xác nhận email của bạn!";
-        //            var emailBody = $@"
-        //<div style='font-family: Arial, sans-serif; line-height: 1.6;'>
-        //    <h2 style='color: #0066cc;'>Xác minh địa chỉ email</h2>
-        //    <p>Xin chào!</p>
-        //    <p>Dưới đây là mã xác nhận tài khoản của bạn:</p>
-        //    <div style='background-color: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 18px; font-weight: bold;'>
-        //        {token}
-        //    </div>
-        //    <p>Vui lòng nhập mã này vào trang xác nhận để hoàn tất quá trình.</p>
-        //    <p>Mã có hiệu lực trong 15 phút.</p>
-        //    <p>Trân trọng,<br/>Đội ngũ hỗ trợ VietTuneArchive!</p>
-        //</div>";
-
-        //            using var smtpClient = new SmtpClient(_smtpSettings.Server)
-        //            {
-        //                Port = _smtpSettings.Port,
-        //                Credentials = new NetworkCredential(_smtpSettings.Username, _smtpSettings.Password),
-        //                EnableSsl = true,
-        //            };
-
-        //            var mailMessage = new MailMessage
-        //            {
-        //                From = new MailAddress(_smtpSettings.Username),
-        //                Subject = emailSubject,
-        //                Body = emailBody,
-        //                IsBodyHtml = true,
-        //            };
-
-        //            mailMessage.To.Add(email);
-
-        //            try
-        //            {
-        //                await smtpClient.SendMailAsync(mailMessage);
-        //            }
-        //            catch (SmtpException ex)
-        //            {
-        //                Console.WriteLine($"Lỗi khi gửi email: {ex.Message}");
-        //            }
-        //        }
         public async Task SendConfirmationEmail(string email, string token)
         {
-            if (string.IsNullOrWhiteSpace(email) || !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email))
-            {
-                throw new ArgumentException("Địa chỉ email không hợp lệ.", nameof(email));
-            }
-
-            // 1. Tạo nội dung Email bằng MimeMessage (MimeKit)
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("VietTuneArchive", _smtpSettings.Username));
-            message.To.Add(new MailboxAddress("", email));
-            message.Subject = "[VietTuneArchive] Mã xác nhận email của bạn!";
-
-            var bodyBuilder = new BodyBuilder
-            {
-                HtmlBody = $@"
-            <div style='font-family: Arial, sans-serif; line-height: 1.6;'>
-                <h2 style='color: #0066cc;'>Xác minh địa chỉ email</h2>
-                <p>Xin chào!</p>
-                <p>Dưới đây là mã xác nhận tài khoản của bạn:</p>
-                <div style='background-color: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 18px; font-weight: bold;'>
-                    {token}
+            var htmlContent = $@"
+            <div style='background-color: #f4f7f6; padding: 50px 0; font-family: Arial, sans-serif;'>
+                <div style='max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'>
+                    <div style='background-color: #0066cc; padding: 30px; text-align: center;'>
+                        <h1 style='color: #ffffff; margin: 0; font-size: 24px;'>VIETTUNE ARCHIVE</h1>
+                    </div>
+                    <div style='padding: 40px; color: #333333; line-height: 1.6;'>
+                        <h2 style='font-size: 20px;'>Xác minh địa chỉ Email</h2>
+                        <p>Cảm ơn bạn đã tham gia cộng đồng VietTune. Mã xác nhận của bạn là:</p>
+                        <div style='margin: 30px 0; text-align: center;'>
+                            <div style='display: inline-block; background-color: #f0f4f8; padding: 15px 40px; border-radius: 4px; border: 1px dashed #0066cc;'>
+                                <span style='font-size: 32px; font-weight: bold; color: #0066cc; letter-spacing: 5px;'>{token}</span>
+                            </div>
+                        </div>
+                        <p style='font-size: 14px; color: #666666;'>Mã hết hạn trong 15 phút.</p>
+                    </div>
                 </div>
-                <p>Vui lòng nhập mã này vào trang xác nhận để hoàn tất quá trình.</p>
-                <p>Mã có hiệu lực trong 15 phút.</p>
-                <p>Trân trọng,<br/>Đội ngũ hỗ trợ VietTuneArchive!</p>
-            </div>"
-            };
-            message.Body = bodyBuilder.ToMessageBody();
+            </div>";
 
-            // 2. Gửi Email bằng SmtpClient của MailKit (KHÔNG phải System.Net.Mail)
-            using var client = new SmtpClient();
-            try
-            {
-                // Kết nối với chế độ STARTTLS (Port 587)
-                await client.ConnectAsync(_smtpSettings.Server, _smtpSettings.Port, SecureSocketOptions.StartTls);
-
-                // Xác thực bằng App Password
-                await client.AuthenticateAsync(_smtpSettings.Username, _smtpSettings.Password);
-
-                await client.SendAsync(message);
-                await client.DisconnectAsync(true);
-            }
-            catch (Exception ex)
-            {
-                // Log lỗi chi tiết để kiểm tra trên Render Logs
-                Console.Error.WriteLine($"[Email Error] Lỗi khi gửi email: {ex.Message}");
-                throw; // Nên throw để lớp gọi Service này biết là gửi thất bại
-            }
+            await SendGmailApi(email, "[VietTuneArchive] Mã xác nhận email của bạn", htmlContent);
         }
-        //        public async Task SendResetPasswordEmailAsync(string email, string fullName, string otp)
-        //        {
-        //            if (string.IsNullOrWhiteSpace(email) || !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email))
-        //            {
-        //                throw new ArgumentException("Địa chỉ email không hợp lệ.", nameof(email));
-        //            }
 
-        //            var emailSubject = "[VietTuneArchive] Mã reset mật khẩu của bạn";
-        //            var emailBody = $@"
-        //<div style='font-family: Arial, sans-serif; line-height: 1.6;'>
-        //    <h2 style='color: #0066cc;'>Reset mật khẩu</h2>
-        //    <p>Xin chào {fullName},</p>
-        //    <p>Bạn đã yêu cầu reset mật khẩu. Dưới đây là mã xác nhận:</p>
-        //    <div style='background-color: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 18px; font-weight: bold;'>
-        //        {otp}
-        //    </div>
-        //    <p>Vui lòng nhập mã này vào form reset để đặt mật khẩu mới. Mã hết hạn sau 15 phút.</p>
-        //    <p>Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>
-        //    <p>Trân trọng,<br/>Đội ngũ hỗ trợ VietTuneArchive!</p>
-        //</div>";
-
-        //            using var smtpClient = new SmtpClient(_smtpSettings.Server)
-        //            {
-        //                Port = _smtpSettings.Port,
-        //                Credentials = new NetworkCredential(_smtpSettings.Username, _smtpSettings.Password),
-        //                EnableSsl = true,
-        //            };
-
-        //            var mailMessage = new MailMessage
-        //            {
-        //                From = new MailAddress(_smtpSettings.Username),
-        //                Subject = emailSubject,
-        //                Body = emailBody,
-        //                IsBodyHtml = true,
-        //            };
-
-        //            mailMessage.To.Add(email);
-
-        //            try
-        //            {
-        //                await smtpClient.SendMailAsync(mailMessage);
-        //            }
-        //            catch (SmtpException ex)
-        //            {
-        //                Console.WriteLine($"Lỗi khi gửi email reset: {ex.Message}");
-        //                throw;
-        //            }
-        //        }
         public async Task SendResetPasswordEmailAsync(string email, string fullName, string otp)
         {
-            // 1. Kiểm tra Email hợp lệ
-            if (string.IsNullOrWhiteSpace(email) || !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email))
+            var htmlContent = $@"
+            <div style='background-color: #f9fafb; padding: 50px 0; font-family: Arial, sans-serif;'>
+                <div style='max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;'>
+                    <div style='background-color: #1f2937; padding: 25px; text-align: center;'>
+                        <span style='color: #ffffff; font-size: 20px; font-weight: bold;'>VIETTUNE ARCHIVE</span>
+                    </div>
+                    <div style='padding: 40px;'>
+                        <h2 style='color: #111827;'>Yêu cầu đặt lại mật khẩu</h2>
+                        <p>Xin chào <strong>{fullName}</strong>,</p>
+                        <p>Bạn đã yêu cầu reset mật khẩu. Vui lòng sử dụng mã dưới đây:</p>
+                        <div style='text-align: center; margin: 30px 0;'>
+                            <div style='background-color: #f3f4f6; padding: 20px; border-radius: 8px; display: inline-block;'>
+                                <span style='font-size: 36px; font-weight: 800; color: #ef4444; letter-spacing: 8px;'>{otp}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>";
+
+            await SendGmailApi(email, "[VietTuneArchive] Mã reset mật khẩu của bạn", htmlContent);
+        }
+
+        private async Task SendGmailApi(string toEmail, string subject, string htmlContent)
+        {
+            var accessToken = await GetAccessTokenAsync();
+
+            // 1. Mã hóa tiêu đề UTF-8 chuẩn RFC 2047
+            var encodedSubject = $"=?utf-8?B?{Convert.ToBase64String(Encoding.UTF8.GetBytes(subject))}?=";
+
+            // 2. Xây dựng gói tin MIME thủ công để ép chuẩn UTF-8
+            var sb = new StringBuilder();
+            sb.AppendLine($"To: {toEmail}");
+            sb.AppendLine($"From: {_settings.SenderEmail}");
+            sb.AppendLine($"Subject: {encodedSubject}");
+            sb.AppendLine("MIME-Version: 1.0");
+            sb.AppendLine("Content-Type: text/html; charset=utf-8");
+            sb.AppendLine("Content-Transfer-Encoding: base64");
+            sb.AppendLine(""); // Dòng trống ngăn cách Header và Body
+
+            // Mã hóa Body sang Base64
+            var base64Body = Convert.ToBase64String(Encoding.UTF8.GetBytes(htmlContent));
+            sb.AppendLine(base64Body);
+
+            // 3. Chuyển toàn bộ sang Base64Url (thay thế ký tự đặc biệt)
+            var base64Message = Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()))
+                .Replace("+", "-")
+                .Replace("/", "_")
+                .Replace("=", "");
+
+            _httpClient.DefaultRequestHeaders.Clear();
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var response = await _httpClient.PostAsJsonAsync("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", new { raw = base64Message });
+
+            if (!response.IsSuccessStatusCode)
             {
-                throw new ArgumentException("Địa chỉ email không hợp lệ.", nameof(email));
+                var error = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Gmail API Error: {error}");
             }
+        }
 
-            // 2. Tạo nội dung Email bằng MimeMessage
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("VietTuneArchive", _smtpSettings.Username));
-            message.To.Add(new MailboxAddress(fullName, email));
-            message.Subject = "[VietTuneArchive] Mã reset mật khẩu của bạn";
-
-            var bodyBuilder = new BodyBuilder
+        private async Task<string> GetAccessTokenAsync()
+        {
+            var content = new FormUrlEncodedContent(new[]
             {
-                HtmlBody = $@"
-        <div style='font-family: Arial, sans-serif; line-height: 1.6;'>
-            <h2 style='color: #0066cc;'>Reset mật khẩu</h2>
-            <p>Xin chào {fullName},</p>
-            <p>Bạn đã yêu cầu reset mật khẩu. Dưới đây là mã xác nhận:</p>
-            <div style='background-color: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 18px; font-weight: bold;'>
-                {otp}
-            </div>
-            <p>Vui lòng nhập mã này vào form reset để đặt mật khẩu mới. Mã hết hạn sau 15 phút.</p>
-            <p>Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>
-            <p>Trân trọng,<br/>Đội ngũ hỗ trợ VietTuneArchive!</p>
-        </div>"
-            };
-            message.Body = bodyBuilder.ToMessageBody();
+                new KeyValuePair<string, string>("client_id", _settings.ClientId),
+                new KeyValuePair<string, string>("client_secret", _settings.ClientSecret),
+                new KeyValuePair<string, string>("refresh_token", _settings.RefreshToken),
+                new KeyValuePair<string, string>("grant_type", "refresh_token")
+            });
 
-            // 3. Gửi Email
-            using var client = new SmtpClient(); // Đây là MailKit.Net.Smtp.SmtpClient
-            try
+            var response = await _httpClient.PostAsync("https://oauth2.googleapis.com/token", content);
+            if (!response.IsSuccessStatusCode)
             {
-                // Render/Linux hoạt động tốt nhất với SecureSocketOptions.StartTls trên Port 587
-                await client.ConnectAsync(_smtpSettings.Server, _smtpSettings.Port, SecureSocketOptions.StartTls);
-
-                // Sử dụng App Password (mật khẩu ứng dụng 16 ký tự)
-                await client.AuthenticateAsync(_smtpSettings.Username, _smtpSettings.Password);
-
-                await client.SendAsync(message);
-                await client.DisconnectAsync(true);
+                throw new Exception("Không thể lấy Access Token từ Google.");
             }
-            catch (Exception ex)
-            {
-                // Log lỗi chi tiết để bạn xem trên Render Dashboard -> Logs
-                Console.WriteLine($"[Email Service Error]: {ex.Message}");
-                if (ex.InnerException != null)
-                    Console.WriteLine($"Inner Exception: {ex.InnerException.Message}");
-
-                throw; // Ném lỗi để Controller xử lý (trả về 500 hoặc thông báo lỗi)
-            }
+            var data = await response.Content.ReadFromJsonAsync<JsonElement>();
+            return data.GetProperty("access_token").GetString();
         }
     }
 }
