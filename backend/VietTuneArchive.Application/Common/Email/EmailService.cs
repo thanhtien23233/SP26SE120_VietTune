@@ -115,7 +115,7 @@ namespace VietTuneArchive.Application.Common.Email
             catch (Exception ex)
             {
                 // Log lỗi chi tiết để kiểm tra trên Render Logs
-                Console.WriteLine($"[Email Error] Lỗi khi gửi email: {ex.Message}");
+                Console.Error.WriteLine($"[Email Error] Lỗi khi gửi email: {ex.Message}");
                 throw; // Nên throw để lớp gọi Service này biết là gửi thất bại
             }
         }

@@ -130,9 +130,9 @@ namespace VietTuneArchive.Application.Services
             {
                 try
                 {
-                    await _emailService.SendConfirmationEmail(user.Email, user.ConfirmEmailToken);
-
                     await _userRepository.AddAsync(user);
+
+                    await _emailService.SendConfirmationEmail(user.Email, user.ConfirmEmailToken);
 
                     await transaction.CommitAsync();
                 }

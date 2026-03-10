@@ -39,7 +39,7 @@ namespace VietTuneArchive.Application.Services
                     Id = Guid.NewGuid(),
                     AudioFileUrl = dto.AudioFileUrl,
                     UploadedById = dto.UploadedById,
-                    Status = SubmissionStatus.Pending,
+                    Status = SubmissionStatus.Draft,
                     CreatedAt = DateTime.UtcNow
                 };
                 await _recordingRepository.AddAsync(recording);
@@ -50,7 +50,7 @@ namespace VietTuneArchive.Application.Services
                     RecordingId = recording.Id,
                     Recording = recording,
                     CurrentStage = 0,
-                    Status = SubmissionStatus.Pending,
+                    Status = SubmissionStatus.Draft,
                     SubmittedAt = DateTime.UtcNow,
                     ContributorId = dto.UploadedById
                 };
