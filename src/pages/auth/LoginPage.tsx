@@ -4,12 +4,11 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { authService } from "@/services/authService";
 import { useAuthStore } from "@/stores/authStore";
 import Input from "@/components/common/Input";
-import BackButton from "@/components/common/BackButton";
 import { LoginForm, User, UserRole } from "@/types";
 import { notify } from "@/stores/notificationStore";
-import backgroundImage from "@/components/image/Đàn bầu.png";
 import logo from "@/components/image/VietTune logo.png";
 import { getItem, sessionGetItem, sessionRemoveItem } from "@/services/storageService";
+import { ZitherStrings } from "@/components/image/pattern/BackgroundPatterns";
 
 /** Safe internal path for post-login redirect (no open redirect). */
 function getSafeRedirect(redirect: string | null): string | null {
@@ -90,244 +89,112 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      className="h-screen flex items-center justify-center px-4 relative"
-      style={{
-        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${backgroundImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      {!fromLogout && <div className="absolute top-4 right-4"><BackButton /></div>}
-      <div className="max-w-xl w-full">
-        <form
-          className="bg-white/95 backdrop-blur-sm p-8 rounded-2xl border border-neutral-200/80 shadow-2xl transition-all duration-300 hover:shadow-2xl space-y-4"
-          onSubmit={handleSubmit(onSubmit)}
-        >
-          <div className="flex flex-col items-center">
+    <div className="min-h-screen flex flex-col md:flex-row overflow-hidden">
+      {/* Left Side: Branding (7/10) */}
+      <div className="md:w-[70%] bg-[#2C1810] flex items-center justify-center p-8 lg:p-24 order-2 md:order-1 relative overflow-hidden">
+        <ZitherStrings />
+        <div className="max-w-[750px] w-full text-center md:text-left relative z-10">
+          <div className="flex justify-center md:justify-start mb-8">
             <img
               src={logo}
               alt="VietTune Logo"
-              className="w-12 h-12 object-contain mb-1 rounded-xl cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => {
-                void sessionRemoveItem("fromLogout");
-                if (!authService.isAuthenticated()) {
-                  navigate("/");
-                  return;
-                }
-                const lastPage = getItem("lastVisitedPage");
-                navigate(lastPage || "/");
-              }}
-            />
-            <h2 className="text-center text-xl font-bold text-neutral-800">
-              Đăng nhập vào VietTune
-            </h2>
-            <p className="text-center text-sm text-neutral-600">
-              Hoặc{" "}
-              <Link
-                to="/register"
-                className="font-medium text-primary-600 hover:text-primary-700 active:text-primary-800"
-              >
-                tạo tài khoản mới
-              </Link>
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <Input
-              label="Email"
-              type="email"
-              {...register("email", {
-                required: "Email là bắt buộc",
-                pattern: {
-                  value: /^\S+@\S+\.\S+$/,
-                  message: "Địa chỉ email không hợp lệ",
-                },
-              })}
-              error={errors.email?.message}
-            />
-
-            <Input
-              label="Mật khẩu"
-              type="password"
-              {...register("password", {
-                required: "Mật khẩu là bắt buộc",
-                minLength: {
-                  value: 1,
-                  message: "Mật khẩu phải có ít nhất 1 ký tự",
-                },
-              })}
-              error={errors.password?.message}
+              className="w-32 h-32 object-contain rounded-[2rem] shadow-2xl ring-4 ring-white/10 cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => navigate("/")}
             />
           </div>
+          <h1 className="text-4xl lg:text-7xl font-black text-white leading-tight tracking-tight mb-6">
+            VietTune giúp bạn kết nối và sẻ chia âm hưởng nghìn năm.
+          </h1>
+          <div className="h-1.5 w-24 bg-primary-600 mb-8 rounded-full hidden md:block"></div>
+          <p className="text-xl lg:text-2xl text-white/90 font-medium leading-relaxed max-w-2xl opacity-80">
+            Khám phá, lưu giữ và lan tỏa di sản dân ca cùng cộng đồng. Âm hưởng nghìn năm, kết nối muôn đời qua từng bản thu.
+          </p>
+        </div>
+      </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                className="h-3.5 w-3.5 bg-white text-primary-600 focus:outline-none border-2 border-neutral-400 rounded"
+      {/* Right Side: Login Section (3/10) */}
+      <div className="md:w-[30%] bg-white flex flex-col items-center justify-center p-8 lg:p-12 order-1 md:order-2 border-l border-neutral-100">
+        <div className="w-full max-w-[400px]">
+          <h2 className="text-xl font-bold text-neutral-900 mb-6 text-left">
+            Đăng nhập vào VietTune
+          </h2>
+          
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-3">
+              <Input
+                placeholder="Email hoặc số điện thoại"
+                type="email"
+                className="rounded-xl border-neutral-200 py-3.5 focus:border-primary-500 bg-white"
+                {...register("email", {
+                  required: "Email là bắt buộc",
+                  pattern: {
+                    value: /^\S+@\S+\.\S+$/,
+                    message: "Địa chỉ email không hợp lệ",
+                  },
+                })}
+                error={errors.email?.message}
               />
-              <label
-                htmlFor="remember-me"
-                className="ml-2 block text-neutral-700"
-              >
-                Ghi nhớ tôi
-              </label>
+
+              <Input
+                placeholder="Mật khẩu"
+                type="password"
+                className="rounded-xl border-neutral-200 py-3.5 focus:border-primary-500 bg-white"
+                {...register("password", {
+                  required: "Mật khẩu là bắt buộc",
+                })}
+                error={errors.password?.message}
+              />
             </div>
 
-            <a
-              href="#"
-              className="font-medium text-primary-600 hover:text-primary-700 active:text-primary-800"
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 bg-primary-600 text-white text-lg font-bold rounded-xl hover:bg-primary-700 transition-all disabled:bg-neutral-400 disabled:cursor-not-allowed shadow-none active:scale-[0.98] mt-2"
             >
-              Quên mật khẩu?
-            </a>
-          </div>
+              {isLoading ? "Đang xử lý..." : "Đăng nhập"}
+            </button>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors disabled:bg-neutral-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
-          >
-            {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
-          </button>
-
-          {/* Demo accounts for quick testing */}
-          <div className="mt-4 text-center text-sm text-neutral-600">
-            <p className="mb-2">Hoặc dùng tài khoản demo:</p>
-            <div className="flex flex-wrap gap-4 justify-center">
-              <button
-                type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
-                onClick={async () => {
-                  setIsLoading(true);
-                  try {
-                    const res = await authService.loginDemo("contributor");
-                    if (res.success && res.data) {
-                      setUser(res.data.user as unknown as import("@/types").User);
-                      void sessionRemoveItem("fromLogout");
-                      navigate(redirectTo ?? "/");
-                    }
-                  } catch (err) {
-                    notify.error("Lỗi", "Không thể đăng nhập demo");
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
+            <div className="text-center mt-4">
+              <a
+                href="#"
+                className="text-primary-600 hover:underline text-sm font-medium"
               >
-                {`Contributor (${demoNames.contributor || 'contributor_demo'})`}
-              </button>
-              <button
-                type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
-                onClick={async () => {
-                  setIsLoading(true);
-                  try {
-                    const res = await authService.loginDemo("expert_a");
-                    if (res.success && res.data) {
-                      setUser(res.data.user as unknown as import("@/types").User);
-                      void sessionRemoveItem("fromLogout");
-                      navigate(redirectTo ?? "/moderation");
-                    }
-                  } catch (err) {
-                    notify.error("Lỗi", "Không thể đăng nhập demo");
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-              >
-                {`Expert A (${demoNames.expert_a || 'expertA'})`}
-              </button>
-              <button
-                type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
-                onClick={async () => {
-                  setIsLoading(true);
-                  try {
-                    const res = await authService.loginDemo("expert_b");
-                    if (res.success && res.data) {
-                      setUser(res.data.user as unknown as import("@/types").User);
-                      void sessionRemoveItem("fromLogout");
-                      navigate(redirectTo ?? "/moderation");
-                    }
-                  } catch (err) {
-                    notify.error("Lỗi", "Không thể đăng nhập demo");
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-              >
-                {`Expert B (${demoNames.expert_b || 'expertB'})`}
-              </button>
-              <button
-                type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
-                onClick={async () => {
-                  setIsLoading(true);
-                  try {
-                    const res = await authService.loginDemo("expert_c");
-                    if (res.success && res.data) {
-                      setUser(res.data.user as unknown as import("@/types").User);
-                      void sessionRemoveItem("fromLogout");
-                      navigate(redirectTo ?? "/moderation");
-                    }
-                  } catch (err) {
-                    notify.error("Lỗi", "Không thể đăng nhập demo");
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-              >
-                {`Expert C (${demoNames.expert_c || 'expertC'})`}
-              </button>
-              <button
-                type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
-                onClick={async () => {
-                  setIsLoading(true);
-                  try {
-                    const res = await authService.loginDemo("admin");
-                    if (res.success && res.data) {
-                      setUser(res.data.user as unknown as import("@/types").User);
-                      void sessionRemoveItem("fromLogout");
-                      navigate(redirectTo ?? "/");
-                    }
-                  } catch (err) {
-                    notify.error("Lỗi", "Không thể đăng nhập demo");
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-              >
-                {`Admin (${demoNames.admin ?? "admin_demo"})`}
-              </button>
-              <button
-                type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
-                onClick={async () => {
-                  setIsLoading(true);
-                  try {
-                    const res = await authService.loginDemo("researcher");
-                    if (res.success && res.data) {
-                      setUser(res.data.user as unknown as import("@/types").User);
-                      void sessionRemoveItem("fromLogout");
-                      navigate(redirectTo ?? "/researcher");
-                    }
-                  } catch (err) {
-                    notify.error("Lỗi", "Không thể đăng nhập demo");
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-              >
-                {`Researcher (${demoNames.researcher ?? "researcher_demo"})`}
-              </button>
+                Quên mật khẩu?
+              </a>
             </div>
-          </div>
-        </form>
+
+            <div className="my-10 flex items-center justify-center">
+              {/* Optional: Add a subtle separator if needed, but image is very clean */}
+            </div>
+
+            <div className="flex justify-center flex-col space-y-6">
+              <button
+                type="button"
+                onClick={() => navigate("/register")}
+                className="w-full py-3 bg-white border border-primary-600 text-primary-600 text-lg font-bold rounded-full transition-all hover:bg-primary-50 active:scale-[0.98]"
+              >
+                Tạo tài khoản mới
+              </button>
+              
+              <div className="flex items-center justify-center gap-1 opacity-60 mt-4">
+                <span className="text-xs font-bold text-neutral-800 tracking-wider flex items-center gap-1.5 uppercase">
+                  <img src={logo} alt="" className="w-4 h-4 rounded-sm grayscale opacity-50" />
+                  VietTune
+                </span>
+              </div>
+            </div>
+          </form>
+
+          {!fromLogout && (
+            <div className="mt-8 text-center">
+              <Link to="/" className="text-xs font-semibold text-neutral-400 hover:text-primary-600 transition-colors uppercase tracking-widest">
+                Quay lại trang chủ
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+

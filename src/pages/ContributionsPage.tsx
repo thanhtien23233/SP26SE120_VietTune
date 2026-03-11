@@ -5,7 +5,7 @@ import { UserRole } from "@/types";
 import BackButton from "@/components/common/BackButton";
 import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import { notify } from "@/stores/notificationStore";
-import { LogIn, ChevronLeft, ChevronRight, Eye, Clock, FileAudio, AlertCircle, X, Music, User, Calendar, MapPin, Loader2, Trash2 } from "lucide-react";
+import { LogIn, ChevronLeft, ChevronRight, Clock, FileAudio, AlertCircle, X, Music, User, Calendar, MapPin, Loader2, Trash2 } from "lucide-react";
 import { submissionService, type Submission } from "@/services/submissionService";
 import AudioPlayer from "@/components/features/AudioPlayer";
 import VideoPlayer from "@/components/features/VideoPlayer";
@@ -72,9 +72,9 @@ export default function ContributionsPage() {
     { label: "Tất cả", value: "ALL" },
     { label: "Bản nháp", value: 0 },
     { label: "Đang xử lý", value: 1 },
+    { label: "Yêu cầu cập nhật", value: 4 },
     { label: "Đã duyệt", value: 2 },
     { label: "Từ chối", value: 3 },
-    { label: "Yêu cầu cập nhật", value: 4 },
   ];
 
   // Detail modal
@@ -284,72 +284,34 @@ export default function ContributionsPage() {
           </div>
 
           {/* Info row */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-neutral-600">
-            <span className="inline-flex items-center gap-1.5 font-medium">
-              <Clock className="w-3.5 h-3.5" />
-              {dateStr}
-            </span>
-            <span className="inline-flex items-center gap-1.5 font-medium">
-              <FileAudio className="w-3.5 h-3.5" />
-              {stage}
-            </span>
-            {sub.recording?.performanceContext && (
+          <div className="flex flex-wrap items-center justify-between gap-y-3 mt-4 text-sm text-neutral-600">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <span className="inline-flex items-center gap-1.5 font-medium">
-                <Music className="w-3.5 h-3.5" />
-                {sub.recording.performanceContext}
+                <Clock className="w-3.5 h-3.5" />
+                {dateStr}
               </span>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="flex flex-wrap items-center justify-end gap-3 mt-4">
-            {sub.status === 0 && (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleQuickEdit(sub);
-                }}
-              >
-                Sửa
-              </button>
-            )}
-
-            {[1, 2, 3].includes(sub.status) && (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-orange-200 text-orange-700 bg-orange-50 hover:bg-orange-100 transition-all cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  notify.success("Thành công", "Yêu cầu chỉnh sửa đã được gửi đến ban quản trị.");
-                }}
-              >
-                Yêu cầu chỉnh sửa
-              </button>
-            )}
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <FileAudio className="w-3.5 h-3.5" />
+                {stage}
+              </span>
+              {sub.recording?.performanceContext && (
+                <span className="inline-flex items-center gap-1.5 font-medium">
+                  <Music className="w-3.5 h-3.5" />
+                  {sub.recording.performanceContext}
+                </span>
+              )}
+            </div>
 
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition-all cursor-pointer shadow-sm hover:shadow-md active:scale-95"
               onClick={(e) => {
                 e.stopPropagation();
                 setDeleteId(sub.id);
               }}
             >
-              <Trash2 className="w-4 h-4" strokeWidth={2.5} />
-              Xóa
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-all shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                openDetail(sub.id);
-              }}
-            >
-              <Eye className="w-4 h-4" />
-              Xem chi tiết
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={2.5} />
+              <span className="font-semibold text-xs">Xóa</span>
             </button>
           </div>
         </div>
@@ -445,8 +407,15 @@ export default function ContributionsPage() {
           {!loading && !error && submissions.length === 0 && (
             <div className="text-center py-12">
               <FileAudio className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold mb-2 text-neutral-900">Không có đóng góp</h2>
-              <p className="text-neutral-700 font-medium">Bạn chưa có đóng góp nào.</p>
+              <h2 className="text-xl font-semibold mb-2 text-neutral-900">Không có dữ liệu</h2>
+              <p className="text-neutral-700 font-medium">
+                {activeStatusTab === 0 && "Chưa có bản ghi nháp"}
+                {activeStatusTab === 1 && "Chưa có đóng góp đang được xử lý"}
+                {activeStatusTab === 2 && "Chưa có đóng góp được duyệt"}
+                {activeStatusTab === 3 && "Chưa có đóng góp bị từ chối"}
+                {activeStatusTab === 4 && "Chưa có bản ghi đang yêu cầu cập nhật"}
+                {activeStatusTab === "ALL" && "Bạn chưa có đóng góp nào"}
+              </p>
             </div>
           )}
 
@@ -609,10 +578,35 @@ export default function ContributionsPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-center p-5 border-t border-neutral-200/80 bg-neutral-50/50">
+            <div className="flex flex-wrap items-center justify-center gap-4 p-5 border-t border-neutral-200/80 bg-neutral-50/50">
+              {detailSubmission && detailSubmission.status === 0 && (
+                <button
+                  type="button"
+                  className="px-6 py-2.5 bg-blue-100/90 hover:bg-blue-200 text-blue-800 rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
+                  onClick={() => {
+                    handleQuickEdit(detailSubmission);
+                  }}
+                >
+                  Sửa
+                </button>
+              )}
+
+              {detailSubmission && [1, 2, 3].includes(detailSubmission.status) && (
+                <button
+                  type="button"
+                  className="px-6 py-2.5 bg-orange-100/90 hover:bg-orange-200 text-orange-800 rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
+                  onClick={() => {
+                    notify.success("Thành công", "Yêu cầu chỉnh sửa đã được gửi đến ban quản trị.");
+                    setDetailSubmission(null);
+                  }}
+                >
+                  Yêu cầu chỉnh sửa
+                </button>
+              )}
+
               <button
                 onClick={() => { setDetailSubmission(null); setDetailLoading(false); }}
-                className="px-6 py-2.5 bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer"
+                className="px-6 py-2.5 bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
               >
                 Đóng
               </button>

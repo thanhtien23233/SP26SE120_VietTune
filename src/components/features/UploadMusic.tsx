@@ -52,30 +52,6 @@ const SUPPORTED_VIDEO_FORMATS = [
 
 /** Video & audio upload: no file size limit. Do not add size checks. */
 
-const GENRES = [
-  "Dân ca",
-  "Hát xẩm",
-  "Ca trù",
-  "Chầu văn",
-  "Quan họ",
-  "Hát then",
-  "Cải lương",
-  "Tuồng",
-  "Chèo",
-  "Nhã nhạc",
-  "Ca Huế",
-  "Đờn ca tài tử",
-  "Hát bội",
-  "Hò",
-  "Lý",
-  "Vọng cổ",
-  "Hát ru",
-  "Hát ví",
-  "Hát giặm",
-  "Bài chòi",
-  "Khác",
-];
-
 const LANGUAGES = [
   "Tiếng Việt",
   "Tiếng Thái",
@@ -560,11 +536,11 @@ function SearchableDropdown({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`w-full px-5 py-3 pr-10 text-neutral-900 border border-neutral-400/80 rounded-xl focus:outline-none focus:border-primary-500 transition-all duration-200 text-left flex items-center justify-between shadow-sm hover:shadow-md ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+        className={`w-full px-5 py-3 pr-10 text-neutral-900 border border-neutral-400 rounded-xl focus:outline-none focus:border-primary-500 transition-all duration-200 text-left flex items-center justify-between shadow-sm hover:shadow-md ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
           }`}
         style={{ backgroundColor: "#FFFCF5" }}
       >
-        <span className={value ? "text-neutral-900 font-medium" : "text-neutral-400"}>
+        <span className={value ? "text-neutral-900 font-medium text-sm" : "text-neutral-400 text-sm"}>
           {value || placeholder}
         </span>
         <ChevronDown
@@ -734,7 +710,7 @@ function MultiSelectTags({
       <div
         ref={inputRef}
         onClick={() => !disabled && setIsOpen(true)}
-        className={`min-h-[48px] px-4 py-2.5 border border-neutral-400/80 rounded-xl focus-within:border-primary-500 focus-within:border-transparent transition-all duration-200 shadow-sm hover:shadow-md ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-text"
+        className={`min-h-[48px] px-5 py-3 border border-neutral-400 rounded-xl focus-within:border-primary-500 transition-all duration-200 shadow-sm hover:shadow-md ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-text"
           }`}
         style={{ backgroundColor: "#FFFCF5" }}
       >
@@ -742,7 +718,7 @@ function MultiSelectTags({
           {values.map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-br from-primary-600 to-primary-700 text-white text-xs rounded-xl font-medium shadow-sm hover:shadow-md transition-shadow duration-200"
+              className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-br from-primary-600 to-primary-700 text-white text-sm rounded-xl font-medium shadow-sm hover:shadow-md transition-shadow duration-200"
             >
               {tag}
               {!disabled && (
@@ -771,7 +747,7 @@ function MultiSelectTags({
               onChange={(e) => setSearch(e.target.value)}
               onFocus={() => setIsOpen(true)}
               placeholder={values.length === 0 ? placeholder : ""}
-              className="flex-1 min-w-[120px] bg-transparent text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none py-1"
+              className="flex-1 min-w-[120px] bg-transparent text-neutral-900 font-medium placeholder-neutral-500 text-sm focus:outline-none"
               onKeyDown={e => {
                 if (e.key === "Backspace" && search === "" && values.length > 0) {
                   removeTag(values[values.length - 1]);
@@ -1789,8 +1765,6 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   const [language, setLanguage] = useState("");
   const [noLanguage, setNoLanguage] = useState(false);
   const [customLanguage, setCustomLanguage] = useState("");
-  const [genre, setGenre] = useState("");
-  const [customGenre, setCustomGenre] = useState("");
   const [recordingDate, setRecordingDate] = useState("");
   const [dateEstimated, setDateEstimated] = useState(false);
   const [dateNote, setDateNote] = useState("");
@@ -2003,14 +1977,14 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
   // Check for genre-ethnicity mismatch
   const genreEthnicityWarning = useMemo(() => {
-    if (!genre || !ethnicity) return null;
+    if (!vocalStyle || !ethnicity) return null;
 
-    const expectedEthnicities = GENRE_ETHNICITY_MAP[genre];
+    const expectedEthnicities = GENRE_ETHNICITY_MAP[vocalStyle];
     if (expectedEthnicities && !expectedEthnicities.includes(ethnicity)) {
-      return `Lưu ý: Thể loại "${genre}" thường là đặc trưng của người ${expectedEthnicities.join(", ")}. Tuy nhiên, giao lưu văn hóa giữa các dân tộc là điều bình thường.`;
+      return `Lưu ý: Lối hát "${vocalStyle}" thường là đặc trưng của người ${expectedEthnicities.join(", ")}. Tuy nhiên, giao lưu văn hóa giữa các dân tộc là điều bình thường.`;
     }
     return null;
-  }, [genre, ethnicity]);
+  }, [vocalStyle, ethnicity]);
 
   const showWizard = !isEditMode;
 
@@ -2054,7 +2028,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setAiSuggestLoading(true);
     try {
       const res = await suggestMetadata({
-        genre: genre || undefined,
+        genre: vocalStyle || undefined,
         title: title?.trim() || undefined,
         description: description?.trim() || undefined,
       });
@@ -2087,8 +2061,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         }
       }
     } catch {
-      if (genre && GENRE_ETHNICITY_MAP[genre]) {
-        const suggested = GENRE_ETHNICITY_MAP[genre][0];
+      if (vocalStyle && GENRE_ETHNICITY_MAP[vocalStyle]) {
+        const suggested = GENRE_ETHNICITY_MAP[vocalStyle][0];
         if (suggested && !ethnicity) setEthnicity(suggested);
       }
       setAiSuggestError("Không kết nối được dịch vụ gợi ý. Kiểm tra backend và thử lại.");
@@ -2344,7 +2318,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       newErrors.composer =
         "Vui lòng nhập tên tác giả hoặc chọn 'Dân gian/Không rõ'";
     }
-    if (!genre) newErrors.genre = "Vui lòng chọn thể loại";
+    // Only require vocalStyle if performanceType is vocal_accompaniment or acappella
+    if ((performanceType === "vocal_accompaniment" || performanceType === "acappella") && !vocalStyle) {
+      newErrors.vocalStyle = "Vui lòng chọn lối hát / thể loại";
+    }
     if (!performanceType) {
       newErrors.performanceType = "Vui lòng chọn loại hình biểu diễn";
     }
@@ -2432,7 +2409,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         if (!artistUnknown && !artist.trim()) {
           newErrors.artist = "Vui lòng nhập tên nghệ sĩ hoặc chọn 'Không rõ'";
         }
-        if (!genre) newErrors.genre = "Vui lòng chọn thể loại";
+        // Only require vocalStyle if it's supposed to be visible (vocal_accompaniment or acappella)
+        if ((performanceType === "vocal_accompaniment" || performanceType === "acappella") && !vocalStyle) {
+          newErrors.vocalStyle = "Vui lòng chọn lối hát / thể loại";
+        }
       }
     } else if (uploadWizardStep === 3) {
       if (!isEditMode) {
@@ -2469,7 +2449,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         delete remainingErrors.title;
         delete remainingErrors.artist;
         delete remainingErrors.composer;
-        delete remainingErrors.genre;
+        delete remainingErrors.vocalStyle;
       }
       if (uploadWizardStep === 3) {
         delete remainingErrors.performanceType;
@@ -2500,7 +2480,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       if (!title.trim()) return false;
       if (!artistUnknown && !artist.trim()) return false;
       if (!composerUnknown && !composer.trim()) return false;
-      if (!genre) return false;
+      if ((performanceType === "vocal_accompaniment" || performanceType === "acappella") && !vocalStyle) return false;
     }
 
     // To go to step 4: step 3 must be valid
@@ -2536,7 +2516,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           setArtist(recording.basicInfo?.artist || "");
           setComposer(recording.basicInfo?.composer || "");
           setLanguage(recording.basicInfo?.language || "");
-          setGenre(recording.basicInfo?.genre || "");
+          setVocalStyle(recording.basicInfo?.genre || "");
           setRecordingDate(recording.basicInfo?.recordingDate || "");
           setDateEstimated(recording.basicInfo?.dateEstimated || false);
           setDateNote(recording.basicInfo?.dateNote || "");
@@ -2596,7 +2576,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           setArtist(recording.basicInfo?.artist || "");
           setComposer(recording.basicInfo?.composer || "");
           setLanguage(recording.basicInfo?.language || "");
-          setGenre(recording.basicInfo?.genre || "");
+          setVocalStyle(recording.basicInfo?.genre || "");
           setRecordingDate(recording.basicInfo?.recordingDate || "");
           setDateEstimated(recording.basicInfo?.dateEstimated || false);
           setDateNote(recording.basicInfo?.dateNote || "");
@@ -2731,12 +2711,12 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     if (!isStep2Active || isSubmitting || submitStatus === "success") return;
 
     // Only alert if some data has actually been entered
-    const hasEnteredData =
-      title.trim() !== "" ||
-      (artist.trim() !== "" && !artistUnknown) ||
-      (composer.trim() !== "" && !composerUnknown) ||
-      genre !== "" ||
-      description.trim() !== "";
+      const hasEnteredData =
+        title.trim() !== "" ||
+        (artist.trim() !== "" && !artistUnknown) ||
+        (composer.trim() !== "" && !composerUnknown) ||
+        vocalStyle !== "" ||
+        description.trim() !== "";
 
     if (!hasEnteredData) return;
 
@@ -2749,7 +2729,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [uploadWizardStep, isEditMode, isSubmitting, submitStatus, title, artist, artistUnknown, composer, composerUnknown, genre, description]);
+  }, [uploadWizardStep, isEditMode, isSubmitting, submitStatus, title, artist, artistUnknown, composer, composerUnknown, vocalStyle, description]);
 
   // Internal navigation blocker (for navbar links etc.)
   // Only available since we migrated to Data Router (createBrowserRouter)
@@ -2764,7 +2744,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         title.trim() !== "" ||
         (artist.trim() !== "" && !artistUnknown) ||
         (composer.trim() !== "" && !composerUnknown) ||
-        genre !== "" ||
+        vocalStyle !== "" ||
         description.trim() !== "";
 
       // Only block if moving to a different page
@@ -2948,8 +2928,6 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setLanguage("");
     setNoLanguage(false);
     setCustomLanguage("");
-    setGenre("");
-    setCustomGenre("");
     setRecordingDate("");
     setDateEstimated(false);
     setDateNote("");
@@ -2989,8 +2967,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     if (!title.trim()) return false;
     if (!artistUnknown && !artist.trim()) return false;
     if (!composerUnknown && !composer.trim()) return false;
-    if (!genre) return false;
     if (!performanceType) return false;
+    if ((performanceType === "vocal_accompaniment" || performanceType === "acappella") && !vocalStyle) return false;
 
     // Instruments when required
     if (requiresInstruments && instruments.length === 0) return false;
@@ -3005,7 +2983,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     artistUnknown,
     composer,
     composerUnknown,
-    genre,
+    vocalStyle,
     performanceType,
     requiresInstruments,
     instruments,
@@ -3464,30 +3442,6 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                 </div>
 
                 <div className="space-y-2">
-                  <FormField label="Thể loại/Loại hình" required>
-                    <SearchableDropdown
-                      value={genre}
-                      onChange={(val) => {
-                        setGenre(val);
-                        if (val !== "Khác") setCustomGenre("");
-                      }}
-                      options={GENRES}
-                      placeholder="Chọn thể loại"
-                    />
-                    {errors.genre && (
-                      <p className="text-sm text-red-400">{errors.genre}</p>
-                    )}
-                  </FormField>
-                  {genre === "Khác" && (
-                    <TextInput
-                      value={customGenre}
-                      onChange={setCustomGenre}
-                      placeholder="Nhập tên thể loại khác..."
-                    />
-                  )}
-                </div>
-
-                <div className="space-y-2">
                   <FormField label="Ngày ghi âm">
                     <DatePicker
                       value={recordingDate}
@@ -3531,8 +3485,186 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     disabled={isFormDisabled}
                   />
                 </FormField>
+
+                <div className="md:col-span-2">
+                  <FormField label="Loại hình biểu diễn" required>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {PERFORMANCE_TYPES.map((pt) => (
+                        <button
+                          key={pt.key}
+                          type="button"
+                          onClick={() => {
+                            if (performanceType === pt.key) {
+                              setPerformanceType("");
+                            } else {
+                              setPerformanceType(pt.key);
+                              if (pt.key === "acappella") {
+                                setInstruments([]);
+                              }
+                            }
+                          }}
+                          className={`w-full px-4 py-3 rounded-xl text-sm font-medium transition-all border border-neutral-200 ${performanceType === pt.key
+                            ? "bg-primary-600 text-white shadow-md"
+                            : "text-neutral-700 hover:border-primary-400"
+                            }`}
+                          style={
+                            performanceType !== pt.key
+                              ? { backgroundColor: "#FFFCF5" }
+                              : undefined
+                          }
+                          onMouseEnter={(e) => {
+                            if (performanceType !== pt.key) {
+                              e.currentTarget.style.backgroundColor = "#F5F0E8";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (performanceType !== pt.key) {
+                              e.currentTarget.style.backgroundColor = "#FFFCF5";
+                            }
+                          }}
+                        >
+                          {pt.label}
+                        </button>
+                      ))}
+                    </div>
+                    {errors.performanceType && (
+                      <p className="text-sm text-red-400">{errors.performanceType}</p>
+                    )}
+                  </FormField>
+                </div>
+
+                {(performanceType === "vocal_accompaniment" || performanceType === "acappella") && (
+                  <div className={performanceType === "vocal_accompaniment" ? "md:col-span-1" : "md:col-span-2"}>
+                    <FormField label="Lối hát / Thể loại (Vocal Style)" required>
+                      <SearchableDropdown
+                        value={vocalStyle}
+                        onChange={(val) => {
+                          setVocalStyle(val);
+                        }}
+                        options={vocalStylesData.map(v => v.name)}
+                        placeholder="Chọn lối hát / thể loại"
+                      />
+                      {errors.vocalStyle && (
+                        <p className="text-sm text-red-400">{errors.vocalStyle}</p>
+                      )}
+                    </FormField>
+                  </div>
+                )}
+
+                {requiresInstruments && (
+                  <div className={performanceType === "vocal_accompaniment" ? "md:col-span-1" : "md:col-span-2"}>
+                    <FormField
+                      label="Nhạc cụ sử dụng"
+                      required={requiresInstruments}
+                      hint="Chọn một hoặc nhiều nhạc cụ"
+                    >
+                      <MultiSelectTags
+                        values={instruments}
+                        onChange={setInstruments}
+                        options={INSTRUMENTS}
+                        placeholder="Tìm và chọn nhạc cụ..."
+                        disabled={isFormDisabled}
+                      />
+                      {errors.instruments && (
+                        <p className="text-sm text-red-400">{errors.instruments}</p>
+                      )}
+                      </FormField>
+                    </div>
+                  )}
+
+                  {/* File Uploads Section (Instruments Image & Lyrics) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2">
+                    {/* Instrument image upload: for instrumental or vocal_accompaniment */}
+                    {(performanceType === "instrumental" || performanceType === "vocal_accompaniment") && (
+                      <div className={performanceType === "vocal_accompaniment" ? "col-span-1" : "col-span-1 md:col-span-2"}>
+                        <FormField label="Tải lên hình ảnh nhạc cụ (nếu có)" hint="Ảnh minh họa cho các nhạc cụ sử dụng">
+                          <div className="flex items-center gap-3">
+                            <label
+                              className={`px-4 py-2 rounded-xl text-sm text-neutral-800 border border-neutral-300 transition-colors shadow-sm inline-block ${isFormDisabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-md cursor-pointer"}`}
+                              style={{ backgroundColor: "#FFFCF5" }}
+                              onMouseEnter={e => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#F5F0E8" }}
+                              onMouseLeave={e => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#FFFCF5" }}
+                            >
+                              Chọn ảnh
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleInstrumentImageChange}
+                                className="sr-only"
+                                disabled={isFormDisabled}
+                              />
+                            </label>
+                            {instrumentImage && (
+                              <span className="text-neutral-800/60 text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">{instrumentImage.name}</span>
+                            )}
+                            {instrumentImagePreview && (
+                              <img src={instrumentImagePreview} alt="Xem trước ảnh nhạc cụ" className="h-10 rounded-lg border border-neutral-300" />
+                            )}
+                            {instrumentImage && (
+                              <button
+                                type="button"
+                                className="ml-2 text-xs text-red-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => {
+                                  if (isFormDisabled) return;
+                                  setInstrumentImage(null);
+                                  setInstrumentImagePreview("");
+                                }}
+                                disabled={isFormDisabled}
+                              >
+                                Xóa
+                              </button>
+                            )}
+                          </div>
+                        </FormField>
+                      </div>
+                    )}
+
+                    {/* Lyrics upload: for acappella or vocal_accompaniment */}
+                    {allowsLyrics && (
+                      <div className={performanceType === "vocal_accompaniment" ? "col-span-1" : "col-span-1 md:col-span-2"}>
+                        <FormField
+                          label="Tải lên lời bài hát (nếu có)"
+                          hint="File .txt hoặc .docx"
+                        >
+                          <div className="flex items-center gap-3">
+                            <label
+                              className={`px-4 py-2 rounded-xl text-sm text-neutral-800 border border-neutral-300 transition-colors shadow-sm inline-block ${isFormDisabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-md cursor-pointer"}`}
+                              style={{ backgroundColor: "#FFFCF5" }}
+                              onMouseEnter={(e) => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#F5F0E8" }}
+                              onMouseLeave={(e) => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#FFFCF5" }}
+                            >
+                              Chọn file
+                              <input
+                                type="file"
+                                accept=".txt,.doc,.docx"
+                                onChange={handleLyricsFileChange}
+                                className="sr-only"
+                                disabled={isFormDisabled}
+                              />
+                            </label>
+                            <span className="text-neutral-800/60 text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">
+                              {lyricsFile ? lyricsFile.name : "Chưa chọn file"}
+                            </span>
+                            {lyricsFile && (
+                              <button
+                                type="button"
+                                className="ml-2 text-xs text-red-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => {
+                                  if (isFormDisabled) return;
+                                  setLyricsFile(null);
+                                }}
+                                disabled={isFormDisabled}
+                              >
+                                Xóa
+                              </button>
+                            )}
+                          </div>
+                        </FormField>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
 
             <CollapsibleSection
               icon={MapPin}
@@ -3586,47 +3718,49 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                   />
                 </FormField>
 
-                <FormField label="Tỉnh/Thành phố">
-                  <SearchableDropdown
-                    value={province}
-                    onChange={(p) => {
-                      setProvince(p);
-                      setDistrict(""); // Reset District when Province changes
-                      setCommune(""); // Reset Commune when Province changes
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <FormField label="Tỉnh/Thành phố">
+                    <SearchableDropdown
+                      value={province}
+                      onChange={(p) => {
+                        setProvince(p);
+                        setDistrict(""); // Reset District when Province changes
+                        setCommune(""); // Reset Commune when Province changes
 
-                      // Auto-set Region based on selected province
-                      const selectedProv = provincesData.find((prov) => prov.name === p);
-                      if (selectedProv?.regionCode) {
-                        setRegion(getRegionName(selectedProv.regionCode));
-                      }
-                    }}
-                    options={provincesData.filter(p => !region || getRegionName(p.regionCode) === region).map(p => p.name)}
-                    placeholder="Chọn tỉnh thành"
-                  />
-                </FormField>
+                        // Auto-set Region based on selected province
+                        const selectedProv = provincesData.find((prov) => prov.name === p);
+                        if (selectedProv?.regionCode) {
+                          setRegion(getRegionName(selectedProv.regionCode));
+                        }
+                      }}
+                      options={provincesData.filter(p => !region || getRegionName(p.regionCode) === region).map(p => p.name)}
+                      placeholder="Chọn tỉnh thành"
+                    />
+                  </FormField>
 
-                <FormField label="Quận/Huyện">
-                  <SearchableDropdown
-                    value={district}
-                    onChange={(d) => {
-                      setDistrict(d);
-                      setCommune(""); // Reset Commune when District changes
-                    }}
-                    options={districtsData.map(d => d.name)}
-                    placeholder="Chọn quận huyện"
-                    disabled={!province}
-                  />
-                </FormField>
+                  <FormField label="Quận/Huyện">
+                    <SearchableDropdown
+                      value={district}
+                      onChange={(d) => {
+                        setDistrict(d);
+                        setCommune(""); // Reset Commune when District changes
+                      }}
+                      options={districtsData.map(d => d.name)}
+                      placeholder="Chọn quận huyện"
+                      disabled={!province}
+                    />
+                  </FormField>
 
-                <FormField label="Phường/Xã">
-                  <SearchableDropdown
-                    value={commune}
-                    onChange={setCommune}
-                    options={communesData.map(c => c.name)}
-                    placeholder="Chọn phường xã"
-                    disabled={!district}
-                  />
-                </FormField>
+                  <FormField label="Phường/Xã">
+                    <SearchableDropdown
+                      value={commune}
+                      onChange={setCommune}
+                      options={communesData.map(c => c.name)}
+                      placeholder="Chọn phường xã"
+                      disabled={!district}
+                    />
+                  </FormField>
+                </div>
 
                 <div className="space-y-2">
                   <FormField label="Loại sự kiện">
@@ -3649,15 +3783,6 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                   )}
                 </div>
 
-                <FormField label="Lối hát / Thể loại (Vocal Style)">
-                  <SearchableDropdown
-                    value={vocalStyle}
-                    onChange={setVocalStyle}
-                    options={vocalStylesData.map(v => v.name)}
-                    placeholder="Chọn lối hát"
-                  />
-                </FormField>
-
                 <FormField label="Âm giai (Musical Scale)">
                   <SearchableDropdown
                     value={musicalScale}
@@ -3666,149 +3791,6 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     placeholder="Chọn âm giai"
                   />
                 </FormField>
-
-                <div className="md:col-span-2">
-                  <FormField label="Loại hình biểu diễn" required>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {PERFORMANCE_TYPES.map((pt) => (
-                        <button
-                          key={pt.key}
-                          type="button"
-                          onClick={() => {
-                            if (performanceType === pt.key) {
-                              setPerformanceType("");
-                            } else {
-                              setPerformanceType(pt.key);
-                              if (pt.key === "acappella") {
-                                setInstruments([]);
-                              }
-                            }
-                          }}
-                          className={`w-full px-4 py-3 rounded-full text-sm font-medium transition-all border border-neutral-200 ${performanceType === pt.key
-                            ? "bg-primary-600 text-white shadow-md"
-                            : "text-neutral-700 hover:border-primary-400"
-                            }`}
-                          style={
-                            performanceType !== pt.key
-                              ? { backgroundColor: "#FFFCF5" }
-                              : undefined
-                          }
-                          onMouseEnter={(e) => {
-                            if (performanceType !== pt.key) {
-                              e.currentTarget.style.backgroundColor = "#F5F0E8";
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (performanceType !== pt.key) {
-                              e.currentTarget.style.backgroundColor = "#FFFCF5";
-                            }
-                          }}
-                        >
-                          {pt.label}
-                        </button>
-                      ))}
-                    </div>
-                    {errors.performanceType && (
-                      <p className="text-sm text-red-400">{errors.performanceType}</p>
-                    )}
-                  </FormField>
-                </div>
-
-                {requiresInstruments && (
-                  <div className="md:col-span-2">
-                    <FormField
-                      label="Nhạc cụ sử dụng"
-                      required={requiresInstruments}
-                      hint="Chọn một hoặc nhiều nhạc cụ"
-                    >
-                      <MultiSelectTags
-                        values={instruments}
-                        onChange={setInstruments}
-                        options={INSTRUMENTS}
-                        placeholder="Tìm và chọn nhạc cụ..."
-                        disabled={isFormDisabled}
-                      />
-                      {errors.instruments && (
-                        <p className="text-sm text-red-400">{errors.instruments}</p>
-                      )}
-                    </FormField>
-
-                    {/* Instrument image upload for solo (instrumental) */}
-                    {performanceType === "instrumental" && (
-                      <div className="md:col-span-2 mt-4">
-                        <FormField label="Tải lên hình ảnh nhạc cụ (nếu có)" hint="Ảnh minh họa cho nhạc cụ sử dụng, chỉ dành cho bài độc tấu">
-                          <div className="flex items-center gap-3">
-                            <label
-                              className={`px-4 py-2 rounded-full text-sm text-neutral-800 border border-neutral-300 transition-colors shadow-sm inline-block ${isFormDisabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-md cursor-pointer"}`}
-                              style={{ backgroundColor: "#FFFCF5" }}
-                              onMouseEnter={e => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#F5F0E8" }}
-                              onMouseLeave={e => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#FFFCF5" }}
-                            >
-                              Chọn ảnh
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleInstrumentImageChange}
-                                className="sr-only"
-                                disabled={isFormDisabled}
-                              />
-                            </label>
-                            {instrumentImage && (
-                              <span className="text-neutral-800/60 text-sm">{instrumentImage.name}</span>
-                            )}
-                            {instrumentImagePreview && (
-                              <img src={instrumentImagePreview} alt="Xem trước ảnh nhạc cụ" className="h-16 rounded-lg border border-neutral-300" />
-                            )}
-                            {instrumentImage && (
-                              <button
-                                type="button"
-                                className="ml-2 text-xs text-red-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-                                onClick={() => {
-                                  if (isFormDisabled) return;
-                                  setInstrumentImage(null);
-                                  setInstrumentImagePreview("");
-                                }}
-                                disabled={isFormDisabled}
-                              >
-                                Xóa ảnh
-                              </button>
-                            )}
-                          </div>
-                        </FormField>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {allowsLyrics && (
-                  <div className="md:col-span-2">
-                    <FormField
-                      label="Tải lên lời bài hát (nếu có)"
-                      hint="File .txt hoặc .docx"
-                    >
-                      <div className="flex items-center gap-3">
-                        <label
-                          className={`px-4 py-2 rounded-full text-sm text-neutral-800 border border-neutral-300 transition-colors shadow-sm inline-block ${isFormDisabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-md cursor-pointer"}`}
-                          style={{ backgroundColor: "#FFFCF5" }}
-                          onMouseEnter={(e) => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#F5F0E8" }}
-                          onMouseLeave={(e) => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#FFFCF5" }}
-                        >
-                          Chọn file
-                          <input
-                            type="file"
-                            accept=".txt,.doc,.docx"
-                            onChange={handleLyricsFileChange}
-                            className="sr-only"
-                            disabled={isFormDisabled}
-                          />
-                        </label>
-                        <span className="text-neutral-800/60 text-sm">
-                          {lyricsFile ? lyricsFile.name : "Chưa chọn file"}
-                        </span>
-                      </div>
-                    </FormField>
-                  </div>
-                )}
               </div>
             </CollapsibleSection>
           </>
@@ -3859,14 +3841,14 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                   <button
                     type="button"
                     onClick={handleAiSuggestMetadata}
-                    disabled={isFormDisabled || aiSuggestLoading || !genre}
+                    disabled={isFormDisabled || aiSuggestLoading || !vocalStyle}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer"
                   >
                     <Sparkles className="w-4 h-4" strokeWidth={2.5} />
                     {aiSuggestLoading ? "Đang gợi ý..." : "Lấy gợi ý từ AI"}
                   </button>
-                  {!genre && (
-                    <span className="text-sm text-neutral-600">Chọn thể loại ở Bước 2 trước khi dùng gợi ý AI.</span>
+                  {!vocalStyle && (
+                    <span className="text-sm text-neutral-600">Chọn lối hát / thể loại ở Bước 2 trước khi dùng gợi ý AI.</span>
                   )}
                 </div>
                 {aiSuggestError && (
