@@ -15,8 +15,8 @@ using VietTuneArchive.Domain.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("Database");
-//builder.Services.AddDbContext<DBContext>(options => options.UseNpgsql(connectionString));
-builder.Services.AddDbContext<DBContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddDbContext<DBContext>(options => options.UseNpgsql(connectionString));
+//builder.Services.AddDbContext<DBContext>(options => options.UseSqlServer(connectionString));
 
 var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"]!);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
