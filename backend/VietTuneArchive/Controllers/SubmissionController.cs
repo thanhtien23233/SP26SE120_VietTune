@@ -85,8 +85,12 @@ namespace VietTuneArchive.API.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<ServiceResponse<bool>>> Delete(Guid id)
         {
-            var result = await _submissionService.DeleteAsync(id);
-            return result.Success ? Ok(result) : BadRequest(result);
+            var result = await _submissionService.DeleteSubmissionAsync(id);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
         }
         [HttpGet("get-all")]
         public async Task<IActionResult> GetAllSubmissions (

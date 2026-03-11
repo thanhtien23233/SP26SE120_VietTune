@@ -276,5 +276,26 @@ namespace VietTuneArchive.Application.Services
                 return Result<IEnumerable<GetSubmissionDto>>.Failure($"Failed to retrieve submissions: {ex.Message}");
             }
         }
+        public async Task<Result<bool>> DeleteSubmissionAsync(Guid submissionId)
+        {
+            try
+            {
+                if (submissionId == Guid.Empty)
+                    throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
+                var submission = await _submissionRepo.GetByIdAsync(submissionId);
+                if (submission == null)
+                    return Result<bool>.Failure("Submission not found");
+                var recording = await _recordingRepository.GetByIdAsync(submission.RecordingId.Value);
+                if (recording == null)
+                    return Result<bool>.Failure("Recording not found");
+                await _recordingRepository.DeleteAsync(recording);
+                await _submissionRepo.DeleteAsync(submission);
+                return Result<bool>.Success(true, "Submission deleted successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<bool>.Failure($"Failed to delete submission: {ex.Message}");
+            }
+        }
     }
 }

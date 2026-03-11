@@ -17,5 +17,6 @@ namespace VietTuneArchive.Application.IServices
         Task<Result<IEnumerable<GetSubmissionDto>>> GetAllSubmissionsAsync();
         Task<Result<IEnumerable<GetSubmissionDto>>> GetSubmissionsByUserIdAsync(Guid userId);
         Task<Result<IEnumerable<GetSubmissionDto>>> GetSubmissionsByStatusAsync(SubmissionStatus status);
+        Task<Result<bool>> DeleteSubmissionAsync(Guid submissionId);
     }
 }

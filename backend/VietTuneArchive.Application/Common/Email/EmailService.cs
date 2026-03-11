@@ -123,9 +123,12 @@ namespace VietTuneArchive.Application.Common.Email
             });
 
             var response = await _httpClient.PostAsync("https://oauth2.googleapis.com/token", content);
+
             if (!response.IsSuccessStatusCode)
             {
-                throw new Exception("Không thể lấy Access Token từ Google.");
+                var errorBody = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[GOOGLE API ERROR]: {errorBody}");
+                throw new Exception($"Không thể lấy Access Token từ Google. Chi tiết: {errorBody}");
             }
             var data = await response.Content.ReadFromJsonAsync<JsonElement>();
             return data.GetProperty("access_token").GetString();
