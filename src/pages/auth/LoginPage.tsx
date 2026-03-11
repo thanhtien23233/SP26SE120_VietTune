@@ -189,7 +189,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-2.5 bg-primary-600 text-white font-semibold rounded-full hover:bg-primary-700 transition-colors disabled:bg-neutral-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+            className="w-full py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors disabled:bg-neutral-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
           >
             {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
@@ -200,7 +200,7 @@ export default function LoginPage() {
             <div className="flex flex-wrap gap-4 justify-center">
               <button
                 type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
+                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
                 onClick={async () => {
                   setIsLoading(true);
                   try {
@@ -221,7 +221,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
+                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
                 onClick={async () => {
                   setIsLoading(true);
                   try {
@@ -242,7 +242,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
+                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
                 onClick={async () => {
                   setIsLoading(true);
                   try {
@@ -263,7 +263,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
+                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
                 onClick={async () => {
                   setIsLoading(true);
                   try {
@@ -284,7 +284,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
+                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
                 onClick={async () => {
                   setIsLoading(true);
                   try {
@@ -305,7 +305,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
+                className="px-6 py-3 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
                 onClick={async () => {
                   setIsLoading(true);
                   try {

@@ -118,7 +118,7 @@ export default function ExplorePage() {
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
             <Link
               to="/semantic-search"
-              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 sm:px-6 py-2 rounded-full bg-primary-100/90 text-primary-700 hover:bg-primary-200/90 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 cursor-pointer focus:outline-none border border-primary-200/80 text-sm sm:text-base"
+              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 sm:px-6 py-2 rounded-xl bg-primary-100/90 text-primary-700 hover:bg-primary-200/90 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 cursor-pointer focus:outline-none border border-primary-200/80 text-sm sm:text-base"
               title="Tìm theo ý nghĩa"
             >
               <Sparkles className="h-5 w-5 shrink-0" strokeWidth={2.5} />
@@ -172,7 +172,7 @@ export default function ExplorePage() {
                 <button
                   type="button"
                   onClick={() => handleSearch({})}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-105 active:scale-95 cursor-pointer focus:outline-none"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-105 active:scale-95 cursor-pointer focus:outline-none"
                 >
                   Xóa bộ lọc
                   <ArrowRight className="h-4 w-4" strokeWidth={2.5} />

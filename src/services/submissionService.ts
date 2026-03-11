@@ -5,6 +5,7 @@ export interface SubmissionRecording {
   title: string | null;
   description: string | null;
   videoFileUrl: string | null;
+  audioFileUrl?: string | null;
   audioFormat: string | null;
   durationSeconds: number | null;
   fileSizeBytes: number | null;
@@ -56,6 +57,13 @@ export const submissionService = {
   getMySubmissions: async (userId: string, page: number = 1, pageSize: number = 10) => {
     return api.get<SubmissionListResponse>(
       `/Submission/my?userId=${userId}&page=${page}&pageSize=${pageSize}`
+    );
+  },
+
+  /** Get submissions by status (paginated) */
+  getSubmissionsByStatus: async (status: number, page: number = 1, pageSize: number = 10) => {
+    return api.get<SubmissionListResponse>(
+      `/Submission/get-by-status?status=${status}&page=${page}&pageSize=${pageSize}`
     );
   },
 

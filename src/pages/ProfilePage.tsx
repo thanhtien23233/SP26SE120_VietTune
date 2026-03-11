@@ -231,7 +231,7 @@ export default function ProfilePage() {
           <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 mb-8 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
             <div className="flex items-start justify-between">
               <h2 className="text-2xl font-semibold mb-4 text-neutral-900">Thông tin tài khoản</h2>
-              <button type="button" onClick={openEdit} className="px-4 py-2 rounded-full bg-secondary-100/90 hover:bg-secondary-200/90 text-secondary-800 font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105 active:scale-95 cursor-pointer">Chỉnh sửa hồ sơ</button>
+              <button type="button" onClick={openEdit} className="px-4 py-2 rounded-xl bg-secondary-100/90 hover:bg-secondary-200/90 text-secondary-800 font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105 active:scale-95 cursor-pointer">Chỉnh sửa hồ sơ</button>
             </div>
 
             <p className="text-neutral-700 font-medium leading-relaxed mb-4">
@@ -272,7 +272,7 @@ export default function ProfilePage() {
                   <h3 className="text-lg font-semibold text-neutral-900">Chỉnh sửa hồ sơ</h3>
                   <button
                     onClick={() => setIsEditOpen(false)}
-                    className="p-1.5 rounded-full hover:bg-neutral-200/50 transition-colors duration-200 text-neutral-600 hover:text-neutral-800 cursor-pointer"
+                    className="p-1.5 rounded-xl hover:bg-neutral-200/50 transition-colors duration-200 text-neutral-600 hover:text-neutral-800 cursor-pointer"
                     aria-label="Đóng"
                   >
                     <X className="h-5 w-5" strokeWidth={2.5} />
@@ -286,7 +286,7 @@ export default function ProfilePage() {
                       value={formFullName}
                       onChange={(e) => { setFormFullName(e.target.value); if (touchedFullName) validate(); }}
                       onBlur={() => { setTouchedFullName(true); validate(); }}
-                      className="w-full px-5 py-3 text-neutral-900 placeholder-neutral-500 border border-neutral-400 focus:outline-none focus:border-primary-500 transition-colors rounded-full"
+                      className="w-full px-5 py-3 text-neutral-900 placeholder-neutral-500 border border-neutral-400 focus:outline-none focus:border-primary-500 transition-colors rounded-xl"
                       style={{ backgroundColor: '#FFFCF5' }}
                     />
                     {touchedFullName && errors.fullName && <p className="text-sm text-red-600 mt-1">{errors.fullName}</p>}
@@ -298,7 +298,7 @@ export default function ProfilePage() {
                       value={formUsername}
                       onChange={(e) => { setFormUsername(e.target.value); if (touchedUsername) validate(); }}
                       onBlur={() => { setTouchedUsername(true); validate(); }}
-                      className="w-full px-5 py-3 text-neutral-900 placeholder-neutral-500 border border-neutral-400 focus:outline-none focus:border-primary-500 transition-colors rounded-full"
+                      className="w-full px-5 py-3 text-neutral-900 placeholder-neutral-500 border border-neutral-400 focus:outline-none focus:border-primary-500 transition-colors rounded-xl"
                       style={{ backgroundColor: '#FFFCF5' }}
                     />
                     {touchedUsername && errors.username && <p className="text-sm text-red-600 mt-1">{errors.username}</p>}
@@ -310,15 +310,15 @@ export default function ProfilePage() {
                       value={formEmail}
                       onChange={(e) => { setFormEmail(e.target.value); if (touchedEmail) validate(); }}
                       onBlur={() => { setTouchedEmail(true); validate(); }}
-                      className="w-full px-5 py-3 text-neutral-900 placeholder-neutral-500 border border-neutral-400 focus:outline-none focus:border-primary-500 transition-colors rounded-full"
+                      className="w-full px-5 py-3 text-neutral-900 placeholder-neutral-500 border border-neutral-400 focus:outline-none focus:border-primary-500 transition-colors rounded-xl"
                       style={{ backgroundColor: '#FFFCF5' }}
                     />
                     {touchedEmail && errors.email && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
                   </div>
 
                   <div className="flex justify-end gap-3">
-                    <button type="button" onClick={() => setIsEditOpen(false)} className="px-4 py-2 rounded-full bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer">Hủy</button>
-                    <button disabled={!isValidSnapshot()} type="submit" className="px-4 py-2 rounded-full bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">Lưu</button>
+                    <button type="button" onClick={() => setIsEditOpen(false)} className="px-4 py-2 rounded-xl bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer">Hủy</button>
+                    <button disabled={!isValidSnapshot()} type="submit" className="px-4 py-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">Lưu</button>
                   </div>
                 </form>
               </div>
@@ -326,7 +326,7 @@ export default function ProfilePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-              <div className="bg-primary-100/90 rounded-full w-12 h-12 flex items-center justify-center mb-4 shadow-sm">
+              <div className="bg-primary-100/90 rounded-xl w-12 h-12 flex items-center justify-center mb-4 shadow-sm">
                 <Target className="h-6 w-6 text-primary-600" strokeWidth={2.5} />
               </div>
               <h3 className="text-xl font-semibold mb-3 text-neutral-900">Giới thiệu bản thân</h3>
@@ -334,7 +334,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-              <div className="bg-secondary-100/90 rounded-full w-12 h-12 flex items-center justify-center mb-4 shadow-sm">
+              <div className="bg-secondary-100/90 rounded-xl w-12 h-12 flex items-center justify-center mb-4 shadow-sm">
                 <Users className="h-6 w-6 text-secondary-600" strokeWidth={2.5} />
               </div>
               <h3 className="text-xl font-semibold mb-3 text-neutral-900">Sức mạnh cộng đồng</h3>
@@ -343,7 +343,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="rounded-2xl border border-neutral-200/80 p-6 mb-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-            <div className="bg-primary-100/90 rounded-full w-12 h-12 flex items-center justify-center mb-4 shadow-sm">
+            <div className="bg-primary-100/90 rounded-xl w-12 h-12 flex items-center justify-center mb-4 shadow-sm">
               <Heart className="h-6 w-6 text-primary-600" strokeWidth={2.5} />
             </div>
             <h3 className="text-xl font-semibold mb-3 text-neutral-900">Mục tiêu</h3>
@@ -367,7 +367,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setShowDeleteAccountConfirm(true)}
-                className="px-4 py-2 rounded-full bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-red-600/40 hover:scale-110 active:scale-95 cursor-pointer flex items-center gap-2"
+                className="px-4 py-2 rounded-xl bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-red-600/40 hover:scale-110 active:scale-95 cursor-pointer flex items-center gap-2"
               >
                 <UserMinus className="w-4 h-4" strokeWidth={2.5} />
                 Xoá tài khoản
@@ -377,14 +377,14 @@ export default function ProfilePage() {
 
           {/* Terms and Conditions Link */}
           <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 text-center transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-            <div className="bg-neutral-100/90 rounded-full w-12 h-12 flex items-center justify-center mb-4 mx-auto shadow-sm">
+            <div className="bg-neutral-100/90 rounded-xl w-12 h-12 flex items-center justify-center mb-4 mx-auto shadow-sm">
               <FileText className="h-6 w-6 text-neutral-600" strokeWidth={2.5} />
             </div>
             <h3 className="text-xl font-semibold mb-3 text-neutral-900">Điều khoản và Điều kiện</h3>
             <p className="text-neutral-700 font-medium mb-6">Tìm hiểu các quy định và chính sách khi sử dụng nền tảng VietTune.</p>
             <Link
               to="/terms"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer"
             >
               <FileText className="h-5 w-5" strokeWidth={2.5} />
               Xem Điều khoản và Điều kiện

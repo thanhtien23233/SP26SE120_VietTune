@@ -1,18 +1,21 @@
 import UploadMusic from "@/components/features/UploadMusic";
 import { BookOpen, LogIn, FileText, Upload, CheckCircle, Lightbulb, X } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import BackButton from "@/components/common/BackButton";
 import { UserRole } from "@/types";
 
 const guideButtonClass =
-  "inline-flex items-center justify-center gap-2 h-11 px-6 py-0 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none";
+  "inline-flex items-center justify-center gap-2 h-11 px-6 py-0 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none";
 
 export default function UploadPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const [showGuidePopup, setShowGuidePopup] = useState(false);
+
+  const [searchParams] = useSearchParams();
+  const isEditMode = searchParams.get("edit") === "true";
 
   // Always scroll to top on mount
   useEffect(() => {
@@ -27,17 +30,17 @@ export default function UploadPage() {
         {/* Header — responsive; wraps on small screens */}
         <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-6 sm:mb-8">
           <h1 className="text-xl sm:text-3xl font-bold text-neutral-900 min-w-0">
-            Đóng góp bản thu
+            {isEditMode ? "Chỉnh sửa bản thu" : "Đóng góp bản thu"}
           </h1>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => setShowGuidePopup(true)}
               className={guideButtonClass}
-              title="Hướng dẫn đóng góp"
+              title={isEditMode ? "Hướng dẫn chỉnh sửa" : "Hướng dẫn đóng góp"}
             >
               <BookOpen className="h-5 w-5" strokeWidth={2.5} />
-              <span>Hướng dẫn đóng góp</span>
+              <span>{isEditMode ? "Hướng dẫn chỉnh sửa" : "Hướng dẫn đóng góp"}</span>
             </button>
             <BackButton />
           </div>
@@ -49,7 +52,7 @@ export default function UploadPage() {
             <h2 className="text-lg sm:text-2xl font-semibold mb-3 sm:mb-4 text-primary-700">Bạn cần có tài khoản Người đóng góp để đóng góp bản thu</h2>
             <div className="text-primary-700 text-base mb-4 font-medium">Vui lòng đăng nhập bằng tài khoản Người đóng góp để sử dụng chức năng này.</div>
             <button
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none mx-auto"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none mx-auto"
               onClick={() => {
                 window.scrollTo({ top: 0, behavior: "auto" });
                 navigate("/login?redirect=/upload");

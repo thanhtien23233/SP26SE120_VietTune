@@ -141,8 +141,14 @@ export const referenceDataService = {
   /** Fetch all districts (quận huyện) */
   getDistricts: () => cachedFetch<DistrictItem>("districts", "/ReferenceData/districts"),
 
+  /** Fetch districts by province Id */
+  getDistrictsByProvince: (provinceId: string) => cachedFetch<DistrictItem>(`districts_prov_${provinceId}`, `/District/get-by-province/${provinceId}`),
+
   /** Fetch all communes (phường xã) */
   getCommunes: () => cachedFetch<CommuneItem>("communes", "/ReferenceData/communes"),
+
+  /** Fetch communes by district Id */
+  getCommunesByDistrict: (districtId: string) => cachedFetch<CommuneItem>(`communes_dist_${districtId}`, `/Commune/get-by-district/${districtId}`),
 
   /** Fetch all ceremonies / event types (nghi lễ / loại sự kiện) */
   getCeremonies: () => cachedFetch<CeremonyItem>("ceremonies", "/ReferenceData/ceremonies"),

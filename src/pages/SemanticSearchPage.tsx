@@ -155,7 +155,7 @@ export default function SemanticSearchPage() {
           </p>
 
           <div
-            className="relative w-full min-h-[48px] px-4 py-2.5 border border-neutral-400/80 rounded-full focus-within:border-primary-500 focus-within:border-transparent transition-all duration-200 shadow-sm hover:shadow-md mb-4"
+            className="relative w-full min-h-[48px] px-4 py-2.5 border border-neutral-400/80 rounded-xl focus-within:border-primary-500 focus-within:border-transparent transition-all duration-200 shadow-sm hover:shadow-md mb-4"
             style={{ backgroundColor: "#FFFCF5" }}
           >
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" strokeWidth={2} />
@@ -165,14 +165,14 @@ export default function SemanticSearchPage() {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ví dụ: bản thu dân ca quan họ, nhạc đàn bầu miền Bắc,..."
-              className="w-full pl-12 pr-32 py-2 bg-transparent text-neutral-900 placeholder-neutral-500 focus:outline-none rounded-full"
+              className="w-full pl-12 pr-32 py-2 bg-transparent text-neutral-900 placeholder-neutral-500 focus:outline-none rounded-xl"
               aria-label="Câu hỏi tìm kiếm theo nghĩa"
             />
             <button
               type="button"
               onClick={runSearch}
               disabled={isSearching || !query.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:pointer-events-none text-white font-medium rounded-full transition-colors duration-200 flex items-center gap-2 cursor-pointer"
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:pointer-events-none text-white font-medium rounded-xl transition-colors duration-200 flex items-center gap-2 cursor-pointer"
             >
               {isSearching ? (
                 <LoadingSpinner size="sm" />
@@ -210,7 +210,7 @@ export default function SemanticSearchPage() {
                   setQuery(s);
                   runSearchWithQuery(s);
                 }}
-                className="px-4 py-2 rounded-full border border-neutral-400/80 text-neutral-900 font-medium text-sm shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer focus:outline-none focus:border-primary-500"
+                className="px-4 py-2 rounded-xl border border-neutral-400/80 text-neutral-900 font-medium text-sm shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer focus:outline-none focus:border-primary-500"
                 style={{ backgroundColor: "#FFFCF5" }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = "#FFF7E6";
@@ -253,7 +253,7 @@ export default function SemanticSearchPage() {
                   <button
                     type="button"
                     onClick={() => navigate("/search")}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-105 active:scale-95 cursor-pointer focus:outline-none"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-105 active:scale-95 cursor-pointer focus:outline-none"
                   >
                     Đến trang Tìm kiếm
                     <ArrowRight className="h-4 w-4" strokeWidth={2.5} />

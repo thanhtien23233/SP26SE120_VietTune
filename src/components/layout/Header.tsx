@@ -1,11 +1,14 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Bell, User, LogOut, Menu, X, MessageCircle } from "lucide-react";
+import { Search, Bell, User, LogOut, Menu, X, MessageCircle, CheckCircle, Edit3, Trash2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types";
+import type { AppNotification } from "@/types";
 import { APP_NAME, INTELLIGENCE_NAME } from "@/config/constants";
 import logo from "@/components/image/VietTune logo.png";
 import { sessionSetItem } from "@/services/storageService";
+import { recordingRequestService } from "@/services/recordingRequestService";
+import { formatDateTime } from "@/utils/helpers";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -17,6 +20,46 @@ export default function Header() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const firstMenuItemRef = useRef<HTMLAnchorElement | null>(null);
+
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  // Notifications dropdown refs/state
+  const notiButtonRef = useRef<HTMLButtonElement | null>(null);
+  const notiMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isNotiOpen, setIsNotiOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role) {
+      recordingRequestService.getNotificationsForRole(user.role).then(setNotifications);
+      const t = setInterval(() => {
+        recordingRequestService.getNotificationsForRole(user.role).then(setNotifications);
+      }, 30000); // refresh every 30s
+      return () => clearInterval(t);
+    }
+  }, [isAuthenticated, user?.role]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
+        // Hide if scrolling down past 50px, and menus are not open
+        if (!isMobileMenuOpen && !isMenuOpen && !isNotiOpen) {
+          setIsVisible(false);
+        }
+      } else {
+        // Show if scrolling up
+        setIsVisible(true);
+      }
+
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isMobileMenuOpen, isMenuOpen, isNotiOpen]);
 
   const handleLogout = () => {
     // Set fromLogout before navigate so LoginPage sees it on mount and hides "Trở về".
@@ -34,9 +77,15 @@ export default function Header() {
       if (!menuRef.current?.contains(target) && !buttonRef.current?.contains(target)) {
         setIsMenuOpen(false);
       }
+      if (!notiMenuRef.current?.contains(target) && !notiButtonRef.current?.contains(target)) {
+        setIsNotiOpen(false);
+      }
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsMenuOpen(false);
+      if (e.key === "Escape") {
+        setIsMenuOpen(false);
+        setIsNotiOpen(false);
+      }
     };
     document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onKeyDown);
@@ -56,8 +105,8 @@ export default function Header() {
     }
   }, [isMenuOpen]);
   return (
-    <header className="fixed top-0 left-0 right-0 z-[60] pt-4 px-4">
-      <nav className="bg-gradient-to-br from-primary-700 to-primary-800 rounded-full shadow-lg backdrop-blur-sm">
+    <header className={`fixed top-0 left-0 right-0 z-[60] pt-4 px-4 transition-transform duration-300 ease-in-out ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+      <nav className="bg-gradient-to-br from-primary-700 to-primary-800 rounded-2xl shadow-lg backdrop-blur-sm">
         <div className="px-6 py-2.5">
           <div className="flex items-center justify-between">
             {/* Logo */}
@@ -142,13 +191,73 @@ export default function Header() {
                 <MessageCircle className="h-5 w-5" strokeWidth={2.5} />
               </Link>
               {(user?.role === UserRole.CONTRIBUTOR || user?.role === UserRole.EXPERT || user?.role === UserRole.ADMIN) && (
-                <Link
-                  to="/notifications"
-                  className="p-2 text-white hover:text-secondary-300 active:text-secondary-400 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-                  aria-label="Thông báo"
-                >
-                  <Bell className="h-5 w-5" strokeWidth={2.5} />
-                </Link>
+                <div className="relative">
+                  <button
+                    ref={(el) => (notiButtonRef.current = el)}
+                    type="button"
+                    onClick={() => setIsNotiOpen(!isNotiOpen)}
+                    className="p-2 text-white hover:text-secondary-300 active:text-secondary-400 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer relative"
+                    aria-label="Thông báo"
+                  >
+                    <Bell className="h-5 w-5" strokeWidth={2.5} />
+                    {notifications.some(n => !n.read) && (
+                      <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-primary-700 rounded-full"></span>
+                    )}
+                  </button>
+                  {isNotiOpen && (
+                    <div
+                      ref={(el) => (notiMenuRef.current = el)}
+                      className="absolute right-0 mt-2 rounded-2xl border border-neutral-300/80 shadow-xl backdrop-blur-sm overflow-hidden bg-[#FFFCF5] z-[70] w-80 sm:w-96 transition-all duration-300 flex flex-col"
+                      style={{ top: '100%' }}
+                    >
+                      <div className="px-5 py-3 border-b border-neutral-200 flex justify-between items-center bg-white shadow-sm z-10">
+                        <span className="font-semibold text-neutral-900">Thông báo mới</span>
+                      </div>
+                      <div className="max-h-[60vh] overflow-y-auto">
+                        {notifications.length > 0 ? (
+                          <ul className="divide-y divide-neutral-100">
+                            {notifications.slice(0, 8).map((n) => (
+                              <li
+                                key={n.id}
+                                className={`p-4 hover:bg-neutral-50 transition-colors ${!n.read ? 'bg-primary-50/50' : 'bg-white'}`}
+                              >
+                                <div className="flex gap-3">
+                                  <div className="mt-0.5 flex-shrink-0">
+                                    {n.type === "recording_deleted" ? <Trash2 className="h-5 w-5 text-red-600" strokeWidth={2.5} /> :
+                                      n.type === "recording_edited" ? <Edit3 className="h-5 w-5 text-primary-600" strokeWidth={2.5} /> :
+                                        n.type === "edit_submission_approved" || n.type === "expert_account_deletion_approved" ? <CheckCircle className="h-5 w-5 text-green-600" strokeWidth={2.5} /> :
+                                          n.type === "delete_request_rejected" ? <X className="h-5 w-5 text-neutral-600" strokeWidth={2.5} /> :
+                                            <Bell className="h-5 w-5 text-primary-600" strokeWidth={2.5} />
+                                    }
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-1 mb-1">
+                                      <p className="text-sm font-semibold text-neutral-900 truncate" title={n.title}>{n.title}</p>
+                                      {!n.read && <span className="w-2 h-2 rounded-full bg-primary-500 flex-shrink-0 mt-1.5" title="Chưa đọc" />}
+                                    </div>
+                                    <p className="text-xs text-neutral-600 line-clamp-2" title={n.body}>{n.body}</p>
+                                    <p className="text-[11px] text-neutral-400 mt-1">{formatDateTime(n.createdAt)}</p>
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="p-6 text-center text-neutral-500 text-sm">
+                            Chưa có thông báo nào.
+                          </div>
+                        )}
+                      </div>
+                      <Link
+                        to="/notifications"
+                        onClick={() => setIsNotiOpen(false)}
+                        className="block px-5 py-3 text-center text-sm font-medium text-primary-600 bg-neutral-50 hover:bg-primary-50 transition-colors border-t border-neutral-200 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]"
+                      >
+                        Xem tất cả thông báo
+                      </Link>
+                    </div>
+                  )}
+                </div>
               )}
 
               {isAuthenticated ? (
@@ -162,7 +271,7 @@ export default function Header() {
                       onClick={() => setIsMenuOpen((s) => !s)}
                       aria-expanded={isMenuOpen}
                       aria-haspopup="menu"
-                      className="flex items-center gap-1.5 text-sm px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-full transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer min-w-[140px] justify-center"
+                      className="flex items-center gap-1.5 text-sm px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer min-w-[140px] justify-center"
                     >
                       <User className="h-4 w-4" strokeWidth={2.5} />
                       <span className="text-xs font-medium">{user?.username || user?.fullName || "Người dùng"}</span>
@@ -209,7 +318,7 @@ export default function Header() {
                   </Link>
                   <Link
                     to="/register"
-                    className="text-sm px-4 py-2 bg-gradient-to-br from-secondary-500 to-secondary-600 hover:from-secondary-400 hover:to-secondary-500 text-white font-semibold rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl shadow-secondary-500/40 hover:scale-110 active:scale-95 cursor-pointer"
+                    className="text-sm px-4 py-2 bg-gradient-to-br from-secondary-500 to-secondary-600 hover:from-secondary-400 hover:to-secondary-500 text-white font-semibold rounded-xl transition-all duration-300 shadow-xl hover:shadow-2xl shadow-secondary-500/40 hover:scale-110 active:scale-95 cursor-pointer"
                   >
                     Đăng ký
                   </Link>

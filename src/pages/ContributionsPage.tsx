@@ -7,13 +7,32 @@ import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import { notify } from "@/stores/notificationStore";
 import { LogIn, ChevronLeft, ChevronRight, Eye, Clock, FileAudio, AlertCircle, X, Music, User, Calendar, MapPin, Loader2, Trash2 } from "lucide-react";
 import { submissionService, type Submission } from "@/services/submissionService";
+import AudioPlayer from "@/components/features/AudioPlayer";
+import VideoPlayer from "@/components/features/VideoPlayer";
+import { isYouTubeUrl } from "@/utils/youtube";
+import { deleteFileFromSupabase } from "@/services/uploadService";
+
+// Helpers for formatted strings
+const formatDuration = (seconds?: number | null) => {
+  if (seconds == null) return null;
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+const formatSize = (bytes?: number | null) => {
+  if (bytes == null) return null;
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(2)} MB`;
+};
 
 // Status labels
 const STATUS_LABELS: Record<number, { label: string; color: string }> = {
-  0: { label: "Chờ xử lý", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+  0: { label: "Bản nháp", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
   1: { label: "Đang xử lý", color: "bg-blue-100 text-blue-800 border-blue-300" },
   2: { label: "Đã duyệt", color: "bg-green-100 text-green-800 border-green-300" },
   3: { label: "Từ chối", color: "bg-red-100 text-red-800 border-red-300" },
+  4: { label: "Yêu cầu cập nhật", color: "bg-orange-100 text-orange-800 border-orange-300" },
 };
 
 const STAGE_LABELS: Record<number, string> = {
@@ -46,7 +65,17 @@ export default function ContributionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [activeStatusTab, setActiveStatusTab] = useState<number | "ALL">("ALL");
   const pageSize = 10;
+
+  const TABS: Array<{ label: string, value: number | "ALL" }> = [
+    { label: "Tất cả", value: "ALL" },
+    { label: "Bản nháp", value: 0 },
+    { label: "Đang xử lý", value: 1 },
+    { label: "Đã duyệt", value: 2 },
+    { label: "Từ chối", value: 3 },
+    { label: "Yêu cầu cập nhật", value: 4 },
+  ];
 
   // Detail modal
   const [detailSubmission, setDetailSubmission] = useState<Submission | null>(null);
@@ -61,13 +90,37 @@ export default function ContributionsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await submissionService.getMySubmissions(user.id, page, pageSize);
-      if (res?.isSuccess && Array.isArray(res.data)) {
-        setSubmissions(res.data);
-        setHasMore(res.data.length === pageSize);
+      let allData: Submission[] = [];
+      let totalHasMore = false;
+
+      if (activeStatusTab === "ALL") {
+        // Fetch each status and combine to ensure drafts (status 0) are shown
+        // Since mySubmissions might not include drafts based on backend behavior
+        const statusToFetch = [0, 1, 2, 3, 4];
+        const results = await Promise.all(
+          statusToFetch.map(s => submissionService.getSubmissionsByStatus(s, page, pageSize))
+        );
+
+        results.forEach(res => {
+          if (res?.isSuccess && Array.isArray(res.data)) {
+            allData = [...allData, ...res.data];
+            if (res.data.length === pageSize) totalHasMore = true;
+          }
+        });
+
+        // Sort by submission date descending
+        allData.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+        setSubmissions(allData);
+        setHasMore(totalHasMore);
       } else {
-        setSubmissions([]);
-        setHasMore(false);
+        const res = await submissionService.getSubmissionsByStatus(activeStatusTab, page, pageSize);
+        if (res?.isSuccess && Array.isArray(res.data)) {
+          setSubmissions(res.data);
+          setHasMore(res.data.length === pageSize);
+        } else {
+          setSubmissions([]);
+          setHasMore(false);
+        }
       }
     } catch (err: any) {
       console.error("Failed to load submissions:", err);
@@ -76,7 +129,11 @@ export default function ContributionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, page]);
+  }, [user?.id, page, activeStatusTab]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeStatusTab]);
 
   useEffect(() => {
     loadSubmissions();
@@ -108,13 +165,76 @@ export default function ContributionsPage() {
     }
   };
 
+  const handleQuickEdit = (sub: Submission) => {
+    const rec = sub.recording;
+    const effectiveMediaType = rec?.videoFileUrl ? "video" : "audio";
+
+    // Create a mock LocalRecordingStorage object for UploadMusic.tsx
+    const editingObj = {
+      id: sub.recordingId,
+      mediaType: effectiveMediaType,
+      youtubeUrl: rec?.videoFileUrl?.includes("youtube") ? rec.videoFileUrl : null,
+      audioData: effectiveMediaType === "audio" ? (rec as any)?.audioFileUrl || (rec as any)?.audioUrl : null,
+      videoData: effectiveMediaType === "video" ? rec.videoFileUrl : null,
+      basicInfo: {
+        title: rec?.title || "",
+        artist: rec?.performerName || "",
+        composer: "",
+        language: "",
+        genre: "",
+        recordingLocation: "",
+        recordingDate: rec?.recordingDate || "",
+      },
+      culturalContext: {
+        ethnicity: "",
+        region: "",
+        province: "",
+        eventType: "",
+        performanceType: rec?.performanceContext || "",
+        instruments: rec?.instrumentIds || [],
+        communeId: rec?.communeId,
+        ethnicGroupId: rec?.ethnicGroupId,
+        ceremonyId: rec?.ceremonyId,
+        vocalStyleId: rec?.vocalStyleId,
+        musicalScaleId: rec?.musicalScaleId,
+      },
+      additionalNotes: {
+        description: rec?.description || "",
+        transcription: rec?.lyricsOriginal || "",
+      },
+      file: {
+        name: "File tải lên từ server",
+        size: rec?.fileSizeBytes || 0,
+        type: rec?.audioFormat || "",
+        duration: rec?.durationSeconds || 0,
+      }
+    };
+
+    sessionStorage.setItem("editingRecording", JSON.stringify(editingObj));
+    navigate("/upload?edit=true");
+  };
+
   const handleDelete = async () => {
     if (!deleteId) return;
     setIsDeleting(true);
     try {
+      const submissionToDelete = submissions.find(s => s.id === deleteId);
+
       // api.delete returns res.data which will be null/undefined on 204 No Content.
       // Treat null/undefined (or isSuccess=true) as success — if the call doesn't throw, it worked.
       await submissionService.deleteSubmission(deleteId);
+
+      if (submissionToDelete?.recording) {
+        const rec = submissionToDelete.recording as any;
+        const urls = [rec.audioUrl, rec.audioFileUrl, rec.videoFileUrl];
+        const supabaseUrls = [...new Set(urls.filter(url => url && url.includes("supabase.co")))];
+
+        // Delete all associated files from Supabase
+        for (const fileUrl of supabaseUrls) {
+          await deleteFileFromSupabase(fileUrl);
+        }
+      }
+
       setSubmissions((prev) => prev.filter((s) => s.id !== deleteId));
       notify.success("Thành công", "Bản đóng góp đã được xóa.");
     } catch (err) {
@@ -182,7 +302,33 @@ export default function ContributionsPage() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 mt-4">
+          <div className="flex flex-wrap items-center justify-end gap-3 mt-4">
+            {sub.status === 0 && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleQuickEdit(sub);
+                }}
+              >
+                Sửa
+              </button>
+            )}
+
+            {[1, 2, 3].includes(sub.status) && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-orange-200 text-orange-700 bg-orange-50 hover:bg-orange-100 transition-all cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  notify.success("Thành công", "Yêu cầu chỉnh sửa đã được gửi đến ban quản trị.");
+                }}
+              >
+                Yêu cầu chỉnh sửa
+              </button>
+            )}
+
             <button
               type="button"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-all cursor-pointer"
@@ -252,6 +398,25 @@ export default function ContributionsPage() {
               <LogIn className="h-5 w-5" strokeWidth={2.5} />
               Đăng nhập
             </button>
+          </div>
+        )}
+
+        {/* Tabs */}
+        {!isNotContributor && (
+          <div className="flex overflow-x-auto gap-2 pb-2 mb-6 scrollbar-hide">
+            {TABS.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setActiveStatusTab(tab.value)}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all ${activeStatusTab === tab.value
+                  ? "bg-primary-600 text-white shadow-md border-primary-600"
+                  : "bg-white text-neutral-600 border border-neutral-200 hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200"
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         )}
 
@@ -377,8 +542,8 @@ export default function ContributionsPage() {
                     {renderDetailField("Mô tả", detailSubmission.recording?.description)}
                     {renderDetailField("Bối cảnh biểu diễn", detailSubmission.recording?.performanceContext)}
                     {renderDetailField("Định dạng", detailSubmission.recording?.audioFormat, <FileAudio className="w-4 h-4" />)}
-                    {renderDetailField("Thời lượng (giây)", detailSubmission.recording?.durationSeconds)}
-                    {renderDetailField("Kích thước (bytes)", detailSubmission.recording?.fileSizeBytes)}
+                    {renderDetailField("Thời lượng", formatDuration(detailSubmission.recording?.durationSeconds))}
+                    {renderDetailField("Kích thước", formatSize(detailSubmission.recording?.fileSizeBytes))}
                     {renderDetailField("Ngày ghi âm", formatDate(detailSubmission.recording?.recordingDate || null), <Calendar className="w-4 h-4" />)}
                     {renderDetailField("Lời gốc", detailSubmission.recording?.lyricsOriginal)}
                     {renderDetailField("Lời tiếng Việt", detailSubmission.recording?.lyricsVietnamese)}
@@ -388,6 +553,55 @@ export default function ContributionsPage() {
                       renderDetailField("Tọa độ GPS", `${detailSubmission.recording.gpsLatitude}, ${detailSubmission.recording.gpsLongitude}`, <MapPin className="w-4 h-4" />)
                     )}
                   </div>
+
+                  {/* Media Player */}
+                  {detailSubmission.recording && (
+                    <div className="mb-6">
+                      {(() => {
+                        const rec = detailSubmission.recording;
+                        const title = rec.title || "Không có tiêu đề";
+                        const performer = rec.performerName || "Đang cập nhật...";
+
+                        // Try all possible media source fields from backend
+                        const audioSrc = (rec as any).audioFileUrl || (rec as any).audioUrl;
+                        const videoSrc = rec.videoFileUrl;
+
+                        if (videoSrc && (isYouTubeUrl(videoSrc) || videoSrc.match(/\.(mp4|webm|ogg)$/i) || videoSrc.startsWith('data:video/'))) {
+                          return (
+                            <VideoPlayer
+                              src={videoSrc}
+                              title={title}
+                              artist={performer}
+                              showContainer={true}
+                            />
+                          );
+                        }
+
+                        if (audioSrc) {
+                          return (
+                            <AudioPlayer
+                              src={audioSrc}
+                              title={title}
+                              artist={performer}
+                            />
+                          );
+                        }
+
+                        // Fallback: if videoURL exists but doesn't match video patterns, it might be an audio file in video field
+                        if (videoSrc) {
+                          return (
+                            <AudioPlayer
+                              src={videoSrc}
+                              title={title}
+                              artist={performer}
+                            />
+                          );
+                        }
+
+                        return null;
+                      })()}
+                    </div>
+                  )}
 
                   {/* ID references - removed as per request */}
                 </div>

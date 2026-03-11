@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, createRoutesFromElements, Route, Outlet } from "react-router-dom";
 import MainLayout from "./components/layout/MainLayout";
 import HomePage from "./pages/HomePage";
 import ExplorePage from "./pages/ExplorePage";
@@ -31,47 +31,56 @@ import ScrollToTop from "./components/common/ScrollToTop";
 import NotificationProvider from "./components/common/NotificationProvider";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 
-function App() {
-
-
+// Root wrapper to provide shared context/components within the RouterProvider
+function RootWrapper() {
   return (
     <NotificationProvider>
       <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<HomePage />} />
-          <Route path="explore" element={<ExplorePage />} />
-          <Route path="recordings/:id" element={<RecordingDetailPage />} />
-          <Route path="recordings/:id/edit" element={<EditRecordingPage />} />
-          <Route path="upload" element={<UploadPage />} />
-          <Route path="search" element={<SearchPage />} />
-          <Route path="semantic-search" element={<SemanticSearchPage />} />
-          <Route path="chatbot" element={<ChatbotPage />} />
-          <Route path="instruments" element={<InstrumentsPage />} />
-          <Route path="ethnicities" element={<EthnicitiesPage />} />
-          <Route path="masters" element={<MastersPage />} />
-          <Route path="about" element={<AboutPage />} />
-          <Route path="terms" element={<TermsPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="contributions" element={<ContributionsPage />} />
-          <Route path="moderation" element={<ModerationPage />} />
-          <Route path="approved-recordings" element={<ApprovedRecordingsPage />} />
-          <Route path="notifications" element={<NotificationPage />} />
-          <Route path="researcher" element={<ResearcherGuard />}>
-            <Route index element={<ResearcherPortalPage />} />
-          </Route>
-          <Route path="admin" element={<AdminGuard />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="create-expert" element={<CreateExpertPage />} />
-          </Route>
-        </Route>
-        <Route path="/login" element={<ErrorBoundary region="auth"><LoginPage /></ErrorBoundary>} />
-        <Route path="/register" element={<ErrorBoundary region="auth"><RegisterPage /></ErrorBoundary>} />
-        <Route path="/403" element={<ForbiddenPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+      <Outlet />
     </NotificationProvider>
   );
+}
+
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route element={<RootWrapper />}>
+      <Route path="/" element={<MainLayout />}>
+        <Route index element={<HomePage />} />
+        <Route path="explore" element={<ExplorePage />} />
+        <Route path="recordings/:id" element={<RecordingDetailPage />} />
+        <Route path="recordings/:id/edit" element={<EditRecordingPage />} />
+        <Route path="upload" element={<UploadPage />} />
+        <Route path="search" element={<SearchPage />} />
+        <Route path="semantic-search" element={<SemanticSearchPage />} />
+        <Route path="chatbot" element={<ChatbotPage />} />
+        <Route path="instruments" element={<InstrumentsPage />} />
+        <Route path="ethnicities" element={<EthnicitiesPage />} />
+        <Route path="masters" element={<MastersPage />} />
+        <Route path="about" element={<AboutPage />} />
+        <Route path="terms" element={<TermsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="contributions" element={<ContributionsPage />} />
+        <Route path="moderation" element={<ModerationPage />} />
+        <Route path="approved-recordings" element={<ApprovedRecordingsPage />} />
+        <Route path="notifications" element={<NotificationPage />} />
+        <Route path="researcher" element={<ResearcherGuard />}>
+          <Route index element={<ResearcherPortalPage />} />
+        </Route>
+        <Route path="admin" element={<AdminGuard />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="create-expert" element={<CreateExpertPage />} />
+        </Route>
+      </Route>
+      <Route path="/login" element={<ErrorBoundary region="auth"><LoginPage /></ErrorBoundary>} />
+      <Route path="/register" element={<ErrorBoundary region="auth"><RegisterPage /></ErrorBoundary>} />
+      <Route path="/403" element={<ForbiddenPage />} />
+      <Route path="*" element={<NotFoundPage />} />
+    </Route>
+  )
+);
+
+function App() {
+  return <RouterProvider router={router} />;
 }
 
 export default App;

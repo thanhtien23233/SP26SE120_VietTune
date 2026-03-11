@@ -282,7 +282,7 @@ function SearchableDropdown({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`w-full px-5 py-3 pr-10 text-neutral-900 border border-neutral-400/80 rounded-full focus:outline-none focus:border-primary-500 transition-all duration-200 text-left flex items-center justify-between shadow-sm hover:shadow-md ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+        className={`w-full px-5 py-3 pr-10 text-neutral-900 border border-neutral-400/80 rounded-xl focus:outline-none focus:border-primary-500 transition-all duration-200 text-left flex items-center justify-between shadow-sm hover:shadow-md ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
           }`}
         style={{ backgroundColor: '#FFFCF5' }}
       >
@@ -320,7 +320,7 @@ function SearchableDropdown({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Tìm kiếm..."
-                    className="w-full pl-9 pr-3 py-2 text-neutral-900 placeholder-neutral-500 border border-neutral-400/80 rounded-full focus:outline-none focus:border-primary-500 text-sm shadow-sm hover:shadow-md transition-all duration-200"
+                    className="w-full pl-9 pr-3 py-2 text-neutral-900 placeholder-neutral-500 border border-neutral-400/80 rounded-xl focus:outline-none focus:border-primary-500 text-sm shadow-sm hover:shadow-md transition-all duration-200"
                     style={{ backgroundColor: '#FFFCF5' }}
                     autoFocus
                   />
@@ -448,7 +448,7 @@ function MultiSelectTags({
       <div
         ref={inputRef}
         onClick={() => !disabled && setIsOpen(true)}
-        className={`min-h-[48px] px-4 py-2.5 border border-neutral-400 rounded-full focus-within:border-primary-500 transition-all ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-text"
+        className={`min-h-[48px] px-4 py-2.5 border border-neutral-400 rounded-xl focus-within:border-primary-500 transition-all ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-text"
           }`}
         style={{ backgroundColor: '#FFFCF5' }}
       >
@@ -456,7 +456,7 @@ function MultiSelectTags({
           {values.map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-br from-primary-600 to-primary-700 text-white text-xs rounded-full font-medium shadow-sm hover:shadow-md transition-shadow duration-200"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-br from-primary-600 to-primary-700 text-white text-xs rounded-xl font-medium shadow-sm hover:shadow-md transition-shadow duration-200"
             >
               {tag}
               {!disabled && (
@@ -839,7 +839,7 @@ export default function SearchBar({ onSearch, initialFilters = {} }: SearchBarPr
         </p>
 
         <div
-          className="relative w-full min-h-[48px] px-4 py-2.5 border border-neutral-400/80 rounded-full focus-within:border-primary-500 focus-within:border-transparent transition-all duration-200 shadow-sm hover:shadow-md mb-4"
+          className="relative w-full min-h-[48px] px-4 py-2.5 border border-neutral-400/80 rounded-xl focus-within:border-primary-500 focus-within:border-transparent transition-all duration-200 shadow-sm hover:shadow-md mb-4"
           style={{ backgroundColor: "#FFFCF5" }}
         >
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" strokeWidth={2} />
@@ -849,13 +849,13 @@ export default function SearchBar({ onSearch, initialFilters = {} }: SearchBarPr
             onChange={(e) => setQuery(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Tìm kiếm bài hát, nhạc cụ, nghệ nhân,..."
-            className="w-full pl-12 pr-32 py-2 bg-transparent text-neutral-900 placeholder-neutral-500 focus:outline-none rounded-full"
+            className="w-full pl-12 pr-32 py-2 bg-transparent text-neutral-900 placeholder-neutral-500 focus:outline-none rounded-xl"
             aria-label="Từ khóa tìm kiếm"
           />
           <button
             type="button"
             onClick={handleSearch}
-            className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white font-medium rounded-full transition-colors duration-200 flex items-center gap-2 cursor-pointer"
+            className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white font-medium rounded-xl transition-colors duration-200 flex items-center gap-2 cursor-pointer"
           >
             Tìm kiếm
             <Search className="h-4 w-4" strokeWidth={2.5} />
@@ -1006,7 +1006,7 @@ export default function SearchBar({ onSearch, initialFilters = {} }: SearchBarPr
         <button
           type="button"
           onClick={handleClearAll}
-          className="px-6 py-2.5 text-neutral-800 rounded-full transition-colors shadow-sm hover:shadow-md border-2 border-primary-600"
+          className="px-6 py-2.5 text-neutral-800 rounded-xl transition-colors shadow-sm hover:shadow-md border-2 border-primary-600"
           style={{ backgroundColor: '#FFFCF5' }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F5F0E8'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FFFCF5'}
@@ -1016,7 +1016,7 @@ export default function SearchBar({ onSearch, initialFilters = {} }: SearchBarPr
         <button
           type="button"
           onClick={handleSearch}
-          className="px-8 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium flex items-center gap-2 transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer"
+          className="px-8 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-xl font-medium flex items-center gap-2 transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer"
         >
           <Search className="h-4 w-4" strokeWidth={2.5} />
           Áp dụng bộ lọc

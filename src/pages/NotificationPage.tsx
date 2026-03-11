@@ -54,7 +54,7 @@ export default function NotificationPage() {
               onClick={handleMarkAllUnread}
               disabled={!hasRead}
               title={hasRead ? "Đánh dấu tất cả thông báo là chưa đọc" : "Không còn thông báo đã đọc"}
-              className="inline-flex items-center justify-center min-h-[44px] px-4 sm:px-6 py-2 rounded-full text-sm sm:text-base font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
+              className="inline-flex items-center justify-center min-h-[44px] px-4 sm:px-6 py-2 rounded-xl text-sm sm:text-base font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
             >
               Đánh dấu chưa đọc tất cả thông báo
             </button>
@@ -63,7 +63,7 @@ export default function NotificationPage() {
               onClick={handleMarkAllRead}
               disabled={!hasUnread}
               title={hasUnread ? "Đánh dấu tất cả thông báo là đã đọc" : "Không còn thông báo chưa đọc"}
-              className="inline-flex items-center justify-center min-h-[44px] px-4 sm:px-6 py-2 rounded-full text-sm sm:text-base font-medium bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
+              className="inline-flex items-center justify-center min-h-[44px] px-4 sm:px-6 py-2 rounded-xl text-sm sm:text-base font-medium bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
             >
               Đánh dấu đã đọc tất cả thông báo
             </button>
@@ -92,9 +92,8 @@ export default function NotificationPage() {
               {notifications.map((n) => (
                 <li
                   key={n.id}
-                  className={`rounded-2xl border border-neutral-200/80 p-6 transition-all duration-300 ${
-                    n.read ? "bg-neutral-50/80" : "bg-white"
-                  }`}
+                  className={`rounded-2xl border border-neutral-200/80 p-6 transition-all duration-300 ${n.read ? "bg-neutral-50/80" : "bg-white"
+                    }`}
                   style={n.read ? {} : { backgroundColor: "#FFFCF5" }}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -129,7 +128,7 @@ export default function NotificationPage() {
                         onClick={() => handleMarkUnread(n.id)}
                         disabled={!n.read}
                         title={n.read ? "Đánh dấu thông báo này là chưa đọc" : "Đã ở trạng thái chưa đọc"}
-                        className="px-3 py-1.5 rounded-full text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
+                        className="px-3 py-1.5 rounded-xl text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
                       >
                         Đánh dấu chưa đọc
                       </button>
@@ -138,7 +137,7 @@ export default function NotificationPage() {
                         onClick={() => handleMarkRead(n.id)}
                         disabled={n.read}
                         title={!n.read ? "Đánh dấu thông báo này là đã đọc" : "Đã ở trạng thái đã đọc"}
-                        className="px-3 py-1.5 rounded-full text-sm font-medium bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
+                        className="px-3 py-1.5 rounded-xl text-sm font-medium bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
                       >
                         Đánh dấu đã đọc
                       </button>

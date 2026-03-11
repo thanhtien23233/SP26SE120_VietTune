@@ -4,7 +4,9 @@ import { useAuthStore } from "@/stores/authStore";
 import { ChevronDown, Upload, Music, MapPin, FileAudio, Info, Shield, Check, Search, Plus, AlertCircle, Video, X, Navigation, Sparkles } from "lucide-react";
 import { createPortal } from "react-dom";
 import UploadProgressDialog from "@/components/common/UploadProgressDialog";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useBlocker } from "react-router-dom";
+import AudioPlayer from "@/components/features/AudioPlayer";
+import VideoPlayer from "@/components/features/VideoPlayer";
 import type { LocalRecording } from "@/types";
 import { UserRole } from "@/types";
 import { sessionGetItem } from "@/services/storageService";
@@ -14,7 +16,6 @@ import { getAddressFromCoordinates } from "@/services/geocodeService";
 import { referenceDataService, type EthnicGroupItem, type CeremonyItem, type ProvinceItem, type DistrictItem, type CommuneItem, type VocalStyleItem, type MusicalScaleItem, type InstrumentItem } from "@/services/referenceDataService";
 import { uploadFileToSupabase } from "@/services/uploadService";
 import { recordingService } from "@/services/recordingService";
-import { REGION_NAMES } from "@/config/constants";
 
 // Extended type for local recording storage (supports both legacy and new formats)
 type LocalRecordingStorage = LocalRecording & {
@@ -559,7 +560,7 @@ function SearchableDropdown({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`w-full px-5 py-3 pr-10 text-neutral-900 border border-neutral-400/80 rounded-full focus:outline-none focus:border-primary-500 transition-all duration-200 text-left flex items-center justify-between shadow-sm hover:shadow-md ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+        className={`w-full px-5 py-3 pr-10 text-neutral-900 border border-neutral-400/80 rounded-xl focus:outline-none focus:border-primary-500 transition-all duration-200 text-left flex items-center justify-between shadow-sm hover:shadow-md ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
           }`}
         style={{ backgroundColor: "#FFFCF5" }}
       >
@@ -597,7 +598,7 @@ function SearchableDropdown({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Tìm kiếm..."
-                    className="w-full pl-9 pr-3 py-2 text-neutral-900 placeholder-neutral-500 border border-neutral-400/80 rounded-full focus:outline-none focus:border-primary-500 text-sm shadow-sm hover:shadow-md transition-all duration-200"
+                    className="w-full pl-9 pr-3 py-2 text-neutral-900 placeholder-neutral-500 border border-neutral-400/80 rounded-xl focus:outline-none focus:border-primary-500 text-sm shadow-sm hover:shadow-md transition-all duration-200"
                     style={{ backgroundColor: "#FFFCF5" }}
                     autoFocus
                   />
@@ -621,7 +622,11 @@ function SearchableDropdown({
                     key={`${option}-${index}`}
                     type="button"
                     onClick={() => {
-                      onChange(option);
+                      if (value === option) {
+                        onChange("");
+                      } else {
+                        onChange(option);
+                      }
                       setIsOpen(false);
                       setSearch("");
                     }}
@@ -729,7 +734,7 @@ function MultiSelectTags({
       <div
         ref={inputRef}
         onClick={() => !disabled && setIsOpen(true)}
-        className={`min-h-[48px] px-4 py-2.5 border border-neutral-400/80 rounded-full focus-within:border-primary-500 focus-within:border-transparent transition-all duration-200 shadow-sm hover:shadow-md ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-text"
+        className={`min-h-[48px] px-4 py-2.5 border border-neutral-400/80 rounded-xl focus-within:border-primary-500 focus-within:border-transparent transition-all duration-200 shadow-sm hover:shadow-md ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-text"
           }`}
         style={{ backgroundColor: "#FFFCF5" }}
       >
@@ -737,7 +742,7 @@ function MultiSelectTags({
           {values.map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-br from-primary-600 to-primary-700 text-white text-xs rounded-full font-medium shadow-sm hover:shadow-md transition-shadow duration-200"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-br from-primary-600 to-primary-700 text-white text-xs rounded-xl font-medium shadow-sm hover:shadow-md transition-shadow duration-200"
             >
               {tag}
               {!disabled && (
@@ -1080,7 +1085,7 @@ function DatePicker({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`w-full px-5 py-3 pr-10 text-neutral-900 border border-neutral-400 rounded-full focus:outline-none focus:border-primary-500 transition-colors text-left flex items-center justify-between ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+        className={`w-full px-5 py-3 pr-10 text-neutral-900 border border-neutral-400 rounded-xl focus:outline-none focus:border-primary-500 transition-colors text-left flex items-center justify-between ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
           }`}
         style={{ backgroundColor: "#FFFCF5" }}
       >
@@ -1112,7 +1117,7 @@ function DatePicker({
               <button
                 type="button"
                 onClick={handlePrevMonth}
-                className="p-2 hover:bg-primary-100 rounded-full transition-colors flex-shrink-0"
+                className="p-2 hover:bg-primary-100 rounded-xl transition-colors flex-shrink-0"
               >
                 <ChevronDown className="h-4 w-4 text-neutral-600 rotate-90" />
               </button>
@@ -1126,7 +1131,7 @@ function DatePicker({
                       setShowMonthDropdown(!showMonthDropdown);
                       setShowYearDropdown(false);
                     }}
-                    className="px-4 py-1.5 border border-neutral-400 rounded-full text-sm font-medium text-neutral-900 transition-colors flex items-center gap-1"
+                    className="px-4 py-1.5 border border-neutral-400 rounded-xl text-sm font-medium text-neutral-900 transition-colors flex items-center gap-1"
                     style={{ backgroundColor: "#FFFCF5" }}
                     onMouseEnter={(e) =>
                       (e.currentTarget.style.backgroundColor = "#FFF7E6")
@@ -1194,7 +1199,7 @@ function DatePicker({
                       setShowYearDropdown(!showYearDropdown);
                       setShowMonthDropdown(false);
                     }}
-                    className="px-4 py-1.5 border border-neutral-400 rounded-full text-sm font-medium text-neutral-900 transition-colors flex items-center gap-1"
+                    className="px-4 py-1.5 border border-neutral-400 rounded-xl text-sm font-medium text-neutral-900 transition-colors flex items-center gap-1"
                     style={{ backgroundColor: "#FFFCF5" }}
                     onMouseEnter={(e) =>
                       (e.currentTarget.style.backgroundColor = "#FFF7E6")
@@ -1255,7 +1260,7 @@ function DatePicker({
                 type="button"
                 onClick={handleNextMonth}
                 disabled={!canGoNext}
-                className={`p-2 rounded-full transition-colors flex-shrink-0 ${canGoNext
+                className={`p-2 rounded-xl transition-colors flex-shrink-0 ${canGoNext
                   ? "hover:bg-primary-100"
                   : "opacity-30 cursor-not-allowed"
                   }`}
@@ -1278,7 +1283,7 @@ function DatePicker({
                     setShowMonthDropdown(false);
                     setShowYearDropdown(false);
                   }}
-                  className="px-4 py-1.5 border border-neutral-400 rounded-full text-sm font-medium text-neutral-900 transition-colors flex items-center gap-1"
+                  className="px-4 py-1.5 border border-neutral-400 rounded-xl text-sm font-medium text-neutral-900 transition-colors flex items-center gap-1"
                   style={{ backgroundColor: "#FFFCF5" }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.backgroundColor = "#FFF7E6")
@@ -1367,7 +1372,7 @@ function DatePicker({
                     setShowMonthDropdown(false);
                     setShowYearDropdown(false);
                   }}
-                  className="px-4 py-1.5 border border-neutral-400 rounded-full text-sm font-medium text-neutral-900 transition-colors flex items-center gap-1"
+                  className="px-4 py-1.5 border border-neutral-400 rounded-xl text-sm font-medium text-neutral-900 transition-colors flex items-center gap-1"
                   style={{ backgroundColor: "#FFFCF5" }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.backgroundColor = "#FFF7E6")
@@ -1591,7 +1596,7 @@ function TextInput({
       placeholder={placeholder}
       required={required}
       disabled={disabled}
-      className={`${baseClasses} rounded-full`}
+      className={`${baseClasses} rounded-xl`}
       style={bgStyle}
     />
   );
@@ -1723,6 +1728,18 @@ function CollapsibleSection({
   );
 }
 
+const REGION_CODE_TO_NAME: Record<string, string> = {
+  "TN": "Tây Nguyên",
+  "DNB": "Đông Nam Bộ",
+  "DBSCL": "Đồng bằng sông Cửu Long",
+  "TB": "Tây Bắc",
+  "DBSH": "Đồng bằng sông Hồng",
+  "ĐB": "Đông Bắc",
+  "BTB": "Bắc Trung Bộ",
+  "NTB": "Nam Trung Bộ",
+};
+const getRegionName = (code: string) => REGION_CODE_TO_NAME[code] || code;
+
 // ===== MAIN COMPONENT =====
 export interface UploadMusicProps {
   /** When provided (e.g. from EditRecordingPage), load recording by id from storage instead of session. */
@@ -1759,6 +1776,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [createdRecordingId, setCreatedRecordingId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [newUploadedUrl, setNewUploadedUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
@@ -1786,6 +1805,12 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   const [district, setDistrict] = useState("");
   const [commune, setCommune] = useState("");
 
+  const [initialCommuneId, setInitialCommuneId] = useState<string | null>(null);
+  const [initialEthnicGroupId, setInitialEthnicGroupId] = useState<string | null>(null);
+  const [initialCeremonyId, setInitialCeremonyId] = useState<string | null>(null);
+  const [initialVocalStyleId, setInitialVocalStyleId] = useState<string | null>(null);
+  const [initialMusicalScaleId, setInitialMusicalScaleId] = useState<string | null>(null);
+
   // Music Context
   const [vocalStyle, setVocalStyle] = useState("");
   const [musicalScale, setMusicalScale] = useState("");
@@ -1802,7 +1827,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   // Reference data from API (replaces hardcoded arrays)
   const [ETHNICITIES, setETHNICITIES] = useState<string[]>([]);
   const [ethnicGroupsData, setEthnicGroupsData] = useState<EthnicGroupItem[]>([]);
-  const [REGIONS] = useState<string[]>(Object.values(REGION_NAMES));
+  const [REGIONS, setREGIONS] = useState<string[]>([]);
   const [EVENT_TYPES, setEVENT_TYPES] = useState<string[]>([]);
   const [ceremoniesData, setCeremoniesData] = useState<CeremonyItem[]>([]);
   const [INSTRUMENTS, setINSTRUMENTS] = useState<string[]>([]);
@@ -1854,18 +1879,14 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       }
 
       try {
-        const [prov, dist, com] = await Promise.all([
-          referenceDataService.getProvinces(),
-          referenceDataService.getDistricts(),
-          referenceDataService.getCommunes()
-        ]);
+        const prov = await referenceDataService.getProvinces();
         if (!cancelled) {
           setProvincesData(prov);
-          setDistrictsData(dist);
-          setCommunesData(com);
+          const regionCodes = Array.from(new Set(prov.map((p) => p.regionCode).filter(Boolean)));
+          setREGIONS(regionCodes.map((code) => getRegionName(code)).sort());
         }
       } catch (err) {
-        console.warn("Failed to load administrative items", err);
+        console.warn("Failed to load provinces", err);
       }
 
       try {
@@ -1884,6 +1905,52 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Fetch districts when province changes
+  useEffect(() => {
+    let cancelled = false;
+    if (!province) {
+      setDistrictsData([]);
+      return;
+    }
+    const provId = provincesData.find((p) => p.name === province)?.id;
+    if (!provId) {
+      setDistrictsData([]);
+      return;
+    }
+    (async () => {
+      try {
+        const dist = await referenceDataService.getDistrictsByProvince(provId);
+        if (!cancelled) setDistrictsData(dist);
+      } catch (err) {
+        console.warn("Failed to load districts", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [province, provincesData]);
+
+  // Fetch communes when district changes
+  useEffect(() => {
+    let cancelled = false;
+    if (!district) {
+      setCommunesData([]);
+      return;
+    }
+    const distId = districtsData.find((d) => d.name === district)?.id;
+    if (!distId) {
+      setCommunesData([]);
+      return;
+    }
+    (async () => {
+      try {
+        const com = await referenceDataService.getCommunesByDistrict(distId);
+        if (!cancelled) setCommunesData(com);
+      } catch (err) {
+        console.warn("Failed to load communes", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [district, districtsData]);
 
   const [description, setDescription] = useState("");
   const [fieldNotes, setFieldNotes] = useState("");
@@ -2092,6 +2159,12 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       delete newErrors.file;
       return newErrors;
     });
+
+    // Reset upload state for the new file
+    setCreatedRecordingId(null);
+    setNewUploadedUrl(null);
+    setUploadProgress(0);
+
     setFile(selected);
     setIsAnalyzing(true);
 
@@ -2283,6 +2356,63 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleUploadAndCreateDraft = async () => {
+    if (!file || createdRecordingId) return;
+
+    setIsUploadingMedia(true);
+    setUploadProgress(0);
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.file;
+      return next;
+    });
+
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 95) return prev;
+        return prev + (95 - prev) * 0.1 + 1; // slow down as it gets closer to 95
+      });
+    }, 500);
+
+    try {
+      // Upload to Supabase first
+      const publicUrl = await uploadFileToSupabase(file);
+      setUploadProgress(99);
+      setNewUploadedUrl(publicUrl);
+
+      if (!isEditMode) {
+        // New upload: Call create-submission API
+        const uploaderId = currentUser?.id?.length === 36 ? currentUser.id : "00000000-0000-0000-0007-000000000002";
+
+        const res = await recordingService.createSubmission({
+          audioFileUrl: publicUrl,
+          uploadedById: uploaderId
+        });
+
+        // Response shape: { isSuccess, data: { recordingId, submissionId, ... } }
+        const recordingId = res?.data?.recordingId;
+        if (recordingId) {
+          setCreatedRecordingId(recordingId);
+        } else {
+          throw new Error("Không nhận được ID bản thu từ hệ thống.");
+        }
+      } else {
+        // In Edit mode, just store a dummy ID to avoid re-uploading in same session
+        setCreatedRecordingId("EDIT_MODE_UPLOADED");
+      }
+      setUploadProgress(100);
+    } catch (error: any) {
+      console.error("Lỗi khi tải lên file hoặc tạo bản thu:", error);
+      setErrors((prev) => ({
+        ...prev,
+        file: "Có lỗi khi tải lên. Vui lòng thử lại sau.",
+      }));
+    } finally {
+      clearInterval(progressInterval);
+      setIsUploadingMedia(false);
+    }
+  };
+
   const handleNextStep = async () => {
     const newErrors: Record<string, string> = {};
 
@@ -2292,67 +2422,26 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           ? "Vui lòng chọn file âm thanh"
           : "Vui lòng chọn file video";
       }
-
-      // Upload file right after Step 1 and call create-submission
-      if (Object.keys(newErrors).length === 0 && file && !createdRecordingId) {
-        setIsUploadingMedia(true);
-        setErrors((prev) => {
-          const next = { ...prev };
-          delete next.file;
-          return next;
-        });
-
-        try {
-          // Upload to Supabase first
-          const publicUrl = await uploadFileToSupabase(file);
-
-          if (!isEditMode) {
-            // New upload: Call create-submission API
-            const uploaderId = currentUser?.id?.length === 36 ? currentUser.id : "00000000-0000-0000-0007-000000000002";
-
-            const res = await recordingService.createSubmission({
-              audioFileUrl: publicUrl,
-              uploadedById: uploaderId
-            });
-
-            // Response shape: { isSuccess, data: { recordingId, submissionId, ... } }
-            const recordingId = res?.data?.recordingId;
-            if (recordingId) {
-              setCreatedRecordingId(recordingId);
-            } else {
-              throw new Error("Không nhận được ID bản thu từ hệ thống.");
-            }
-          } else {
-            // In Edit mode, just store a dummy ID to avoid re-uploading in same session
-            setCreatedRecordingId("EDIT_MODE_UPLOADED");
-          }
-        } catch (error: any) {
-          console.error("Lỗi khi tải lên file hoặc tạo bản thu:", error);
-          setErrors((prev) => ({
-            ...prev,
-            file: "Có lỗi khi tải lên. Vui lòng thử lại sau.",
-          }));
-          setIsUploadingMedia(false);
-          return; // Stop here, do not go to step 2
-        } finally {
-          setIsUploadingMedia(false);
-        }
+      if (Object.keys(newErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...newErrors }));
+        return;
       }
     } else if (uploadWizardStep === 2) {
-      if (!title.trim()) newErrors.title = "Vui lòng nhập tiêu đề";
-      if (!artistUnknown && !artist.trim()) {
-        newErrors.artist = "Vui lòng nhập tên nghệ sĩ hoặc chọn 'Không rõ'";
+      if (!isEditMode) {
+        if (!title.trim()) newErrors.title = "Vui lòng nhập tiêu đề";
+        if (!artistUnknown && !artist.trim()) {
+          newErrors.artist = "Vui lòng nhập tên nghệ sĩ hoặc chọn 'Không rõ'";
+        }
+        if (!genre) newErrors.genre = "Vui lòng chọn thể loại";
       }
-      if (!composerUnknown && !composer.trim()) {
-        newErrors.composer = "Vui lòng nhập tên tác giả hoặc chọn 'Dân gian/Không rõ'";
-      }
-      if (!genre) newErrors.genre = "Vui lòng chọn thể loại";
     } else if (uploadWizardStep === 3) {
-      if (!performanceType) {
-        newErrors.performanceType = "Vui lòng chọn loại hình biểu diễn";
-      }
-      if (requiresInstruments && instruments.length === 0) {
-        newErrors.instruments = "Vui lòng chọn ít nhất một nhạc cụ";
+      if (!isEditMode) {
+        if (!performanceType) {
+          newErrors.performanceType = "Vui lòng chọn loại hình biểu diễn";
+        }
+        if (requiresInstruments && instruments.length === 0) {
+          newErrors.instruments = "Vui lòng chọn ít nhất một nhạc cụ";
+        }
       }
     }
 
@@ -2398,9 +2487,13 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
     // To go to step 2: must have file and recordingId
     if (targetStep >= 2) {
-      if (!file && !(isEditMode && !!existingMediaSrc)) return false;
+      const hasMedia = file || (isEditMode && !!existingMediaSrc);
+      if (!hasMedia) return false;
       if (!isEditMode && !createdRecordingId) return false;
     }
+
+    // Skip further mandatory checks in edit mode as requested
+    if (isEditMode) return true;
 
     // To go to step 3: step 2 must be valid
     if (targetStep >= 3) {
@@ -2522,6 +2615,12 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           setArchiveOrg(recording.adminInfo?.archiveOrg || "");
           setCatalogId(recording.adminInfo?.catalogId || "");
 
+          setInitialCommuneId((recording.culturalContext as any)?.communeId || null);
+          setInitialEthnicGroupId((recording.culturalContext as any)?.ethnicGroupId || null);
+          setInitialCeremonyId((recording.culturalContext as any)?.ceremonyId || null);
+          setInitialVocalStyleId((recording.culturalContext as any)?.vocalStyleId || null);
+          setInitialMusicalScaleId((recording.culturalContext as any)?.musicalScaleId || null);
+
           const existing = await getLocalRecordingFull(recording.id) as LocalRecordingStorage | null;
           if (cancelled) return;
           const existingLoaded = existing as LoadedRecording | null;
@@ -2555,6 +2654,46 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     }
   }, [isEditModeParam, recordingId]);
 
+  // Resolver Effect: Map IDs back to Names once Data is loaded
+  useEffect(() => {
+    if (isEditMode && initialEthnicGroupId && ethnicGroupsData.length > 0 && !ethnicity) {
+      const match = ethnicGroupsData.find(e => e.id === initialEthnicGroupId);
+      if (match) setEthnicity(match.name);
+    }
+    if (isEditMode && initialCeremonyId && ceremoniesData.length > 0 && !eventType) {
+      const match = ceremoniesData.find(c => c.id === initialCeremonyId);
+      if (match) setEventType(match.name);
+    }
+    if (isEditMode && initialVocalStyleId && vocalStylesData.length > 0 && !vocalStyle) {
+      const match = vocalStylesData.find(v => v.id === initialVocalStyleId);
+      if (match) setVocalStyle(match.name);
+    }
+    if (isEditMode && initialMusicalScaleId && musicalScalesData.length > 0 && !musicalScale) {
+      const match = musicalScalesData.find(m => m.id === initialMusicalScaleId);
+      if (match) setMusicalScale(match.name);
+    }
+  }, [isEditMode, initialEthnicGroupId, ethnicGroupsData, initialCeremonyId, ceremoniesData, initialVocalStyleId, vocalStylesData, initialMusicalScaleId, musicalScalesData]);
+
+  // Resolve Commune/Province hierarchical data
+  useEffect(() => {
+    if (isEditMode && initialCommuneId && communesData.length > 0 && !commune) {
+      const commMatch = communesData.find(c => c.id === initialCommuneId);
+      if (commMatch) {
+        setCommune(commMatch.name);
+        // Find district and province from match
+        const distMatch = districtsData.find(d => d.id === commMatch.districtId);
+        if (distMatch) {
+          setDistrict(distMatch.name);
+          const provMatch = provincesData.find(p => p.id === distMatch.provinceId);
+          if (provMatch) {
+            setProvince(provMatch.name);
+            setRegion(provMatch.regionCode);
+          }
+        }
+      }
+    }
+  }, [isEditMode, initialCommuneId, communesData, districtsData, provincesData]);
+
   // Disable body scroll when dialogs are open
   useEffect(() => {
     if (showConfirmDialog || submitStatus === "success") {
@@ -2583,6 +2722,67 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       document.body.style.overflow = '';
     };
   }, [showConfirmDialog, submitStatus]);
+
+  // Navigation guard for Step 2 (Metadata entry)
+  // Triggers browser confirmation if leaving during meaningful progress
+  useEffect(() => {
+    // Only guard during Step 2 of the wizard (where data loss is most painful)
+    const isStep2Active = !isEditMode && uploadWizardStep === 2;
+    if (!isStep2Active || isSubmitting || submitStatus === "success") return;
+
+    // Only alert if some data has actually been entered
+    const hasEnteredData =
+      title.trim() !== "" ||
+      (artist.trim() !== "" && !artistUnknown) ||
+      (composer.trim() !== "" && !composerUnknown) ||
+      genre !== "" ||
+      description.trim() !== "";
+
+    if (!hasEnteredData) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Modern browsers require preventDefault and setting returnValue to show the dialog
+      e.preventDefault();
+      e.returnValue = "Thông tin bạn đã nhập sẽ không được lưu nếu bạn rời khỏi trang. Bạn có chắc chắn muốn rời đi?";
+      return e.returnValue;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [uploadWizardStep, isEditMode, isSubmitting, submitStatus, title, artist, artistUnknown, composer, composerUnknown, genre, description]);
+
+  // Internal navigation blocker (for navbar links etc.)
+  // Only available since we migrated to Data Router (createBrowserRouter)
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) => {
+      // Only guard during Step 2 of the wizard
+      const isStep2Active = !isEditMode && uploadWizardStep === 2;
+      if (!isStep2Active || isSubmitting || submitStatus === "success") return false;
+
+      // Only alert if some data has actually been entered
+      const hasEnteredData =
+        title.trim() !== "" ||
+        (artist.trim() !== "" && !artistUnknown) ||
+        (composer.trim() !== "" && !composerUnknown) ||
+        genre !== "" ||
+        description.trim() !== "";
+
+      // Only block if moving to a different page
+      return hasEnteredData && currentLocation.pathname !== nextLocation.pathname;
+    }
+  );
+
+  // Handle the blocker state
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      const proceed = window.confirm("Thông tin bạn đã nhập sẽ không được lưu nếu bạn rời khỏi trang. Bạn có chắc chắn muốn rời đi?");
+      if (proceed) {
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    }
+  }, [blocker]);
 
   // Handle ESC key to close dialogs
   useEffect(() => {
@@ -2658,16 +2858,18 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         .map((name: string) => instrumentsData.find((i: InstrumentItem) => i.name === name)?.id)
         .filter((id): id is string => !!id);
 
-      // Ensure duration and size are correctly processed
       const durationSeconds = audioInfo?.duration || existingMediaInfo?.duration || 0;
       const audioFormat = audioInfo?.type || existingMediaInfo?.type || file?.type || "";
       const fileSizeBytes = audioInfo?.size || existingMediaInfo?.size || file?.size || 0;
+
+      const finalMediaUrl = newUploadedUrl || existingMediaSrc || "";
 
       // 2. Construct API Payload matching the user's requested structure (PUT /api/Recording/{id})
       const payload: any = {
         title: title || undefined,
         description: description || undefined,
-        videoFileUrl: mediaType === "video" ? (file ? "" : existingMediaSrc) : undefined, // videoUrl logic might need sync with FE state
+        audioFileUrl: mediaType === "audio" ? finalMediaUrl : undefined,
+        videoFileUrl: mediaType === "video" ? finalMediaUrl : undefined,
         audioFormat: audioFormat || undefined,
         durationSeconds: durationSeconds,
         fileSizeBytes: fileSizeBytes,
@@ -2869,106 +3071,154 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
             style={{ backgroundColor: "#FFFCF5" }}
             aria-disabled={isFormDisabled}
           >
-            <SectionHeader
-              icon={Upload}
-              title={mediaType === "video" ? "Tải lên file video" : "Tải lên file âm thanh"}
-              subtitle={mediaType === "video" ? "Hỗ trợ định dạng MP4, MOV, AVI, WebM, MKV, MPEG, WMV, 3GP, FLV" : "Hỗ trợ định dạng MP3, WAV, FLAC"}
-              required
-            />
+            {/* Header - Hidden in edit mode if media exists to prioritize player */}
+            {(!isEditMode || !existingMediaSrc) && (
+              <SectionHeader
+                icon={Upload}
+                title={mediaType === "video" ? "Tải lên file video" : "Tải lên file âm thanh"}
+                subtitle={mediaType === "video" ? "Hỗ trợ định dạng MP4, MOV, AVI, WebM, MKV, MPEG, WMV, 3GP, FLV" : "Hỗ trợ định dạng MP3, WAV, FLAC"}
+                required={!isEditMode}
+              />
+            )}
 
-            {/* Media Type Selection */}
-            <div className="mt-4 mb-6">
-              <div className="flex flex-wrap gap-2">
-                {/* File âm thanh — disabled when video already uploaded (mutually exclusive) */}
-                <button
-                  type="button"
-                  disabled={isFormDisabled || (file != null && mediaType === "video")}
-                  onClick={() => {
-                    if (isFormDisabled || (file != null && mediaType === "video")) return;
-                    setMediaType("audio");
-                    setFile(null);
-                    setAudioInfo(null);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                  className={`px-4 py-2 rounded-full text-sm transition-all duration-200 border border-neutral-200/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 ${mediaType === "audio"
-                    ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white"
-                    : "text-neutral-800 bg-neutral-100/90"
-                    } ${(isFormDisabled || (file != null && mediaType === "video")) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                  style={
-                    mediaType !== "audio"
-                      ? { backgroundColor: "#FFFCF5" }
-                      : undefined
-                  }
-                  onMouseEnter={e => {
-                    if (isFormDisabled || (file != null && mediaType === "video")) return;
-                    if (mediaType !== "audio") {
-                      e.currentTarget.style.backgroundColor = "#F5F0E8";
+            {/* Media Type Selection - Also hidden in edit mode if media exists */}
+            {(!isEditMode || !existingMediaSrc) && (
+              <div className="mt-4 mb-6">
+                <div className="flex flex-wrap gap-2">
+                  {/* File âm thanh — disabled when video already uploaded (mutually exclusive) */}
+                  <button
+                    type="button"
+                    disabled={isFormDisabled || (file != null && mediaType === "video")}
+                    onClick={() => {
+                      if (isFormDisabled || (file != null && mediaType === "video")) return;
+                      setMediaType("audio");
+                      setFile(null);
+                      setAudioInfo(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 border border-neutral-200/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 ${mediaType === "audio"
+                      ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white"
+                      : "text-neutral-800 bg-neutral-100/90"
+                      } ${(isFormDisabled || (file != null && mediaType === "video")) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    style={
+                      mediaType !== "audio"
+                        ? { backgroundColor: "#FFFCF5" }
+                        : undefined
                     }
-                  }}
-                  onMouseLeave={e => {
-                    if (isFormDisabled) return;
-                    if (mediaType !== "audio") {
-                      e.currentTarget.style.backgroundColor = "#FFFCF5";
+                    onMouseEnter={e => {
+                      if (isFormDisabled || (file != null && mediaType === "video")) return;
+                      if (mediaType !== "audio") {
+                        e.currentTarget.style.backgroundColor = "#F5F0E8";
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (isFormDisabled) return;
+                      if (mediaType !== "audio") {
+                        e.currentTarget.style.backgroundColor = "#FFFCF5";
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileAudio className="h-4 w-4" strokeWidth={2.5} />
+                      <span>File âm thanh</span>
+                    </div>
+                  </button>
+                  {/* File video — disabled when audio already uploaded (mutually exclusive) */}
+                  <button
+                    type="button"
+                    disabled={isFormDisabled || (file != null && mediaType === "audio")}
+                    onClick={() => {
+                      if (isFormDisabled || (file != null && mediaType === "audio")) return;
+                      setMediaType("video");
+                      setFile(null);
+                      setAudioInfo(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 border border-neutral-200/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 ${mediaType === "video"
+                      ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white"
+                      : "text-neutral-800 bg-neutral-100/90"
+                      } ${(isFormDisabled || (file != null && mediaType === "audio")) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    style={
+                      mediaType !== "video"
+                        ? { backgroundColor: "#FFFCF5" }
+                        : undefined
                     }
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <FileAudio className="h-4 w-4" strokeWidth={2.5} />
-                    <span>File âm thanh</span>
-                  </div>
-                </button>
-                {/* File video — disabled when audio already uploaded (mutually exclusive) */}
-                <button
-                  type="button"
-                  disabled={isFormDisabled || (file != null && mediaType === "audio")}
-                  onClick={() => {
-                    if (isFormDisabled || (file != null && mediaType === "audio")) return;
-                    setMediaType("video");
-                    setFile(null);
-                    setAudioInfo(null);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                  className={`px-4 py-2 rounded-full text-sm transition-all duration-200 border border-neutral-200/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 ${mediaType === "video"
-                    ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white"
-                    : "text-neutral-800 bg-neutral-100/90"
-                    } ${(isFormDisabled || (file != null && mediaType === "audio")) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                  style={
-                    mediaType !== "video"
-                      ? { backgroundColor: "#FFFCF5" }
-                      : undefined
-                  }
-                  onMouseEnter={e => {
-                    if (isFormDisabled || (file != null && mediaType === "audio")) return;
-                    if (mediaType !== "video") {
-                      e.currentTarget.style.backgroundColor = "#F5F0E8";
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (isFormDisabled) return;
-                    if (mediaType !== "video") {
-                      e.currentTarget.style.backgroundColor = "#FFFCF5";
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Video className="h-4 w-4" strokeWidth={2.5} />
-                    <span>File video</span>
-                  </div>
-                </button>
+                    onMouseEnter={e => {
+                      if (isFormDisabled || (file != null && mediaType === "audio")) return;
+                      if (mediaType !== "video") {
+                        e.currentTarget.style.backgroundColor = "#F5F0E8";
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (isFormDisabled) return;
+                      if (mediaType !== "video") {
+                        e.currentTarget.style.backgroundColor = "#FFFCF5";
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Video className="h-4 w-4" strokeWidth={2.5} />
+                      <span>File video</span>
+                    </div>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Edit Mode: Media Player at TOP */}
+            {isEditMode && existingMediaSrc && !file && (
+              <div className="mb-8 p-6 bg-white rounded-2xl border border-primary-200/50 shadow-sm" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-primary-100 rounded-lg">
+                    <Music className="w-5 h-5 text-primary-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-neutral-800">Tệp tin hiện tại</h3>
+                    <p className="text-sm text-neutral-500">Bạn đang chỉnh sửa bản ghi này</p>
+                  </div>
+                </div>
+
+                {mediaType === "video" ? (
+                  <VideoPlayer
+                    src={existingMediaSrc}
+                    title={existingMediaInfo?.name || title}
+                    artist={artist || "Đang chỉnh sửa..."}
+                    showContainer={true}
+                  />
+                ) : (
+                  <AudioPlayer
+                    src={existingMediaSrc}
+                    title={existingMediaInfo?.name || title}
+                    artist={artist || "Đang chỉnh sửa..."}
+                  />
+                )}
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-sm font-medium text-primary-600 hover:text-primary-700 underline underline-offset-4"
+                  >
+                    Thay thế tệp tin khác
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* File Upload */}
             {
               <div className="mt-4">
                 <div
-                  onClick={() => { if (isFormDisabled || isAnalyzing) return; fileInputRef.current?.click(); }}
+                  onClick={() => {
+                    if (isFormDisabled || isAnalyzing || file) return;
+                    fileInputRef.current?.click();
+                  }}
                   className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all ${errors.file
                     ? "border-red-500/50 bg-red-500/5"
                     : file
                       ? "border-primary-500/50 bg-primary-600/5"
                       : "border-neutral-200 hover:border-primary-400"
-                    } ${isAnalyzing ? "opacity-60 cursor-wait" : (isFormDisabled ? "cursor-not-allowed" : "cursor-pointer")}`}
+                    } ${isAnalyzing ? "opacity-60 cursor-wait" : (isFormDisabled ? "cursor-not-allowed" : (file ? "cursor-default" : "cursor-pointer"))}`}
                 >
                   <input
                     ref={fileInputRef}
@@ -2985,7 +3235,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                       <p className="text-neutral-800/70">Đang phân tích file...</p>
                     </div>
                   ) : file && audioInfo ? (
-                    <div className="space-y-3">
+                    <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
                       <div className="p-3 bg-primary-600/20 rounded-2xl w-fit mx-auto">
                         {mediaType === "video" ? (
                           <Video className="h-8 w-8 text-primary-600" />
@@ -3008,6 +3258,42 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                             </>
                           )}
                         </div>
+
+                        {(file && !createdRecordingId && (!isEditMode || !newUploadedUrl)) && (
+                          <div className="mt-5 w-full max-w-sm mx-auto">
+                            {isUploadingMedia ? (
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-xs font-semibold text-neutral-600">
+                                  <span>Đang tải lên và phân tích...</span>
+                                  <span>{Math.round(uploadProgress)}%</span>
+                                </div>
+                                <div className="w-full bg-neutral-200/80 rounded-full h-2.5 overflow-hidden">
+                                  <div
+                                    className="bg-primary-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                                    style={{ width: `${uploadProgress}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUploadAndCreateDraft();
+                                }}
+                                className="w-full px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-colors shadow-sm flex items-center gap-2 justify-center"
+                              >
+                                <Upload className="h-4 w-4" /> {isEditMode ? "Tải lên file mới" : "Bắt đầu tải lên"}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {(createdRecordingId || (isEditMode && newUploadedUrl)) && (
+                          <div className="mt-4 flex items-center justify-center gap-2 text-emerald-600 font-medium bg-emerald-50 w-full max-w-sm mx-auto p-2 rounded-xl border border-emerald-200/60">
+                            <Check className="h-5 w-5" /> {isEditMode ? "Đã tải lên tệp thay thế" : "Đã tải lên thành công"}
+                          </div>
+                        )}
+
                       </div>
                       <button
                         type="button"
@@ -3015,6 +3301,9 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                           e.stopPropagation();
                           setFile(null);
                           setAudioInfo(null);
+                          setCreatedRecordingId(null);
+                          setNewUploadedUrl(null);
+                          setUploadProgress(0);
                           if (fileInputRef.current) fileInputRef.current.value = "";
                         }}
                         className="text-sm text-neutral-800/60 hover:text-red-400 transition-colors"
@@ -3022,85 +3311,17 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                         Chọn file khác
                       </button>
                     </div>
-                  ) : isEditMode && existingMediaSrc && existingMediaInfo ? (
-                    <div className="space-y-4">
-                      <div className="p-3 bg-primary-600/20 rounded-2xl w-fit mx-auto">
-                        {mediaType === "video" ? (
-                          <Video className="h-8 w-8 text-primary-600" />
-                        ) : (
-                          <FileAudio className="h-8 w-8 text-primary-600" />
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <p className="text-neutral-800 font-medium">
-                          {existingMediaInfo.name}
-                        </p>
-                        <div className="flex items-center justify-center gap-4 mt-2 text-sm text-neutral-800/60">
-                          <span>{formatFileSize(existingMediaInfo.size)}</span>
-                          <span>•</span>
-                          <span>{formatDuration(existingMediaInfo.duration)}</span>
-                          {existingMediaInfo.bitrate && (
-                            <>
-                              <span>•</span>
-                              <span>~{existingMediaInfo.bitrate} kbps</span>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Existing media preview (edit mode) */}
-                        <div className="mt-3">
-                          {mediaType === "video" ? (
-                            existingMediaSrc.startsWith("http") ? (
-                              <p className="text-sm text-neutral-800/70 break-all">
-                                Đang dùng video YouTube/URL: {existingMediaSrc}
-                              </p>
-                            ) : (
-                              <video
-                                controls
-                                className="w-full max-w-md mx-auto rounded-xl border border-neutral-200/80"
-                                src={existingMediaSrc}
-                              />
-                            )
-                          ) : (
-                            existingMediaSrc.startsWith("http") ? (
-                              <p className="text-sm text-neutral-800/70 break-all">
-                                Đang dùng audio URL: {existingMediaSrc}
-                              </p>
-                            ) : (
-                              <audio
-                                controls
-                                className="w-full max-w-md mx-auto"
-                                src={existingMediaSrc}
-                              />
-                            )
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isFormDisabled || isAnalyzing) return;
-                          fileInputRef.current?.click();
-                        }}
-                        className="text-sm text-neutral-800/60 hover:text-primary-600 transition-colors"
-                      >
-                        Chọn file khác để thay thế
-                      </button>
-                    </div>
                   ) : (
                     <div className="space-y-3">
-                      <div className="p-3 bg-primary-600/20 rounded-2xl w-fit mx-auto">
-                        <Upload className="h-8 w-8 text-primary-600" />
+                      <div className="p-4 bg-primary-600/10 rounded-2xl w-fit mx-auto group-hover:bg-primary-600/20 transition-colors">
+                        <Plus className="h-8 w-8 text-primary-600" />
                       </div>
                       <div>
-                        <p className="text-neutral-800">
-                          Kéo thả file hoặc click để chọn
+                        <p className="text-lg font-bold text-neutral-800">
+                          {isEditMode ? "Thay thế tệp tin" : (mediaType === "video" ? "Chọn file video" : "Chọn file âm thanh")}
                         </p>
-                        <p className="text-sm text-neutral-800/60 mt-1">
-                          {mediaType === "video"
-                            ? "MP4, MOV, AVI, WebM, MKV, MPEG, WMV, 3GP, FLV - Không giới hạn dung lượng"
-                            : "MP3, WAV, FLAC - Không giới hạn dung lượng"}
+                        <p className="text-sm text-neutral-800/50 mt-1 font-medium">
+                          {isEditMode ? "Click để chọn tệp mới thay thế tệp hiện tại" : "Kéo thả file vào đây hoặc click để chọn"}
                         </p>
                       </div>
                     </div>
@@ -3353,7 +3574,12 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                 <FormField label="Khu vực">
                   <SearchableDropdown
                     value={region}
-                    onChange={setRegion}
+                    onChange={(r) => {
+                      setRegion(r);
+                      setProvince("");
+                      setDistrict("");
+                      setCommune("");
+                    }}
                     options={REGIONS}
                     placeholder="Chọn khu vực"
                     searchable={false}
@@ -3367,42 +3593,40 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                       setProvince(p);
                       setDistrict(""); // Reset District when Province changes
                       setCommune(""); // Reset Commune when Province changes
+
+                      // Auto-set Region based on selected province
+                      const selectedProv = provincesData.find((prov) => prov.name === p);
+                      if (selectedProv?.regionCode) {
+                        setRegion(getRegionName(selectedProv.regionCode));
+                      }
                     }}
-                    options={provincesData.map(p => p.name)}
+                    options={provincesData.filter(p => !region || getRegionName(p.regionCode) === region).map(p => p.name)}
                     placeholder="Chọn tỉnh thành"
                   />
                 </FormField>
 
-                {province && (
-                  <FormField label="Quận/Huyện">
-                    <SearchableDropdown
-                      value={district}
-                      onChange={(d) => {
-                        setDistrict(d);
-                        setCommune(""); // Reset Commune when District changes
-                      }}
-                      options={districtsData.filter(d => {
-                        const provId = provincesData.find(p => p.name === province)?.id;
-                        return d.provinceId === provId;
-                      }).map(d => d.name)}
-                      placeholder="Chọn quận huyện"
-                    />
-                  </FormField>
-                )}
+                <FormField label="Quận/Huyện">
+                  <SearchableDropdown
+                    value={district}
+                    onChange={(d) => {
+                      setDistrict(d);
+                      setCommune(""); // Reset Commune when District changes
+                    }}
+                    options={districtsData.map(d => d.name)}
+                    placeholder="Chọn quận huyện"
+                    disabled={!province}
+                  />
+                </FormField>
 
-                {district && (
-                  <FormField label="Phường/Xã">
-                    <SearchableDropdown
-                      value={commune}
-                      onChange={setCommune}
-                      options={communesData.filter(c => {
-                        const distId = districtsData.find(d => d.name === district)?.id;
-                        return c.districtId === distId;
-                      }).map(c => c.name)}
-                      placeholder="Chọn phường xã"
-                    />
-                  </FormField>
-                )}
+                <FormField label="Phường/Xã">
+                  <SearchableDropdown
+                    value={commune}
+                    onChange={setCommune}
+                    options={communesData.map(c => c.name)}
+                    placeholder="Chọn phường xã"
+                    disabled={!district}
+                  />
+                </FormField>
 
                 <div className="space-y-2">
                   <FormField label="Loại sự kiện">
@@ -3451,9 +3675,13 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                           key={pt.key}
                           type="button"
                           onClick={() => {
-                            setPerformanceType(pt.key);
-                            if (pt.key === "acappella") {
-                              setInstruments([]);
+                            if (performanceType === pt.key) {
+                              setPerformanceType("");
+                            } else {
+                              setPerformanceType(pt.key);
+                              if (pt.key === "acappella") {
+                                setInstruments([]);
+                              }
                             }
                           }}
                           className={`w-full px-4 py-3 rounded-full text-sm font-medium transition-all border border-neutral-200 ${performanceType === pt.key
@@ -3584,403 +3812,407 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
               </div>
             </CollapsibleSection>
           </>
-        )}
+        )
+        }
 
         {/* Bước 3: GPS & Gợi ý metadata từ AI */}
-        {(uploadWizardStep === 3 || !showWizard) && (
-          <div
-            className="border border-neutral-200/80 rounded-2xl p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
-            style={{ backgroundColor: "#FFFCF5" }}
-          >
-            <SectionHeader
-              icon={Navigation}
-              title="Gắn GPS"
-              subtitle="Lấy tọa độ hiện tại để gắn vào địa điểm ghi âm"
-              optional
-            />
-            <div className="space-y-2 mb-6">
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleGetGpsLocation}
-                  disabled={isFormDisabled || gpsLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer"
-                >
-                  <Navigation className="w-4 h-4" strokeWidth={2.5} />
-                  {gpsLoading ? "Đang lấy vị trí và địa chỉ..." : "Lấy vị trí hiện tại"}
-                </button>
-                <span className="text-sm text-neutral-600">Địa điểm sẽ được thêm vào Địa điểm ghi âm ở Bước 2.</span>
-              </div>
-              {gpsError && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {gpsError}
-                </p>
-              )}
-            </div>
-            <SectionHeader
-              icon={Sparkles}
-              title="Gợi ý metadata từ AI"
-              subtitle="Dựa trên thể loại đã chọn, AI gợi ý dân tộc phù hợp (bạn có thể chỉnh sửa)"
-              optional
-            />
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleAiSuggestMetadata}
-                  disabled={isFormDisabled || aiSuggestLoading || !genre}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4" strokeWidth={2.5} />
-                  {aiSuggestLoading ? "Đang gợi ý..." : "Lấy gợi ý từ AI"}
-                </button>
-                {!genre && (
-                  <span className="text-sm text-neutral-600">Chọn thể loại ở Bước 2 trước khi dùng gợi ý AI.</span>
+        {
+          (uploadWizardStep === 3 || !showWizard) && (
+            <div
+              className="border border-neutral-200/80 rounded-2xl p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
+              style={{ backgroundColor: "#FFFCF5" }}
+            >
+              <SectionHeader
+                icon={Navigation}
+                title="Gắn GPS"
+                subtitle="Lấy tọa độ hiện tại để gắn vào địa điểm ghi âm"
+                optional
+              />
+              <div className="space-y-2 mb-6">
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleGetGpsLocation}
+                    disabled={isFormDisabled || gpsLoading}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer"
+                  >
+                    <Navigation className="w-4 h-4" strokeWidth={2.5} />
+                    {gpsLoading ? "Đang lấy vị trí và địa chỉ..." : "Lấy vị trí hiện tại"}
+                  </button>
+                  <span className="text-sm text-neutral-600">Địa điểm sẽ được thêm vào Địa điểm ghi âm ở Bước 2.</span>
+                </div>
+                {gpsError && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {gpsError}
+                  </p>
                 )}
               </div>
-              {aiSuggestError && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {aiSuggestError}
-                </p>
-              )}
-              {aiSuggestSuccess && (
-                <p className="text-sm text-green-700 flex items-center gap-1">
-                  <Check className="w-4 h-4" />
-                  {aiSuggestSuccess}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {(uploadWizardStep === 4 || !showWizard) && (
-          <>
-            <CollapsibleSection
-              icon={Info}
-              title="Ghi chú bổ sung"
-              optional
-              defaultOpen={false}
-            >
-              <div className="space-y-4">
-                <FormField
-                  label="Mô tả nội dung"
-                  hint="Lời bài hát, chủ đề, ý nghĩa văn hóa"
-                >
-                  <TextInput
-                    value={description}
-                    onChange={setDescription}
-                    placeholder="Mô tả chi tiết về bản nhạc..."
-                    multiline
-                    rows={4}
-                  />
-                </FormField>
-
-                <FormField
-                  label="Ghi chú thực địa"
-                  hint="Quan sát về bối cảnh, phong cách trình diễn"
-                >
-                  <TextInput
-                    value={fieldNotes}
-                    onChange={setFieldNotes}
-                    placeholder="Những quan sát đặc biệt..."
-                    multiline
-                    rows={3}
-                  />
-                </FormField>
-
-                <FormField
-                  label="Phiên âm/Bản dịch"
-                  hint="Nếu sử dụng ngôn ngữ dân tộc thiểu số"
-                >
-                  <TextInput
-                    value={transcription}
-                    onChange={setTranscription}
-                    placeholder="Phiên âm hoặc bản dịch tiếng Việt..."
-                    multiline
-                    rows={3}
-                  />
-                </FormField>
-              </div>
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              icon={Shield}
-              title="Thông tin quản trị và bản quyền"
-              optional
-              defaultOpen={false}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField label="Người thu thập/Ghi âm">
-                  <TextInput
-                    value={collector}
-                    onChange={setCollector}
-                    placeholder="Tên người hoặc tổ chức ghi âm"
-                  />
-                </FormField>
-
-                <FormField label="Bản quyền">
-                  <TextInput
-                    value={copyright}
-                    onChange={setCopyright}
-                    placeholder="Thông tin về quyền sở hữu, giấy phép"
-                  />
-                </FormField>
-
-                <FormField label="Tổ chức lưu trữ">
-                  <TextInput
-                    value={archiveOrg}
-                    onChange={setArchiveOrg}
-                    placeholder="Nơi bảo quản bản gốc"
-                  />
-                </FormField>
-
-                <FormField label="Mã định danh" hint="ISRC hoặc mã catalog riêng">
-                  <TextInput
-                    value={catalogId}
-                    onChange={setCatalogId}
-                    placeholder="VD: ISRC-VN-XXX-00-00000"
-                  />
-                </FormField>
-              </div>
-            </CollapsibleSection>
-
-            <div className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-6">
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  disabled={isSubmitting || isFormDisabled}
-                  className="px-6 py-2.5 text-neutral-800 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md border-2 border-primary-600"
-                  style={{ backgroundColor: "#FFFCF5" }}
-                  onMouseEnter={(e) =>
-                    !isSubmitting && !isFormDisabled &&
-                    (e.currentTarget.style.backgroundColor = "#F5F0E8")
-                  }
-                  onMouseLeave={(e) =>
-                    !isSubmitting && !isFormDisabled &&
-                    (e.currentTarget.style.backgroundColor = "#FFFCF5")
-                  }
-                >
-                  Đặt lại
-                </button>
-                <button
-                  type="submit"
-                  disabled={!isFormComplete || isAnalyzing || isSubmitting || isFormDisabled}
-                  title={isFormDisabled ? (isApprovedEdit ? "Bạn cần có tài khoản Người đóng góp hoặc Chuyên gia để chỉnh sửa bản thu" : "Bạn cần có tài khoản Người đóng góp để đóng góp bản thu") : (!isFormComplete ? "Vui lòng hoàn thành các trường bắt buộc" : undefined)}
-                  className="px-8 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2 cursor-pointer"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                      Đang xử lý...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4" strokeWidth={2.5} />
-                      {isApprovedEdit ? "Hoàn tất chỉnh sửa" : "Đóng góp"}
-                    </>
+              <SectionHeader
+                icon={Sparkles}
+                title="Gợi ý metadata từ AI"
+                subtitle="Dựa trên thể loại đã chọn, AI gợi ý dân tộc phù hợp (bạn có thể chỉnh sửa)"
+                optional
+              />
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleAiSuggestMetadata}
+                    disabled={isFormDisabled || aiSuggestLoading || !genre}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4" strokeWidth={2.5} />
+                    {aiSuggestLoading ? "Đang gợi ý..." : "Lấy gợi ý từ AI"}
+                  </button>
+                  {!genre && (
+                    <span className="text-sm text-neutral-600">Chọn thể loại ở Bước 2 trước khi dùng gợi ý AI.</span>
                   )}
-                </button>
+                </div>
+                {aiSuggestError && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {aiSuggestError}
+                  </p>
+                )}
+                {aiSuggestSuccess && (
+                  <p className="text-sm text-green-700 flex items-center gap-1">
+                    <Check className="w-4 h-4" />
+                    {aiSuggestSuccess}
+                  </p>
+                )}
               </div>
             </div>
-          </>
-        )}
+          )
+        }
+
+        {
+          (uploadWizardStep === 4 || !showWizard) && (
+            <>
+              <CollapsibleSection
+                icon={Info}
+                title="Ghi chú bổ sung"
+                optional
+                defaultOpen={false}
+              >
+                <div className="space-y-4">
+                  <FormField
+                    label="Mô tả nội dung"
+                    hint="Lời bài hát, chủ đề, ý nghĩa văn hóa"
+                  >
+                    <TextInput
+                      value={description}
+                      onChange={setDescription}
+                      placeholder="Mô tả chi tiết về bản nhạc..."
+                      multiline
+                      rows={4}
+                    />
+                  </FormField>
+
+                  <FormField
+                    label="Ghi chú thực địa"
+                    hint="Quan sát về bối cảnh, phong cách trình diễn"
+                  >
+                    <TextInput
+                      value={fieldNotes}
+                      onChange={setFieldNotes}
+                      placeholder="Những quan sát đặc biệt..."
+                      multiline
+                      rows={3}
+                    />
+                  </FormField>
+
+                  <FormField
+                    label="Phiên âm/Bản dịch"
+                    hint="Nếu sử dụng ngôn ngữ dân tộc thiểu số"
+                  >
+                    <TextInput
+                      value={transcription}
+                      onChange={setTranscription}
+                      placeholder="Phiên âm hoặc bản dịch tiếng Việt..."
+                      multiline
+                      rows={3}
+                    />
+                  </FormField>
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                icon={Shield}
+                title="Thông tin quản trị và bản quyền"
+                optional
+                defaultOpen={false}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField label="Người thu thập/Ghi âm">
+                    <TextInput
+                      value={collector}
+                      onChange={setCollector}
+                      placeholder="Tên người hoặc tổ chức ghi âm"
+                    />
+                  </FormField>
+
+                  <FormField label="Bản quyền">
+                    <TextInput
+                      value={copyright}
+                      onChange={setCopyright}
+                      placeholder="Thông tin về quyền sở hữu, giấy phép"
+                    />
+                  </FormField>
+
+                  <FormField label="Tổ chức lưu trữ">
+                    <TextInput
+                      value={archiveOrg}
+                      onChange={setArchiveOrg}
+                      placeholder="Nơi bảo quản bản gốc"
+                    />
+                  </FormField>
+
+                  <FormField label="Mã định danh" hint="ISRC hoặc mã catalog riêng">
+                    <TextInput
+                      value={catalogId}
+                      onChange={setCatalogId}
+                      placeholder="VD: ISRC-VN-XXX-00-00000"
+                    />
+                  </FormField>
+                </div>
+              </CollapsibleSection>
+
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-6">
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    disabled={isSubmitting || isFormDisabled}
+                    className="px-6 py-2.5 text-neutral-800 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md border-2 border-primary-600"
+                    style={{ backgroundColor: "#FFFCF5" }}
+                    onMouseEnter={(e) =>
+                      !isSubmitting && !isFormDisabled &&
+                      (e.currentTarget.style.backgroundColor = "#F5F0E8")
+                    }
+                    onMouseLeave={(e) =>
+                      !isSubmitting && !isFormDisabled &&
+                      (e.currentTarget.style.backgroundColor = "#FFFCF5")
+                    }
+                  >
+                    Đặt lại
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!isFormComplete || isAnalyzing || isSubmitting || isFormDisabled}
+                    title={isFormDisabled ? (isApprovedEdit ? "Bạn cần có tài khoản Người đóng góp hoặc Chuyên gia để chỉnh sửa bản thu" : "Bạn cần có tài khoản Người đóng góp để đóng góp bản thu") : (!isFormComplete ? "Vui lòng hoàn thành các trường bắt buộc" : undefined)}
+                    className="px-8 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2 cursor-pointer"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                        Đang xử lý...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4" strokeWidth={2.5} />
+                        {isApprovedEdit ? "Hoàn tất chỉnh sửa" : "Đóng góp"}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </>
+          )
+        }
 
         {/* Wizard navigation (chỉ khi đóng góp mới) */}
-        {showWizard && (
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-neutral-200/80">
-            <button
-              type="button"
-              onClick={() => setUploadWizardStep((s) => Math.max(1, s - 1))}
-              disabled={uploadWizardStep === 1}
-              className="px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              Quay lại
-            </button>
-            {uploadWizardStep < 4 ? (
+        {
+          showWizard && (
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-neutral-200/80">
               <button
                 type="button"
-                onClick={handleNextStep}
-                disabled={isUploadingMedia}
-                className="px-6 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium cursor-pointer disabled:opacity-60 flex items-center gap-2"
+                onClick={() => setUploadWizardStep((s) => Math.max(1, s - 1))}
+                disabled={uploadWizardStep === 1}
+                className="px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {isUploadingMedia && uploadWizardStep === 1 ? (
-                  <>
-                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                    Đang tải file...
-                  </>
-                ) : (
-                  "Tiếp theo"
-                )}
+                Quay lại
               </button>
-            ) : null}
-          </div>
-        )}
-      </form>
+              {uploadWizardStep < 4 ? (
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  disabled={!canNavigateToStep(uploadWizardStep + 1)}
+                  className="px-6 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium cursor-pointer disabled:opacity-60 flex items-center gap-2 transition-all"
+                >
+                  Tiếp theo
+                </button>
+              ) : null}
+            </div>
+          )
+        }
+      </form >
 
       {/* Upload in progress pop-up — same UI/UX as ConfirmationDialog */}
-      <UploadProgressDialog isOpen={isSubmitting} />
+      < UploadProgressDialog isOpen={isSubmitting} />
 
       {/* Confirmation Dialog */}
-      {showConfirmDialog && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300 pointer-events-auto"
-          onClick={() => setShowConfirmDialog(false)}
-          style={{
-            animation: 'fadeIn 0.3s ease-out',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100vw',
-            height: '100vh',
-            position: 'fixed',
-          }}
-        >
+      {
+        showConfirmDialog && createPortal(
           <div
-            className="rounded-2xl border border-neutral-300/80 shadow-2xl backdrop-blur-sm max-w-3xl w-full overflow-hidden flex flex-col transition-all duration-300 pointer-events-auto transform"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300 pointer-events-auto"
+            onClick={() => setShowConfirmDialog(false)}
             style={{
-              backgroundColor: '#FFF2D6',
-              animation: 'slideUp 0.3s ease-out'
+              animation: 'fadeIn 0.3s ease-out',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100vh',
+              position: 'fixed',
             }}
-            onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-neutral-200/80 bg-gradient-to-br from-primary-600 to-primary-700">
-              <h2 className="text-2xl font-bold text-white">{isApprovedEdit ? "Xác nhận chỉnh sửa" : "Xác nhận đóng góp"}</h2>
-              <button
-                onClick={() => setShowConfirmDialog(false)}
-                className="p-1.5 rounded-full hover:bg-primary-500/50 transition-colors duration-200 text-white hover:text-white cursor-pointer"
-                aria-label="Đóng"
-              >
-                <X className="h-5 w-5" strokeWidth={2.5} />
-              </button>
-            </div>
+            <div
+              className="rounded-2xl border border-neutral-300/80 shadow-2xl backdrop-blur-sm max-w-3xl w-full overflow-hidden flex flex-col transition-all duration-300 pointer-events-auto transform"
+              style={{
+                backgroundColor: '#FFF2D6',
+                animation: 'slideUp 0.3s ease-out'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-neutral-200/80 bg-gradient-to-br from-primary-600 to-primary-700">
+                <h2 className="text-2xl font-bold text-white">{isApprovedEdit ? "Xác nhận chỉnh sửa" : "Xác nhận đóng góp"}</h2>
+                <button
+                  onClick={() => setShowConfirmDialog(false)}
+                  className="p-1.5 rounded-full hover:bg-primary-500/50 transition-colors duration-200 text-white hover:text-white cursor-pointer"
+                  aria-label="Đóng"
+                >
+                  <X className="h-5 w-5" strokeWidth={2.5} />
+                </button>
+              </div>
 
-            {/* Content */}
-            <div className="overflow-y-auto p-6">
-              <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-                <div className="flex flex-col items-center gap-4 mb-2">
-                  <div className="p-3 bg-primary-100/90 rounded-full flex-shrink-0 shadow-sm">
-                    <AlertCircle className="h-8 w-8 text-primary-600" strokeWidth={2.5} />
+              {/* Content */}
+              <div className="overflow-y-auto p-6">
+                <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
+                  <div className="flex flex-col items-center gap-4 mb-2">
+                    <div className="p-3 bg-primary-100/90 rounded-full flex-shrink-0 shadow-sm">
+                      <AlertCircle className="h-8 w-8 text-primary-600" strokeWidth={2.5} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-neutral-900 text-center">
+                      Hãy đảm bảo chính xác thông tin đã nhập, bạn nhé!
+                    </h3>
                   </div>
-                  <h3 className="text-xl font-semibold text-neutral-900 text-center">
-                    Hãy đảm bảo chính xác thông tin đã nhập, bạn nhé!
-                  </h3>
                 </div>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-center gap-4 p-6 border-t border-neutral-200/80 bg-neutral-50/50">
-              <button
-                onClick={() => setShowConfirmDialog(false)}
-                className="px-6 py-2.5 bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                Xem lại
-              </button>
-              <button
-                onClick={handleConfirmSubmit}
-                className="px-6 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer"
-              >
-                {isApprovedEdit ? "Hoàn tất chỉnh sửa" : "Gửi"}
-              </button>
+              {/* Footer */}
+              <div className="flex items-center justify-center gap-4 p-6 border-t border-neutral-200/80 bg-neutral-50/50">
+                <button
+                  onClick={() => setShowConfirmDialog(false)}
+                  className="px-6 py-2.5 bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
+                >
+                  Xem lại
+                </button>
+                <button
+                  onClick={handleConfirmSubmit}
+                  className="px-6 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer"
+                >
+                  {isApprovedEdit ? "Hoàn tất chỉnh sửa" : "Gửi"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        , document.body
-      )}
+          , document.body
+        )
+      }
 
       {/* Success Pop-up (inline) */}
-      {submitStatus === "success" && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300 pointer-events-auto"
-          onClick={() => setSubmitStatus("idle")}
-          style={{
-            animation: 'fadeIn 0.3s ease-out',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100vw',
-            height: '100vh',
-            position: 'fixed',
-          }}
-        >
+      {
+        submitStatus === "success" && createPortal(
           <div
-            className="rounded-2xl border border-neutral-300/80 shadow-2xl backdrop-blur-sm max-w-3xl w-full overflow-hidden flex flex-col transition-all duration-300 pointer-events-auto transform"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300 pointer-events-auto"
+            onClick={() => setSubmitStatus("idle")}
             style={{
-              backgroundColor: '#FFF2D6',
-              animation: 'slideUp 0.3s ease-out'
+              animation: 'fadeIn 0.3s ease-out',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100vh',
+              position: 'fixed',
             }}
-            onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-neutral-200/80 bg-gradient-to-br from-primary-600 to-primary-700">
-              <h2 className="text-2xl font-bold text-white">{isApprovedEdit ? "Chỉnh sửa thành công" : "Đóng góp thành công"}</h2>
-              <button
-                onClick={() => setSubmitStatus("idle")}
-                className="p-1.5 rounded-full hover:bg-primary-500/50 transition-colors duration-200 text-white hover:text-white cursor-pointer"
-                aria-label="Đóng"
-              >
-                <X className="h-5 w-5" strokeWidth={2.5} />
-              </button>
-            </div>
+            <div
+              className="rounded-2xl border border-neutral-300/80 shadow-2xl backdrop-blur-sm max-w-3xl w-full overflow-hidden flex flex-col transition-all duration-300 pointer-events-auto transform"
+              style={{
+                backgroundColor: '#FFF2D6',
+                animation: 'slideUp 0.3s ease-out'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-neutral-200/80 bg-gradient-to-br from-primary-600 to-primary-700">
+                <h2 className="text-2xl font-bold text-white">{isApprovedEdit ? "Chỉnh sửa thành công" : "Đóng góp thành công"}</h2>
+                <button
+                  onClick={() => setSubmitStatus("idle")}
+                  className="p-1.5 rounded-full hover:bg-primary-500/50 transition-colors duration-200 text-white hover:text-white cursor-pointer"
+                  aria-label="Đóng"
+                >
+                  <X className="h-5 w-5" strokeWidth={2.5} />
+                </button>
+              </div>
 
-            {/* Content */}
-            <div className="overflow-y-auto p-6">
-              <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-                <div className="flex flex-col items-center gap-4 mb-2">
-                  <div className="p-3 bg-green-100/90 rounded-full flex-shrink-0 shadow-sm">
-                    <Check className="h-8 w-8 text-green-600" strokeWidth={2.5} />
-                  </div>
-                  <div className="text-xl font-semibold text-neutral-900 text-center space-y-1">
-                    {submitMessage ? (
-                      submitMessage
-                        .split(/(?<=[.!])\s+/)
-                        .filter(s => s.trim())
-                        .map((sentence, index) => (
-                          <p key={index}>{sentence.trim()}</p>
-                        ))
-                    ) : (
-                      <p>{isApprovedEdit ? "Cảm ơn bạn đã cập nhật bản thu!" : "Cảm ơn bạn đã đóng góp bản thu!"}</p>
-                    )}
+              {/* Content */}
+              <div className="overflow-y-auto p-6">
+                <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
+                  <div className="flex flex-col items-center gap-4 mb-2">
+                    <div className="p-3 bg-green-100/90 rounded-full flex-shrink-0 shadow-sm">
+                      <Check className="h-8 w-8 text-green-600" strokeWidth={2.5} />
+                    </div>
+                    <div className="text-xl font-semibold text-neutral-900 text-center space-y-1">
+                      {submitMessage ? (
+                        submitMessage
+                          .split(/(?<=[.!])\s+/)
+                          .filter(s => s.trim())
+                          .map((sentence, index) => (
+                            <p key={index}>{sentence.trim()}</p>
+                          ))
+                      ) : (
+                        <p>{isApprovedEdit ? "Cảm ơn bạn đã cập nhật bản thu!" : "Cảm ơn bạn đã đóng góp bản thu!"}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-center gap-4 p-6 border-t border-neutral-200/80 bg-neutral-50/50">
-              <button
-                onClick={() => {
-                  resetForm();
-                  setSubmitStatus("idle");
-                  setSubmitMessage("");
-                  navigate("/");
-                }}
-                className="px-6 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer"
-              >
-                Về trang chủ
-              </button>
-              <button
-                onClick={() => {
-                  resetForm();
-                  setSubmitStatus("idle");
-                  setSubmitMessage("");
-                  navigate("/contributions");
-                }}
-                className="px-6 py-2.5 bg-secondary-100/90 hover:bg-secondary-200/90 text-secondary-800 rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                Đóng góp của bạn
-              </button>
+              {/* Footer */}
+              <div className="flex items-center justify-center gap-4 p-6 border-t border-neutral-200/80 bg-neutral-50/50">
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setSubmitStatus("idle");
+                    setSubmitMessage("");
+                    navigate("/");
+                  }}
+                  className="px-6 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer"
+                >
+                  Về trang chủ
+                </button>
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setSubmitStatus("idle");
+                    setSubmitMessage("");
+                    navigate("/contributions");
+                  }}
+                  className="px-6 py-2.5 bg-secondary-100/90 hover:bg-secondary-200/90 text-secondary-800 rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
+                >
+                  Đóng góp của bạn
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        , document.body
-      )}
-    </React.Fragment>
+          , document.body
+        )
+      }
+    </React.Fragment >
   );
 }

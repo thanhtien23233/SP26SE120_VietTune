@@ -41,3 +41,34 @@ export const uploadFileToSupabase = async (
     throw error;
   }
 };
+
+/**
+ * Deletes a file from the Supabase specified bucket using its public URL.
+ * 
+ * @param publicUrl The public URL of the file to delete
+ * @param bucketName The name of the Supabase storage bucket
+ */
+export const deleteFileFromSupabase = async (
+  publicUrl: string,
+  bucketName: string = import.meta.env.VITE_SUPABASE_BUCKET || "audio"
+): Promise<void> => {
+  try {
+    if (!publicUrl) return;
+
+    // Extract file name from URL
+    // URL format: https://.../storage/v1/object/public/bucketName/fileName
+    const parts = publicUrl.split('/');
+    const fileName = parts.pop();
+    if (!fileName) return;
+
+    const { error } = await supabase.storage
+      .from(bucketName)
+      .remove([fileName]);
+
+    if (error) {
+      console.error("Supabase delete error:", error.message);
+    }
+  } catch (error) {
+    console.error("Error deleting file from Supabase:", error);
+  }
+};

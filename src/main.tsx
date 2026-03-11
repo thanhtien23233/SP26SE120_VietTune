@@ -1,6 +1,5 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import ErrorBoundary from '@/components/common/ErrorBoundary'
 import { initErrorReporting } from '@/services/errorReporting'
@@ -14,11 +13,9 @@ async function bootstrap() {
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <ErrorBoundary region="root">
-        <BrowserRouter>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
-        </BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </ErrorBoundary>
     </React.StrictMode>,
   )
