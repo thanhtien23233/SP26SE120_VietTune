@@ -13,6 +13,10 @@ namespace VietTuneArchive.Application.IServices
         Task<ServiceResponse<List<SubmissionDto>>> GetRecentAsync(int count = 10);
         Task<Result<SubmissionResponseDto>> CreateAsync(SubmissionDto dto);
         Task<Result<bool>> ConfirmSubmit(Guid submissionId);
+        Task<Result<bool>> EditRequest(Guid SubmissionId);
+        Task<Result<bool>> ConfirmEdit(Guid SubmissionId);
+        Task<Result<bool>> RejectSubmission(Guid submissionId);
+        Task<Result<bool>> ApproveSubmission(Guid submissionId);
         Task<Result<GetSubmissionDto>> GetSubmissionByIdAsync(Guid id);
         Task<Result<IEnumerable<GetSubmissionDto>>> GetAllSubmissionsAsync();
         Task<Result<IEnumerable<GetSubmissionDto>>> GetSubmissionsByUserIdAsync(Guid userId);

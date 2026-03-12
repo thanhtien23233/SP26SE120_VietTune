@@ -16,6 +16,7 @@ namespace VietTuneArchive.Application.Mapper
             // ============= REFERENCE DATA =============
             CreateMap<EthnicGroup, EthnicGroupDto>().ReverseMap();
             CreateMap<Instrument, InstrumentDto>().ReverseMap();
+            CreateMap<Instrument, GetInstrumentDto>();
             CreateMap<Ceremony, CeremonyDto>().ReverseMap();
             CreateMap<VocalStyle, VocalStyleDto>().ReverseMap();
             CreateMap<MusicalScale, MusicalScaleDto>().ReverseMap();
@@ -33,6 +34,11 @@ namespace VietTuneArchive.Application.Mapper
                         ? src.RecordingInstruments.Select(ri => ri.InstrumentId).ToList() 
                         : new List<Guid>()))
                 .ReverseMap();
+            CreateMap<Recording, GetRecordingDto>()
+                .ForMember(dest => dest.Instruments,
+                    opt => opt.MapFrom(src => src.RecordingInstruments != null
+                        ? src.RecordingInstruments.Select(ri => new GetInstrumentDto { Id = ri.Instrument.Id, Name = ri.Instrument.Name }).ToList()
+                        : new List<GetInstrumentDto>()));
             CreateMap<RecordingImage, RecordingImageDto>().ReverseMap();
 
             // ============= SUBMISSION & REVIEW =============

@@ -23,6 +23,8 @@ namespace VietTuneArchive.Domain.Repositories
         {
             return await _context.Submissions
                 .Include(r => r.Recording)
+                .ThenInclude(r => r.RecordingInstruments)
+                    .ThenInclude(ri => ri.Instrument)
                 .Include(sv => sv.SubmissionVersions)
                 .Include(rv => rv.Reviews)
                 .ToListAsync();
@@ -31,6 +33,8 @@ namespace VietTuneArchive.Domain.Repositories
         {
             return await _context.Submissions
                 .Include(r => r.Recording)
+                .ThenInclude(r => r.RecordingInstruments)
+                    .ThenInclude(ri => ri.Instrument)
                 .Include(sv => sv.SubmissionVersions)
                 .Include(rv => rv.Reviews)
                 .FirstOrDefaultAsync(s => s.Id == id);
@@ -40,6 +44,8 @@ namespace VietTuneArchive.Domain.Repositories
             return await _context.Submissions
                 .Where(s => s.ContributorId == userId)
                 .Include(r => r.Recording)
+                .ThenInclude(r => r.RecordingInstruments)
+                    .ThenInclude(ri => ri.Instrument)
                 .Include(sv => sv.SubmissionVersions)
                 .Include(rv => rv.Reviews)
                 .ToListAsync();
@@ -49,6 +55,8 @@ namespace VietTuneArchive.Domain.Repositories
             return await _context.Submissions
                 .Where(s => s.Status == status)
                 .Include(r => r.Recording)
+                .ThenInclude(r => r.RecordingInstruments)
+                    .ThenInclude(ri => ri.Instrument)
                 .Include(sv => sv.SubmissionVersions)
                 .Include(rv => rv.Reviews)
                 .ToListAsync();

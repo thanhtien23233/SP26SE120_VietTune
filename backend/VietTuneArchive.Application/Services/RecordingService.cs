@@ -128,6 +128,26 @@ namespace VietTuneArchive.Application.Services
             }
         }
         /// <summary>
+        /// Search recordings by title
+        /// </summary>
+        public async Task<Result<IEnumerable<GetRecordingDto>>> SearchByTitleAsync(string title)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(title))
+                    throw new ArgumentException("Search title cannot be empty", nameof(title));
+
+                var recordings = await _recordingRepository.SearchByTitle(title);
+                var dtos = _mapper.Map<List<GetRecordingDto>>(recordings);
+                return Result<IEnumerable<GetRecordingDto>>.Success(dtos, $"Found {dtos.Count} recordings");
+            }
+            catch (Exception ex)
+            {
+                return Result<IEnumerable<GetRecordingDto>>.Failure($"Failed to search recordings by title: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Get recordings by ethnic group
         /// </summary>
         public async Task<ServiceResponse<List<RecordingDto>>> GetByEthnicGroupAsync(Guid ethnicGroupId)
@@ -168,36 +188,6 @@ namespace VietTuneArchive.Application.Services
                     throw new ArgumentException("Commune id cannot be empty", nameof(communeId));
 
                 var recordings = await _recordingRepository.GetAsync(r => r.CommuneId == communeId);
-                var dtos = _mapper.Map<List<RecordingDto>>(recordings);
-                return new ServiceResponse<List<RecordingDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} recordings"
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ServiceResponse<List<RecordingDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
-            }
-        }
-
-        /// <summary>
-        /// Search recordings by title
-        /// </summary>
-        public async Task<ServiceResponse<List<RecordingDto>>> SearchByTitleAsync(string title)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(title))
-                    throw new ArgumentException("Search title cannot be empty", nameof(title));
-
-                var recordings = await _recordingRepository.GetAsync(r => r.Title.Contains(title));
                 var dtos = _mapper.Map<List<RecordingDto>>(recordings);
                 return new ServiceResponse<List<RecordingDto>>
                 {

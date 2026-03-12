@@ -57,6 +57,54 @@ namespace VietTuneArchive.API.Controllers
             return BadRequest(result);
         }
 
+        [HttpPut("edit-request-submission")]
+        [Authorize(Roles = "Admin,Expert,Contributor")]
+        public async Task<IActionResult> EditRequestSubmission(Guid submissionId)
+        {
+            var result = await _submissionService.EditRequest(submissionId);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
+        [HttpPut("confirm-edit-submission")]
+        [Authorize(Roles = "Admin,Expert,Contributor")]
+        public async Task<IActionResult> ConfirmEditSubmission(Guid submissionId)
+        {
+            var result = await _submissionService.ConfirmEdit(submissionId);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
+        [HttpPut("approve-submission")]
+        [Authorize(Roles = "Admin,Expert")]
+        public async Task<IActionResult> ApproveSubmission(Guid submissionId)
+        {
+            var result = await _submissionService.ApproveSubmission(submissionId);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
+        [HttpPut("reject-submission")]
+        [Authorize(Roles = "Admin,Expert,Contributor")]
+        public async Task<IActionResult> RejectSubmission(Guid submissionId)
+        {
+            var result = await _submissionService.RejectSubmission(submissionId);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
         [HttpGet("my")]
         public async Task<IActionResult> GetMySubmissions(Guid userId,
             [FromQuery] int page = 1, [FromQuery] int pageSize = 10)

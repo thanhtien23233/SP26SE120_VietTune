@@ -35,4 +35,9 @@ namespace VietTuneArchive.Application.Mapper.DTOs
         public string? ImageUrl { get; set; }
         public Guid? OriginEthnicGroupId { get; set; }
     }
+    public class GetInstrumentDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; }
+    }
 }

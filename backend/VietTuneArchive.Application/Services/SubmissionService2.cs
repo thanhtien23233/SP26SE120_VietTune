@@ -96,6 +96,133 @@ namespace VietTuneArchive.Application.Services
                 return Result<bool>.Failure($"Failed to confirm submission: {ex.Message}");
             }
         }
+
+        public async Task<Result<bool>> EditRequest (Guid SubmissionId)
+        {
+            try
+            {
+                if (SubmissionId == Guid.Empty)
+                    throw new ArgumentException("Submission id cannot be empty", nameof(SubmissionId));
+                var submission = await _submissionRepo.GetSubmissionByIdAsync(SubmissionId);
+                if (submission == null)
+                    return Result<bool>.Failure("Submission not found");
+                if (submission.Status != SubmissionStatus.Pending)
+                    return Result<bool>.Failure("Submission is not in a state that can be marked for edit");
+                var recording = await _recordingRepository.GetByIdAsync(submission.RecordingId.Value);
+                if (recording == null)
+                    return Result<bool>.Failure("Associated recording not found");
+                if (recording.Status != SubmissionStatus.Pending)
+                    return Result<bool>.Failure("Recording is not in a state that can be marked for edit");
+
+                submission.Status = SubmissionStatus.UpdateRequested;
+                submission.UpdatedAt = DateTime.UtcNow;
+                await _submissionRepo.UpdateAsync(submission);
+                recording.Status = SubmissionStatus.UpdateRequested;
+                recording.UpdatedAt = DateTime.UtcNow;
+                await _recordingRepository.UpdateAsync(recording);
+
+                return Result<bool>.Success(true, "Submission marked as requires edit successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<bool>.Failure($"Failed to mark submission as requires edit: {ex.Message}");
+            }
+        }
+
+        public async Task<Result<bool>> ConfirmEdit (Guid SubmissionId)
+        {
+            try
+            {
+                if (SubmissionId == Guid.Empty)
+                    throw new ArgumentException("Submission id cannot be empty", nameof(SubmissionId));
+                var submission = await _submissionRepo.GetSubmissionByIdAsync(SubmissionId);
+                if (submission == null)
+                    return Result<bool>.Failure("Submission not found");
+                if (submission.Status != SubmissionStatus.UpdateRequested)
+                    return Result<bool>.Failure("Submission is not in a state that can be confirmed for edit");
+                var recording = await _recordingRepository.GetByIdAsync(submission.RecordingId.Value);
+                if (recording == null)
+                    return Result<bool>.Failure("Associated recording not found");
+                if (recording.Status != SubmissionStatus.UpdateRequested)
+                    return Result<bool>.Failure("Recording is not in a state that can be confirmed for edit");
+
+                submission.Status = SubmissionStatus.Pending;
+                submission.UpdatedAt = DateTime.UtcNow;
+                await _submissionRepo.UpdateAsync(submission);
+                recording.Status = SubmissionStatus.Pending;
+                recording.UpdatedAt = DateTime.UtcNow;
+                await _recordingRepository.UpdateAsync(recording);
+
+                return Result<bool>.Success(true, "Submission edit confirmed successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<bool>.Failure($"Failed to confirm submission edit: {ex.Message}");
+            }
+        }
+        public async Task<Result<bool>> RejectSubmission(Guid submissionId)
+        {
+            try
+            {
+                if (submissionId == Guid.Empty)
+                    throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
+                var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
+                if (submission == null)
+                    return Result<bool>.Failure("Submission not found");
+                if (submission.Status != SubmissionStatus.Pending && submission.Status != SubmissionStatus.UpdateRequested)
+                    return Result<bool>.Failure("Submission is not in a state that can be rejected");
+                var recording = await _recordingRepository.GetByIdAsync(submission.RecordingId.Value);
+                if (recording == null)
+                    return Result<bool>.Failure("Associated recording not found");
+                if (recording.Status != SubmissionStatus.Pending && recording.Status != SubmissionStatus.UpdateRequested)
+                    return Result<bool>.Failure("Recording is not in a state that can be rejected");
+
+                submission.Status = SubmissionStatus.Rejected;
+                submission.UpdatedAt = DateTime.UtcNow;
+                await _submissionRepo.UpdateAsync(submission);
+                recording.Status = SubmissionStatus.Rejected;
+                recording.UpdatedAt = DateTime.UtcNow;
+                await _recordingRepository.UpdateAsync(recording);
+
+                return Result<bool>.Success(true, "Submission rejected successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<bool>.Failure($"Failed to reject submission: {ex.Message}");
+            }
+        }
+
+        public async Task<Result<bool>> ApproveSubmission(Guid submissionId)
+        {
+            try
+            {
+                if (submissionId == Guid.Empty)
+                    throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
+                var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
+                if (submission == null)
+                    return Result<bool>.Failure("Submission not found");
+                if (submission.Status != SubmissionStatus.Pending)
+                    return Result<bool>.Failure("Submission is not in a state that can be approved");
+                var recording = await _recordingRepository.GetByIdAsync(submission.RecordingId.Value);
+                if (recording == null)
+                    return Result<bool>.Failure("Associated recording not found");
+                if (recording.Status != SubmissionStatus.Pending)
+                    return Result<bool>.Failure("Recording is not in a state that can be approved");
+
+                submission.Status = SubmissionStatus.Approved;
+                submission.UpdatedAt = DateTime.UtcNow;
+                await _submissionRepo.UpdateAsync(submission);
+                recording.Status = SubmissionStatus.Approved;
+                recording.UpdatedAt = DateTime.UtcNow;
+                await _recordingRepository.UpdateAsync(recording);
+
+                return Result<bool>.Success(true, "Submission approved successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<bool>.Failure($"Failed to approve submission: {ex.Message}");
+            }
+        }
         /// <summary>
         /// Get submissions by contributor
         /// </summary>

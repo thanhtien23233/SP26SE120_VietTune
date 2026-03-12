@@ -18,7 +18,20 @@ namespace VietTuneArchive.API.Controllers
             _service = service;
         }
 
+        [HttpGet("search-by-title")]
+        [Authorize(Roles = "Admin,Contributor,Expert,Researcher")]
+        public async Task<IActionResult> SearchByTitle(string title)
+        {
+            var result = await _service.SearchByTitleAsync(title);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
         [HttpGet]
+        [Authorize(Roles = "Admin,Contributor,Expert,Researcher")]
         public async Task<ActionResult<PagedResponse<RecordingDto>>> GetAll(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
@@ -28,34 +41,13 @@ namespace VietTuneArchive.API.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Contributor,Expert,Researcher")]
         public async Task<ActionResult<ServiceResponse<RecordingDto>>> GetById(Guid id)
         {
             var result = await _service.GetByIdAsync(id);
             return result.Success ? Ok(result) : NotFound(result);
         }
 
-        [HttpPost]
-        public async Task<ActionResult<ServiceResponse<RecordingDto>>> Create([FromBody] RecordingDto dto)
-        {
-            var result = await _service.CreateAsync(dto);
-            return result.Success 
-                ? Ok(result)
-                : BadRequest(result);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<ActionResult<ServiceResponse<RecordingDto>>> Update(Guid id, [FromBody] RecordingDto dto)
-        {
-            var result = await _service.UpdateAsync(id, dto);
-            return result.Success ? Ok(result) : BadRequest(result);
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<ActionResult<ServiceResponse<bool>>> Delete(Guid id)
-        {
-            var result = await _service.DeleteAsync(id);
-            return result.Success ? Ok(result) : BadRequest(result);
-        }
         [HttpPut("{id}/upload")]
         [Authorize(Roles = "Admin,Contributor,Expert")]
         public async Task<ActionResult<ServiceResponse<RecordingDto>>> UploadRecordInfo(Guid id, [FromBody] RecordingDto dto)
