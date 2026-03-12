@@ -55,6 +55,10 @@ namespace VietTuneArchive.Application.Services
                     ContributorId = dto.UploadedById
                 };
                 await _submissionRepository.AddAsync(submission);
+                recording.SubmissionId = submission.Id;
+                recording.Submission = submission;
+                await _recordingRepository.UpdateAsync(recording);
+
                 var createdDto = new SubmissionResponseDto
                 {
                     SubmissionId = submission.Id,
