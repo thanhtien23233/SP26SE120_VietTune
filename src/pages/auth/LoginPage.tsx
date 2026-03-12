@@ -118,7 +118,7 @@ export default function LoginPage() {
           <h2 className="text-xl font-bold text-neutral-900 mb-6 text-left">
             Đăng nhập vào VietTune
           </h2>
-          
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-3">
               <Input
@@ -175,20 +175,20 @@ export default function LoginPage() {
               >
                 Tạo tài khoản mới
               </button>
-              
-              <div className="flex items-center justify-center gap-1 opacity-60 mt-4">
+
+              {/* <div className="flex items-center justify-center gap-1 opacity-60 mt-4">
                 <span className="text-xs font-bold text-neutral-800 tracking-wider flex items-center gap-1.5 uppercase">
                   <img src={logo} alt="" className="w-4 h-4 rounded-sm grayscale opacity-50" />
                   VietTune
                 </span>
-              </div>
+              </div> */}
             </div>
           </form>
 
           {!fromLogout && (
             <div className="mt-8 text-center">
               <Link to="/" className="text-xs font-semibold text-neutral-400 hover:text-primary-600 transition-colors uppercase tracking-widest">
-                Quay lại trang chủ
+                Tiếp tục với tư cách khách
               </Link>
             </div>
           )}

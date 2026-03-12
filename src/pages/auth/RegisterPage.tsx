@@ -2,19 +2,17 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, Link } from "react-router-dom";
 import { authService } from "@/services/authService";
-import { useAuthStore } from "@/stores/authStore";
 import Input from "@/components/common/Input";
 import BackButton from "@/components/common/BackButton";
-import { RegisterForm, UserRole } from "@/types";
+import { RegisterForm } from "@/types";
 import { notify } from "@/stores/notificationStore";
-import backgroundImage from "@/components/image/Đàn bầu.png";
 import logo from "@/components/image/VietTune logo.png";
 import TermsAndConditions from "@/components/features/TermsAndConditions";
-import { getItem, sessionGetItem, sessionRemoveItem } from "@/services/storageService";
+import { sessionGetItem, sessionRemoveItem } from "@/services/storageService";
+import { BronzeDrum } from "@/components/image/pattern/BackgroundPatterns";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { setUser } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const fromLogout = typeof window !== "undefined" && sessionGetItem("fromLogout") === "1";
@@ -36,21 +34,17 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);
     try {
-      const result = await authService.register(data);
-      void sessionRemoveItem("fromLogout");
-      const rawUser = result?.data && typeof result.data === "object" && "user" in result.data ? (result.data as { user: import("@/types").User }).user : null;
-      // Mặc định khách đăng ký là Người đóng góp (CONTRIBUTOR)
-      const user = rawUser
-        ? { ...rawUser, role: (rawUser.role ?? UserRole.CONTRIBUTOR) as import("@/types").UserRole }
-        : null;
-      if (user) {
-        setUser(user);
-        notify.success("Thành công", result.message ?? "Đăng ký thành công. Bạn đã được đăng nhập.");
-        navigate("/");
-      } else {
-        notify.success("Thành công", "Đăng ký thành công! Vui lòng đăng nhập.");
-        navigate("/login");
-      }
+      const payload = {
+        email: data.email,
+        password: data.password,
+        fullName: data.fullName,
+        phoneNumber: data.phoneNumber,
+      };
+      const result = await authService.registerResearcher(payload);
+      
+      // Since axios only resolves on 2xx, reaching here means success
+      notify.success("Thành công", (result as any)?.message || "Đăng ký thành công. Vui lòng xác thực tài khoản.");
+      navigate("/confirm-account");
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error && "response" in error
@@ -64,53 +58,43 @@ export default function RegisterPage() {
   };
 
   return (
-    <div
-      className="h-screen flex items-center justify-center px-4 relative"
-      style={{
-        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${backgroundImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      {!fromLogout && <div className="absolute top-4 right-4"><BackButton /></div>}
-      <div className="max-w-xl w-full">
-        <form
-          className="bg-white/95 backdrop-blur-sm p-8 rounded-2xl border border-neutral-200/80 shadow-2xl transition-all duration-300 hover:shadow-2xl space-y-4"
-          onSubmit={handleSubmit(onSubmit)}
-        >
-          <div className="flex flex-col items-center">
-            <img
-              src={logo}
-              alt="VietTune Logo"
-              className="w-12 h-12 object-contain mb-1 rounded-xl cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => {
-                void sessionRemoveItem("fromLogout");
-                if (!authService.isAuthenticated()) {
-                  navigate("/");
-                  return;
-                }
-                const lastPage = getItem("lastVisitedPage");
-                navigate(lastPage || "/");
-              }}
-            />
-            <h2 className="text-center text-xl font-bold text-neutral-800">
-              Tạo tài khoản của bạn
-            </h2>
-            <p className="text-center text-sm text-neutral-600">
-              Đã có tài khoản?{" "}
-              <Link
-                to="/login"
-                className="font-medium text-primary-600 hover:text-primary-700 active:text-primary-800"
-              >
-                Đăng nhập
-              </Link>
-            </p>
-          </div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 z-0">
+         <BronzeDrum />
+      </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
+      {!fromLogout && (
+        <div className="absolute top-6 left-6 z-10">
+          <BackButton />
+        </div>
+      )}
+      
+      <div className="max-w-md w-full space-y-8 relative z-10">
+        {/* Header Section */}
+        <div className="flex flex-col items-center text-center">
+          <img
+            src={logo}
+            alt="VietTune Logo"
+            className="w-20 h-20 object-contain mb-4 rounded-2xl cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => navigate("/")}
+          />
+          <h1 className="text-2xl font-bold text-white mb-2">
+            Tham gia VietTune
+          </h1>
+          <p className="text-neutral-300 font-medium">
+            Tạo tài khoản để kết nối và sẻ chia âm hưởng nghìn năm.
+          </p>
+        </div>
+
+        {/* Form Section */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <div className="space-y-4">
             <Input
+              labelColor="light"
               label="Họ và tên"
+              placeholder="Nhập họ và tên đầy đủ"
+              className="rounded-xl border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
               {...register("fullName", {
                 required: "Họ và tên là bắt buộc",
               })}
@@ -118,35 +102,42 @@ export default function RegisterPage() {
             />
 
             <Input
-              label="Tên người dùng"
-              {...register("username", {
-                required: "Tên người dùng là bắt buộc",
-                minLength: {
-                  value: 3,
-                  message: "Tên người dùng phải có ít nhất 3 ký tự",
+              labelColor="light"
+              label="Số điện thoại"
+              placeholder="Nhập số điện thoại"
+              className="rounded-xl border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              {...register("phoneNumber", {
+                required: "Số điện thoại là bắt buộc",
+                pattern: {
+                  value: /^[0-9]{10,11}$/,
+                  message: "Số điện thoại không hợp lệ (10-11 chữ số)",
                 },
               })}
-              error={errors.username?.message}
+              error={errors.phoneNumber?.message}
             />
-          </div>
 
-          <Input
-            label="Email"
-            type="email"
-            {...register("email", {
-              required: "Email là bắt buộc",
-              pattern: {
-                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                message: "Địa chỉ email không hợp lệ",
-              },
-            })}
-            error={errors.email?.message}
-          />
-
-          <div className="grid grid-cols-2 gap-2.5">
             <Input
+              labelColor="light"
+              label="Địa chỉ Email"
+              type="email"
+              placeholder="Nhập địa chỉ email"
+              className="rounded-xl border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              {...register("email", {
+                required: "Email là bắt buộc",
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: "Địa chỉ email không hợp lệ",
+                },
+              })}
+              error={errors.email?.message}
+            />
+
+            <Input
+              labelColor="light"
               label="Mật khẩu"
               type="password"
+              placeholder="Tạo mật khẩu mạnh"
+              className="rounded-xl border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
               {...register("password", {
                 required: "Mật khẩu là bắt buộc",
                 minLength: {
@@ -158,43 +149,47 @@ export default function RegisterPage() {
             />
 
             <Input
+              labelColor="light"
               label="Xác nhận mật khẩu"
               type="password"
+              placeholder="Nhập lại mật khẩu"
+              className="rounded-xl border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
               {...register("confirmPassword", {
                 required: "Vui lòng xác nhận mật khẩu",
-                validate: (value) =>
-                  value === password || "Mật khẩu không khớp",
+                validate: (value) => value === password || "Mật khẩu không khớp",
               })}
               error={errors.confirmPassword?.message}
             />
           </div>
 
-          <div className="flex items-center">
-            <input
-              id="terms"
-              type="checkbox"
-              required
-              className="h-3.5 w-3.5 bg-white text-primary-600 focus:outline-none border-2 border-neutral-400 rounded"
-            />
-            <label htmlFor="terms" className="ml-2 block text-sm text-neutral-700">
-              Tôi đồng ý với{" "}
+          {/* Legal / Terms */}
+          <div className="text-center">
+            <p className="text-[11px] text-neutral-400 leading-relaxed px-4">
+              Bằng cách nhấn đăng ký, bạn đồng ý với {" "}
               <button
                 type="button"
                 onClick={() => setShowTerms(true)}
-                className="text-primary-600 hover:text-primary-700 active:text-primary-800 underline transition-colors"
+                className="font-bold text-primary-600 hover:underline"
               >
-                Điều khoản và Điều kiện
-              </button>
-            </label>
+                Điều khoản & Điều kiện
+              </button>{" "}
+              và Chính sách bảo mật của VietTune.
+            </p>
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors disabled:bg-neutral-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+            className="w-full py-3.5 bg-primary-600 text-white text-lg font-bold rounded-full hover:bg-primary-700 transition-all shadow-md active:scale-[0.98] disabled:bg-neutral-400"
           >
-            {isLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
+            {isLoading ? "Đang xử lý..." : "Đăng ký ngay"}
           </button>
+
+          <div className="text-center pt-2">
+            <Link to="/login" className="text-sm font-semibold text-primary-600 hover:underline">
+              Đã có tài khoản? <span className="text-secondary-400">Đăng nhập tại đây</span>
+            </Link>
+          </div>
         </form>
       </div>
 

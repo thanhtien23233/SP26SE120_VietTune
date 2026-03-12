@@ -17,7 +17,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api": {
-        target: "https://sp26se120-viettune-be.onrender.com",
+        target: "https://viettunearchiveapi-fufkgcayeydnhdeq.japanwest-01.azurewebsites.net",
         changeOrigin: true,
       },
     },

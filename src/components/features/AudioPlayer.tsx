@@ -374,6 +374,7 @@ export default function AudioPlayer({
                 {/* Left: Repeat & Volume */}
                 <div className="flex items-center gap-2">
                   <button
+                    type="button"
                     onClick={toggleLoop}
                     className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer ${isLooping
                       ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/40'
@@ -384,6 +385,7 @@ export default function AudioPlayer({
                     <Repeat className="w-4.5 h-4.5" strokeWidth={2.5} />
                   </button>
                   <button
+                    type="button"
                     onClick={toggleMute}
                     className="w-10 h-10 rounded-full flex items-center justify-center text-neutral-600 hover:text-neutral-800 bg-neutral-200/80 hover:bg-neutral-300 transition-all duration-200 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
                   >
@@ -462,6 +464,7 @@ export default function AudioPlayer({
                 {/* Center: Play Controls: Lùi, Play/Pause, Tiến */}
                 <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={() => seekBy(-5)}
                     className="w-11 h-11 rounded-full flex items-center justify-center text-neutral-700 hover:text-neutral-900 bg-neutral-200/80 hover:bg-neutral-300 transition-all duration-200 relative shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
                     title="Lùi 5 giây"
@@ -471,6 +474,7 @@ export default function AudioPlayer({
                   </button>
 
                   <button
+                    type="button"
                     onClick={togglePlay}
                     disabled={isLoading}
                     className="w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 shadow-xl hover:shadow-2xl shadow-primary-600/40 cursor-pointer focus:outline-none"
@@ -484,6 +488,7 @@ export default function AudioPlayer({
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => seekBy(5)}
                     className="w-11 h-11 rounded-full flex items-center justify-center text-neutral-700 hover:text-neutral-900 bg-neutral-200/80 hover:bg-neutral-300 transition-all duration-200 relative shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
                     title="Tiến 5 giây"
@@ -554,6 +559,7 @@ export default function AudioPlayer({
         <div className="flex items-center gap-3">
           {/* Play Button */}
           <button
+            type="button"
             onClick={togglePlay}
             disabled={isLoading}
             className="w-10 h-10 rounded-full flex items-center justify-center bg-primary-600 hover:bg-primary-500 transition-colors disabled:opacity-50 flex-shrink-0 shadow-md hover:shadow-lg"
@@ -701,6 +707,7 @@ export default function AudioPlayer({
             )}
 
             <button
+              type="button"
               onClick={toggleLoop}
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer ${isLooping
                 ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/40'
@@ -711,6 +718,7 @@ export default function AudioPlayer({
               <Repeat className="w-4.5 h-4.5" strokeWidth={2.5} />
             </button>
             <button
+              type="button"
               onClick={toggleMute}
               className="w-10 h-10 rounded-full flex items-center justify-center text-neutral-600 hover:text-neutral-800 bg-neutral-200/80 hover:bg-neutral-300 transition-all duration-200 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
             >
@@ -789,6 +797,7 @@ export default function AudioPlayer({
           {/* Center: Play/Pause */}
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => seekBy(-5)}
               className="w-11 h-11 rounded-full flex items-center justify-center text-neutral-700 hover:text-neutral-900 bg-neutral-200/80 hover:bg-neutral-300 transition-all duration-200 relative shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
               title="Lùi 5 giây"
@@ -798,6 +807,7 @@ export default function AudioPlayer({
             </button>
 
             <button
+              type="button"
               onClick={togglePlay}
               disabled={isLoading}
               className="w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 shadow-xl hover:shadow-2xl shadow-primary-600/40 cursor-pointer focus:outline-none"

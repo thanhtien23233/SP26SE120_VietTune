@@ -11,6 +11,7 @@ import AudioPlayer from "@/components/features/AudioPlayer";
 import VideoPlayer from "@/components/features/VideoPlayer";
 import { isYouTubeUrl } from "@/utils/youtube";
 import { deleteFileFromSupabase } from "@/services/uploadService";
+import { sessionSetItem } from "@/services/storageService";
 
 // Helpers for formatted strings
 const formatDuration = (seconds?: number | null) => {
@@ -35,12 +36,22 @@ const STATUS_LABELS: Record<number, { label: string; color: string }> = {
   4: { label: "Yêu cầu cập nhật", color: "bg-orange-100 text-orange-800 border-orange-300" },
 };
 
-const STAGE_LABELS: Record<number, string> = {
-  0: "Khởi tạo",
-  1: "Chờ kiểm duyệt sơ bộ",
-  2: "Chờ kiểm duyệt chuyên sâu",
-  3: "Hoàn thành",
+const STAGE_INFO: Record<number, { label: string; color: string }> = {
+  0: { label: "Khởi tạo", color: "bg-neutral-100 text-neutral-600 border-neutral-300" },
+  1: { label: "Sơ bộ", color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  2: { label: "Chuyên sâu", color: "bg-purple-50 text-purple-700 border-purple-200" },
+  3: { label: "Hoàn thành", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
 };
+
+function formatPerformanceType(type: string | null | undefined): string {
+  if (!type) return "—";
+  const mapping: Record<string, string> = {
+    "instrumental": "Nhạc cụ",
+    "acappella": "Hát không đệm",
+    "vocal_accompaniment": "Hát với nhạc đệm",
+  };
+  return mapping[type] || type;
+}
 
 function formatDate(dateString: string | null): string {
   if (!dateString) return "—";
@@ -90,37 +101,23 @@ export default function ContributionsPage() {
     setLoading(true);
     setError(null);
     try {
-      let allData: Submission[] = [];
-      let totalHasMore = false;
-
-      if (activeStatusTab === "ALL") {
-        // Fetch each status and combine to ensure drafts (status 0) are shown
-        // Since mySubmissions might not include drafts based on backend behavior
-        const statusToFetch = [0, 1, 2, 3, 4];
-        const results = await Promise.all(
-          statusToFetch.map(s => submissionService.getSubmissionsByStatus(s, page, pageSize))
-        );
-
-        results.forEach(res => {
-          if (res?.isSuccess && Array.isArray(res.data)) {
-            allData = [...allData, ...res.data];
-            if (res.data.length === pageSize) totalHasMore = true;
-          }
-        });
-
-        // Sort by submission date descending
-        allData.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
-        setSubmissions(allData);
-        setHasMore(totalHasMore);
-      } else {
-        const res = await submissionService.getSubmissionsByStatus(activeStatusTab, page, pageSize);
-        if (res?.isSuccess && Array.isArray(res.data)) {
-          setSubmissions(res.data);
-          setHasMore(res.data.length === pageSize);
-        } else {
-          setSubmissions([]);
-          setHasMore(false);
+      // Use getMySubmissions instead of getSubmissionsByStatus to filter by user
+      const res = await submissionService.getMySubmissions(user.id, page, pageSize);
+      
+      if (res?.isSuccess && Array.isArray(res.data)) {
+        let filteredData = res.data;
+        
+        // If they have a specific status tab active (not "ALL"), filter client-side
+        // if the backend doesn't support status filtering on /my endpoint yet
+        if (activeStatusTab !== "ALL") {
+          filteredData = res.data.filter(s => s.status === activeStatusTab);
         }
+
+        setSubmissions(filteredData);
+        setHasMore(res.data.length === pageSize);
+      } else {
+        setSubmissions([]);
+        setHasMore(false);
       }
     } catch (err: any) {
       console.error("Failed to load submissions:", err);
@@ -165,13 +162,14 @@ export default function ContributionsPage() {
     }
   };
 
-  const handleQuickEdit = (sub: Submission) => {
+  const handleQuickEdit = async (sub: Submission) => {
     const rec = sub.recording;
     const effectiveMediaType = rec?.videoFileUrl ? "video" : "audio";
 
     // Create a mock LocalRecordingStorage object for UploadMusic.tsx
     const editingObj = {
-      id: sub.recordingId,
+      id: sub.id, // submissionId
+      recordingId: sub.recordingId,
       mediaType: effectiveMediaType,
       youtubeUrl: rec?.videoFileUrl?.includes("youtube") ? rec.videoFileUrl : null,
       audioData: effectiveMediaType === "audio" ? (rec as any)?.audioFileUrl || (rec as any)?.audioUrl : null,
@@ -179,10 +177,10 @@ export default function ContributionsPage() {
       basicInfo: {
         title: rec?.title || "",
         artist: rec?.performerName || "",
-        composer: "",
-        language: "",
+        composer: (rec as any).composer || "",
+        language: (rec as any).language || "",
         genre: "",
-        recordingLocation: "",
+        recordingLocation: (rec as any).recordingLocation || "",
         recordingDate: rec?.recordingDate || "",
       },
       culturalContext: {
@@ -210,36 +208,54 @@ export default function ContributionsPage() {
       }
     };
 
-    sessionStorage.setItem("editingRecording", JSON.stringify(editingObj));
+    await sessionSetItem("editingRecording", JSON.stringify(editingObj));
     navigate("/upload?edit=true");
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
     setIsDeleting(true);
+    
+    // 1. Capture info before potential removal from state
+    const submissionToDelete = submissions.find(s => s.id === deleteId);
+    
+    // 2. Optimistic UI update: Remove from list immediately
+    setSubmissions((prev) => prev.filter((s) => s.id !== deleteId));
+
     try {
-      const submissionToDelete = submissions.find(s => s.id === deleteId);
-
-      // api.delete returns res.data which will be null/undefined on 204 No Content.
-      // Treat null/undefined (or isSuccess=true) as success — if the call doesn't throw, it worked.
+      // 3. Perform deletion call
       await submissionService.deleteSubmission(deleteId);
-
+      
+      // If the submission had files, clean them up in background
       if (submissionToDelete?.recording) {
         const rec = submissionToDelete.recording as any;
         const urls = [rec.audioUrl, rec.audioFileUrl, rec.videoFileUrl];
         const supabaseUrls = [...new Set(urls.filter(url => url && url.includes("supabase.co")))];
 
-        // Delete all associated files from Supabase
         for (const fileUrl of supabaseUrls) {
-          await deleteFileFromSupabase(fileUrl);
+          deleteFileFromSupabase(fileUrl).catch(e => console.warn("Background file cleanup skip:", e));
         }
       }
 
-      setSubmissions((prev) => prev.filter((s) => s.id !== deleteId));
       notify.success("Thành công", "Bản đóng góp đã được xóa.");
-    } catch (err) {
-      console.error("Delete error:", err);
-      notify.error("Lỗi", "Không thể xóa bản đóng góp này. Vui lòng thử lại sau.");
+    } catch (err: any) {
+      console.error("Delete call background error:", err);
+      
+      // If it's a 404 (already deleted) or 204 (No Content processed as error by interceptor), 
+      // we don't need to put it back or show error
+      const isActuallySuccess = err.response?.status === 404 || err.response?.status === 204;
+      
+      if (!isActuallySuccess) {
+        // Rollback only if it's a genuine connection/server error
+        if (submissionToDelete) {
+          setSubmissions(prev => [submissionToDelete, ...prev].sort((a, b) => 
+            new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+          ));
+        }
+        notify.error("Lỗi", "Không thể xóa bản đóng góp. Vui lòng thử lại sau.");
+      } else {
+        notify.success("Thành công", "Bản đóng góp đã được xóa.");
+      }
     } finally {
       setIsDeleting(false);
       setDeleteId(null);
@@ -255,11 +271,19 @@ export default function ContributionsPage() {
     );
   };
 
+  const renderStageBadge = (stage: number) => {
+    const info = STAGE_INFO[stage] || { label: `Giai đoạn ${stage}`, color: "bg-neutral-100 text-neutral-600 border-neutral-300" };
+    return (
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${info.color}`}>
+        {info.label}
+      </span>
+    );
+  };
+
   const renderSubmissionCard = (sub: Submission) => {
     const title = sub.recording?.title || "Chưa có tiêu đề";
     const performer = sub.recording?.performerName || "Chưa rõ nghệ sĩ";
     const dateStr = formatDate(sub.submittedAt);
-    const stage = STAGE_LABELS[sub.currentStage] || `Giai đoạn ${sub.currentStage}`;
 
     return (
       <div
@@ -290,14 +314,16 @@ export default function ContributionsPage() {
                 <Clock className="w-3.5 h-3.5" />
                 {dateStr}
               </span>
-              <span className="inline-flex items-center gap-1.5 font-medium">
-                <FileAudio className="w-3.5 h-3.5" />
-                {stage}
-              </span>
+              {sub.status === 1 && (
+                <div className="flex items-center gap-1.5 font-medium">
+                  <span className="text-neutral-400 text-xs">Giai đoạn:</span>
+                  {renderStageBadge(sub.currentStage)}
+                </div>
+              )}
               {sub.recording?.performanceContext && (
                 <span className="inline-flex items-center gap-1.5 font-medium">
                   <Music className="w-3.5 h-3.5" />
-                  {sub.recording.performanceContext}
+                  {formatPerformanceType(sub.recording.performanceContext)}
                 </span>
               )}
             </div>
@@ -490,9 +516,11 @@ export default function ContributionsPage() {
                   {/* Status banner */}
                   <div className="flex flex-wrap items-center gap-3 mb-2">
                     {renderStatusBadge(detailSubmission.status)}
-                    <span className="text-sm text-neutral-600 font-medium">
-                      {STAGE_LABELS[detailSubmission.currentStage] || `Giai đoạn ${detailSubmission.currentStage}`}
-                    </span>
+                    {detailSubmission.status === 1 && (
+                      <div className="flex items-center gap-2">
+                        {renderStageBadge(detailSubmission.currentStage)}
+                      </div>
+                    )}
                   </div>
 
                   {/* Submission info card */}
@@ -509,7 +537,7 @@ export default function ContributionsPage() {
                     {renderDetailField("Tiêu đề", detailSubmission.recording?.title, <Music className="w-4 h-4" />)}
                     {renderDetailField("Nghệ sĩ", detailSubmission.recording?.performerName, <User className="w-4 h-4" />)}
                     {renderDetailField("Mô tả", detailSubmission.recording?.description)}
-                    {renderDetailField("Bối cảnh biểu diễn", detailSubmission.recording?.performanceContext)}
+                    {renderDetailField("Bối cảnh biểu diễn", formatPerformanceType(detailSubmission.recording?.performanceContext))}
                     {renderDetailField("Định dạng", detailSubmission.recording?.audioFormat, <FileAudio className="w-4 h-4" />)}
                     {renderDetailField("Thời lượng", formatDuration(detailSubmission.recording?.durationSeconds))}
                     {renderDetailField("Kích thước", formatSize(detailSubmission.recording?.fileSizeBytes))}
@@ -582,7 +610,7 @@ export default function ContributionsPage() {
               {detailSubmission && detailSubmission.status === 0 && (
                 <button
                   type="button"
-                  className="px-6 py-2.5 bg-blue-100/90 hover:bg-blue-200 text-blue-800 rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
+                  className="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
                   onClick={() => {
                     handleQuickEdit(detailSubmission);
                   }}
@@ -594,7 +622,7 @@ export default function ContributionsPage() {
               {detailSubmission && [1, 2, 3].includes(detailSubmission.status) && (
                 <button
                   type="button"
-                  className="px-6 py-2.5 bg-orange-100/90 hover:bg-orange-200 text-orange-800 rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
+                  className="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
                   onClick={() => {
                     notify.success("Thành công", "Yêu cầu chỉnh sửa đã được gửi đến ban quản trị.");
                     setDetailSubmission(null);

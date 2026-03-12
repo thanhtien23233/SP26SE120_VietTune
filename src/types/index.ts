@@ -10,6 +10,7 @@ export interface User {
   expertise?: string[];
   phoneNumber?: string;
   isActive?: boolean;
+  isEmailConfirmed?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -225,6 +226,18 @@ export interface RegisterForm {
   password: string;
   confirmPassword: string;
   fullName: string;
+  phoneNumber: string;
+}
+
+export interface RegisterResearcherForm {
+  email: string;
+  password: string;
+  fullName: string;
+  phoneNumber: string;
+}
+
+export interface ConfirmAccountForm {
+  otp: string;
 }
 
 /** Local recording (upload/moderation/IndexedDB) — used when backend is unavailable (demo). */

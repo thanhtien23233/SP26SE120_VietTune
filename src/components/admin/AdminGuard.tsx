@@ -10,7 +10,7 @@ export default function AdminGuard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const isAdmin = user?.role === UserRole.ADMIN;
+  const isAdmin = user?.role === UserRole.ADMIN && user?.isActive;
 
   useEffect(() => {
     if (!user) {

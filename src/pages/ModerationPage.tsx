@@ -577,7 +577,7 @@ export default function ModerationPage() {
         return () => document.removeEventListener('keydown', handleEscape);
     }, [showVerificationDialog, showRejectDialog, showUnclaimDialog, showApproveConfirmDialog, showRejectConfirmDialog, showRejectNoteWarningDialog, showDeleteConfirmId]);
 
-    if (!user || user.role !== UserRole.EXPERT) {
+    if (!user || user.role !== UserRole.EXPERT || !user.isEmailConfirmed || !user.isActive) {
         return (
             <ForbiddenPage message="Bạn cần tài khoản Chuyên gia để truy cập trang kiểm duyệt bản thu." />
         );

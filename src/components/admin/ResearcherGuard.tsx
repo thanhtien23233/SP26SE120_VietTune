@@ -15,7 +15,8 @@ export default function ResearcherGuard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const canAccess = user?.role === UserRole.RESEARCHER || user?.role === UserRole.ADMIN;
+  const canAccess = (user?.role === UserRole.RESEARCHER || user?.role === UserRole.ADMIN) && user?.isActive;
+  const isPendingApproval = user?.role === UserRole.RESEARCHER && !user?.isActive;
 
   useEffect(() => {
     if (!user) {
@@ -43,6 +44,33 @@ export default function ResearcherGuard() {
                 Bạn cần đăng nhập để truy cập Cổng Nghiên Cứu.
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isPendingApproval) {
+    return (
+      <div className="min-h-[calc(100vh-4.5rem)] min-w-0 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className={`${cardClass} text-center`} style={cardStyle}>
+          <div className="flex flex-col items-center gap-6">
+            <div className="p-2 bg-primary-600/20 rounded-lg flex-shrink-0">
+               <ShieldAlert className="w-5 h-5 text-primary-600" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900">Đang chờ quản trị viên phê duyệt</h2>
+              <p className="text-sm text-neutral-600 font-medium mt-1">
+                Tài khoản của bạn cần quản trị viên phê duyệt để truy cập Cổng Nghiên Cứu.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate("/", { replace: true })}
+              className="px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border border-neutral-200/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer bg-gradient-to-br from-primary-600 to-primary-700 text-white focus:outline-none"
+            >
+              Quay lại trang chủ
+            </button>
           </div>
         </div>
       </div>

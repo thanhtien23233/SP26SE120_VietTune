@@ -125,36 +125,43 @@ export default function Header() {
 
             {/* Desktop Navigation */}
             <div className="hidden lg:flex lg:items-center lg:justify-center lg:gap-3 xl:gap-4 flex-1 mx-4">
-              {user?.role === UserRole.ADMIN ? (
+              {user?.role === UserRole.ADMIN && user?.isActive ? (
                 <Link
                   to="/admin"
                   className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
                 >
                   Quản trị hệ thống
                 </Link>
-              ) : (
+              ) : (user?.role === UserRole.CONTRIBUTOR && user?.isActive) ? (
                 <Link
                   to="/upload"
                   className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
                 >
                   Đóng góp bản thu
                 </Link>
-              )}
-              {user?.role === UserRole.EXPERT || !user || user?.role === UserRole.ADMIN || user?.role === UserRole.RESEARCHER ? (
-                <Link
-                  to="/instruments"
-                  className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-                >
-                  Nhạc cụ truyền thống
-                </Link>
-              ) : (
+              ) : null}
+              {user?.role === UserRole.CONTRIBUTOR && user?.isActive ? (
                 <Link
                   to="/contributions"
                   className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
                 >
                   Đóng góp của bạn
                 </Link>
-              )}
+              ) : null}
+              {(user?.role === UserRole.RESEARCHER && user?.isActive) ? (
+                <Link
+                  to="/researcher"
+                  className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
+                >
+                  Cổng nghiên cứu
+                </Link>
+              ) : null}
+              <Link
+                to="/instruments"
+                className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
+              >
+                Nhạc cụ truyền thống
+              </Link>
               <Link
                 to="/ethnicities"
                 className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
@@ -190,7 +197,7 @@ export default function Header() {
               >
                 <MessageCircle className="h-5 w-5" strokeWidth={2.5} />
               </Link>
-              {(user?.role === UserRole.CONTRIBUTOR || user?.role === UserRole.EXPERT || user?.role === UserRole.ADMIN) && (
+              {(user?.role === UserRole.CONTRIBUTOR || user?.role === UserRole.EXPERT || user?.role === UserRole.ADMIN) && user?.isActive && (
                 <div className="relative">
                   <button
                     ref={(el) => (notiButtonRef.current = el)}
@@ -344,7 +351,7 @@ export default function Header() {
           {/* Mobile menu */}
           {isMobileMenuOpen && (
             <div className="lg:hidden pt-4 mt-4 space-y-2 border-t border-white/20">
-              {user?.role === UserRole.ADMIN ? (
+              {user?.role === UserRole.ADMIN && user?.isActive && (
                 <Link
                   to="/admin"
                   className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
@@ -352,7 +359,8 @@ export default function Header() {
                 >
                   Quản trị hệ thống
                 </Link>
-              ) : (
+              )}
+              {user?.role === UserRole.CONTRIBUTOR && user?.isActive && (
                 <Link
                   to="/upload"
                   className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
@@ -361,15 +369,7 @@ export default function Header() {
                   Đóng góp
                 </Link>
               )}
-              {user?.role === UserRole.EXPERT || !user || user?.role === UserRole.ADMIN || user?.role === UserRole.RESEARCHER ? (
-                <Link
-                  to="/instruments"
-                  className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Nhạc cụ truyền thống
-                </Link>
-              ) : (
+              {user?.role === UserRole.CONTRIBUTOR && user?.isActive && (
                 <Link
                   to="/contributions"
                   className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
@@ -378,6 +378,22 @@ export default function Header() {
                   Đóng góp của bạn
                 </Link>
               )}
+               {user?.role === UserRole.RESEARCHER && user?.isActive && (
+                <Link
+                  to="/researcher"
+                  className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Cổng nghiên cứu
+                </Link>
+              )}
+              <Link
+                to="/instruments"
+                className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Nhạc cụ truyền thống
+              </Link>
               <Link
                 to="/ethnicities"
                 className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"

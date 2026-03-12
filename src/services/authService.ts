@@ -13,30 +13,34 @@ export const authService = {
   login: async (credentials: LoginForm) => {
     interface LoginResponse {
       token: string;
-      userId: string;
+      userId?: string | number;
+      id?: string | number;
       role: string;
       fullName: string;
       phoneNumber: string;
       isActive: boolean;
     }
     try {
-      const response = await api.post<LoginResponse | { data: LoginResponse }>(
-        "/auth/login",
-        credentials,
-      );
-      const authData = (response as LoginResponse).token
-        ? (response as LoginResponse)
-        : (response as { data: LoginResponse }).data;
+      const response = await api.post<any>("/auth/login", credentials);
+      
+      // Handle both { token, ... } and { data: { token, ... } } structures
+      const authData: LoginResponse = response.token ? response : response.data;
+      
       if (authData && authData.token) {
         await setItem("access_token", authData.token);
-        const user = {
-          id: authData.userId,
+        
+        // Use userId or id, ensuring it's a string
+        const userId = (authData.userId || authData.id || "").toString();
+        
+        const user: User = {
+          id: userId,
           username: credentials.email,
           email: credentials.email,
           fullName: authData.fullName,
           role: authData.role as UserRole,
           phoneNumber: authData.phoneNumber,
           isActive: authData.isActive,
+          isEmailConfirmed: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -115,6 +119,45 @@ export const authService = {
         data: { user: newUser },
         message: "Đăng ký thành công (chế độ demo, chưa kết nối backend).",
       };
+    }
+  },
+
+  // Register Researcher
+  registerResearcher: async (data: import("@/types").RegisterResearcherForm) => {
+    try {
+      // const response = await api.post<ApiResponse<unknown>>("/auth/register-researcher", data);
+      const response = await api.post<ApiResponse<unknown>>("/auth/register-contributor", data);
+      return response;
+    } catch (error) {
+      console.error("Register researcher error:", error);
+      throw error;
+    }
+  },
+
+  // Verify OTP / Confirm Account (POST - keeping for compatibility if needed, but adding confirmEmail)
+  verifyOtp: async (email: string, otp: string) => {
+    try {
+      const response = await api.post<ApiResponse<unknown>>("/auth/verify-otp", {
+        email,
+        otp,
+      });
+      return response;
+    } catch (error) {
+      console.error("Verify OTP error:", error);
+      throw error;
+    }
+  },
+
+  // Confirm Email (GET)
+  confirmEmail: async (token: string) => {
+    try {
+      const response = await api.get<ApiResponse<unknown>>(`/auth/confirm-email`, {
+        params: { token },
+      });
+      return response;
+    } catch (error) {
+      console.error("Confirm email error:", error);
+      throw error;
     }
   },
 
@@ -238,6 +281,8 @@ export const authService = {
         fullName: "Người đóng góp (Demo)",
         role: UserRole.CONTRIBUTOR,
         avatar: undefined,
+        isEmailConfirmed: true,
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -247,6 +292,8 @@ export const authService = {
         email: "expertA@example.com",
         fullName: "Expert A (Demo)",
         role: UserRole.EXPERT,
+        isEmailConfirmed: true,
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -256,6 +303,8 @@ export const authService = {
         email: "expertB@example.com",
         fullName: "Expert B (Demo)",
         role: UserRole.EXPERT,
+        isEmailConfirmed: true,
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -265,6 +314,8 @@ export const authService = {
         email: "expertC@example.com",
         fullName: "Expert C (Demo)",
         role: UserRole.EXPERT,
+        isEmailConfirmed: true,
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -274,6 +325,8 @@ export const authService = {
         email: "admin@example.com",
         fullName: "Administrator (Demo)",
         role: UserRole.ADMIN,
+        isEmailConfirmed: true,
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -283,6 +336,8 @@ export const authService = {
         email: "researcher@example.com",
         fullName: "Nhà nghiên cứu (Demo)",
         role: UserRole.RESEARCHER,
+        isEmailConfirmed: true,
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },

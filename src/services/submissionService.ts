@@ -20,6 +20,9 @@ export interface SubmissionRecording {
   lyricsVietnamese: string | null;
   performerName: string | null;
   performerAge: number | null;
+  composer: string | null;
+  language: string | null;
+  recordingLocation: string | null;
   recordingDate: string | null;
   gpsLatitude: number | null;
   gpsLongitude: number | null;
@@ -75,5 +78,13 @@ export const submissionService = {
   /** Delete a submission */
   deleteSubmission: async (id: string) => {
     return api.delete<{ isSuccess: boolean; message: string }>(`/Submission/${id}`);
+  },
+
+  /** Confirm submission (final step) */
+  confirmSubmission: async (submissionId: string) => {
+    return api.put<{ isSuccess: boolean; message: string; data: boolean }>(
+      `/Submission/confirm-submit-submission?submissionId=${submissionId}`,
+      {}
+    );
   },
 };

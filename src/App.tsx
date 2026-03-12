@@ -14,6 +14,7 @@ import AboutPage from "./pages/AboutPage";
 import TermsPage from "./pages/TermsPage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
+import ConfirmAccountPage from "./pages/auth/ConfirmAccountPage";
 import ProfilePage from "./pages/ProfilePage";
 import ContributionsPage from "./pages/ContributionsPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -73,6 +74,7 @@ const router = createBrowserRouter(
       </Route>
       <Route path="/login" element={<ErrorBoundary region="auth"><LoginPage /></ErrorBoundary>} />
       <Route path="/register" element={<ErrorBoundary region="auth"><RegisterPage /></ErrorBoundary>} />
+      <Route path="/confirm-account" element={<ErrorBoundary region="auth"><ConfirmAccountPage /></ErrorBoundary>} />
       <Route path="/403" element={<ForbiddenPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Route>

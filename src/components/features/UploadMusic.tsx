@@ -16,6 +16,8 @@ import { getAddressFromCoordinates } from "@/services/geocodeService";
 import { referenceDataService, type EthnicGroupItem, type CeremonyItem, type ProvinceItem, type DistrictItem, type CommuneItem, type VocalStyleItem, type MusicalScaleItem, type InstrumentItem } from "@/services/referenceDataService";
 import { uploadFileToSupabase } from "@/services/uploadService";
 import { recordingService } from "@/services/recordingService";
+import { submissionService } from "@/services/submissionService";
+import { notify } from "@/stores/notificationStore";
 
 // Extended type for local recording storage (supports both legacy and new formats)
 type LocalRecordingStorage = LocalRecording & {
@@ -79,12 +81,9 @@ const LANGUAGES = [
 ];
 
 const PERFORMANCE_TYPES = [
-  { key: "instrumental", label: "Chỉ nhạc cụ (Instrumental)" },
-  { key: "acappella", label: "Chỉ giọng hát không đệm (Acappella)" },
-  {
-    key: "vocal_accompaniment",
-    label: "Giọng hát có nhạc đệm (Vocal with accompaniment)",
-  },
+  { key: "instrumental", label: "Nhạc cụ" },
+  { key: "acappella", label: "Hát không đệm" },
+  { key: "vocal_accompaniment", label: "Hát với nhạc đệm" },
 ];
 
 // Mapping genre to typical ethnicity
@@ -1727,9 +1726,9 @@ export interface UploadMusicProps {
 export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusicProps = {}) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const isEditModeParam = searchParams.get("edit") === "true" || !!recordingId;
+  const isEditModeParam = searchParams.get("edit") === "true" || !!recordingId || !!searchParams.get("id");
   const [isEditMode, setIsEditMode] = useState(isEditModeParam);
-  const [editingRecordingId, setEditingRecordingId] = useState<string | null>(null);
+  const [editingRecordingId, setEditingRecordingId] = useState<string | null>(recordingId || searchParams.get("id"));
   const [mediaType, setMediaType] = useState<"audio" | "video">("audio");
   const [file, setFile] = useState<File | null>(null);
   const [audioInfo, setAudioInfo] = useState<{
@@ -1752,6 +1751,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [createdRecordingId, setCreatedRecordingId] = useState<string | null>(null);
+  const [currentSubmissionId, setCurrentSubmissionId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [newUploadedUrl, setNewUploadedUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1784,6 +1784,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   const [initialCeremonyId, setInitialCeremonyId] = useState<string | null>(null);
   const [initialVocalStyleId, setInitialVocalStyleId] = useState<string | null>(null);
   const [initialMusicalScaleId, setInitialMusicalScaleId] = useState<string | null>(null);
+  const [initialInstrumentIds, setInitialInstrumentIds] = useState<string[]>([]);
 
   // Music Context
   const [vocalStyle, setVocalStyle] = useState("");
@@ -1874,6 +1875,22 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         }
       } catch (err) {
         console.warn("Failed to load music style traits", err);
+      }
+
+      // If in edit mode, we might need ALL districts/communes to resolve the hierarchy from just a communeId
+      if (isEditModeParam || !!recordingId) {
+        try {
+          const [allDist, allComm] = await Promise.all([
+            referenceDataService.getDistricts(),
+            referenceDataService.getCommunes()
+          ]);
+          if (!cancelled) {
+            setDistrictsData(allDist);
+            setCommunesData(allComm);
+          }
+        } catch (err) {
+          console.warn("Failed to load full admin hierarchy for edit mode", err);
+        }
       }
 
     })();
@@ -2304,33 +2321,52 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
+    const missingFields: string[] = [];
 
-    if (!file && !(isEditMode && !!existingMediaSrc)) {
-      newErrors.file = mediaType === "audio"
-        ? "Vui lòng chọn file âm thanh"
-        : "Vui lòng chọn file video";
+    if (!isEditMode && !file) {
+      const msg = mediaType === "audio" ? "Tệp âm thanh" : "Tệp video";
+      newErrors.file = `Vui lòng chọn ${msg.toLowerCase()}`;
+      missingFields.push(msg);
     }
-    if (!title.trim()) newErrors.title = "Vui lòng nhập tiêu đề";
+
+    if (!title.trim()) {
+      newErrors.title = "Vui lòng nhập tiêu đề";
+      missingFields.push("Tiêu đề/Tên bản nhạc");
+    }
+
     if (!artistUnknown && !artist.trim()) {
       newErrors.artist = "Vui lòng nhập tên nghệ sĩ hoặc chọn 'Không rõ'";
+      missingFields.push("Nghệ sĩ/Người biểu diễn");
     }
+
     if (!composerUnknown && !composer.trim()) {
-      newErrors.composer =
-        "Vui lòng nhập tên tác giả hoặc chọn 'Dân gian/Không rõ'";
+      newErrors.composer = "Vui lòng nhập tên tác giả hoặc chọn 'Dân gian/Không rõ'";
+      missingFields.push("Nhạc sĩ/Tác giả");
     }
-    // Only require vocalStyle if performanceType is vocal_accompaniment or acappella
-    if ((performanceType === "vocal_accompaniment" || performanceType === "acappella") && !vocalStyle) {
-      newErrors.vocalStyle = "Vui lòng chọn lối hát / thể loại";
-    }
+
     if (!performanceType) {
       newErrors.performanceType = "Vui lòng chọn loại hình biểu diễn";
-    }
-    if (requiresInstruments && instruments.length === 0) {
-      newErrors.instruments = "Vui lòng chọn ít nhất một nhạc cụ";
+      missingFields.push("Loại hình biểu diễn");
+    } else {
+      if ((performanceType === "vocal_accompaniment" || performanceType === "acappella") && !vocalStyle) {
+        newErrors.vocalStyle = "Vui lòng chọn lối hát / thể loại";
+        missingFields.push("Lối hát / Thể loại");
+      }
+      if (requiresInstruments && instruments.length === 0) {
+        newErrors.instruments = "Vui lòng chọn ít nhất một nhạc cụ";
+        missingFields.push("Nhạc cụ sử dụng");
+      }
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    if (missingFields.length > 0) {
+      setSubmitStatus("error");
+      setSubmitMessage(`Vui lòng hoàn thành các trường bắt buộc: ${missingFields.join(", ")}`);
+      return false;
+    }
+
+    return true;
   };
 
   const handleUploadAndCreateDraft = async () => {
@@ -2359,7 +2395,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
       if (!isEditMode) {
         // New upload: Call create-submission API
-        const uploaderId = currentUser?.id?.length === 36 ? currentUser.id : "00000000-0000-0000-0007-000000000002";
+        const uploaderId = currentUser?.id ? currentUser.id.toString() : "1";
 
         const res = await recordingService.createSubmission({
           audioFileUrl: publicUrl,
@@ -2368,8 +2404,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
         // Response shape: { isSuccess, data: { recordingId, submissionId, ... } }
         const recordingId = res?.data?.recordingId;
+        const subId = res?.data?.submissionId;
         if (recordingId) {
           setCreatedRecordingId(recordingId);
+          if (subId) setCurrentSubmissionId(subId);
         } else {
           throw new Error("Không nhận được ID bản thu từ hệ thống.");
         }
@@ -2451,14 +2489,17 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         delete remainingErrors.composer;
         delete remainingErrors.vocalStyle;
       }
-      if (uploadWizardStep === 3) {
-        delete remainingErrors.performanceType;
-        delete remainingErrors.instruments;
-      }
       return remainingErrors;
     });
 
+    // Scroll to top when moving to next step
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setUploadWizardStep((s) => Math.min(4, s + 1));
+  };
+
+  const handlePrevStep = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setUploadWizardStep((s) => Math.max(1, s - 1));
   };
 
   const canNavigateToStep = (targetStep: number): boolean => {
@@ -2494,6 +2535,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
   // Shape used when loading from storage (storage may have extra fields not in LocalRecording type)
   type LoadedRecording = LocalRecordingStorage & {
+    recordingId?: string;
+    submissionId?: string;
     basicInfo?: { composer?: string; language?: string; dateEstimated?: boolean; dateNote?: string; recordingLocation?: string };
     additionalNotes?: { description?: string; fieldNotes?: string; transcription?: string };
     adminInfo?: { collector?: string; copyright?: string; archiveOrg?: string; catalogId?: string };
@@ -2502,6 +2545,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
   // Load editing recording: by recordingId (EditRecordingPage) or from session (ContributionsPage → /upload?edit=true)
   useEffect(() => {
+    let effectiveMediaType: "audio" | "video" = "audio";
     if (recordingId) {
       let cancelled = false;
       (async () => {
@@ -2510,12 +2554,41 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           if (cancelled || !existing) return;
           const recording = existing as LoadedRecording;
 
-          setEditingRecordingId(recording.id ?? null);
-          setMediaType((recording.mediaType || "audio") as "audio" | "video");
+          setEditingRecordingId(recording.recordingId || recording.id || null);
+          setCurrentSubmissionId(recording.submissionId || null);
+          effectiveMediaType = (recording.mediaType || "audio") as "audio" | "video";
+          setMediaType(effectiveMediaType);
           setTitle(recording.basicInfo?.title || "");
-          setArtist(recording.basicInfo?.artist || "");
-          setComposer(recording.basicInfo?.composer || "");
-          setLanguage(recording.basicInfo?.language || "");
+
+          const artistVal = recording.basicInfo?.artist || "";
+          if (artistVal === "Không rõ nghệ sĩ") {
+            setArtistUnknown(true);
+            setArtist("");
+          } else {
+            setArtist(artistVal);
+            setArtistUnknown(false);
+          }
+
+          const composerVal = recording.basicInfo?.composer || "";
+          if (composerVal === "Dân gian/Không rõ") {
+            setComposerUnknown(true);
+            setComposer("");
+          } else {
+            setComposer(composerVal);
+            setComposerUnknown(false);
+          }
+
+          const langVal = recording.basicInfo?.language || "";
+          if (langVal === "Không có ngôn ngữ") {
+            setNoLanguage(true);
+            setLanguage("");
+          } else if (langVal && !LANGUAGES.includes(langVal)) {
+            setLanguage("Khác");
+            setCustomLanguage(langVal);
+          } else {
+            setLanguage(langVal);
+          }
+
           setVocalStyle(recording.basicInfo?.genre || "");
           setRecordingDate(recording.basicInfo?.recordingDate || "");
           setDateEstimated(recording.basicInfo?.dateEstimated || false);
@@ -2526,7 +2599,22 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           setProvince(recording.culturalContext?.province || "");
           setEventType(recording.culturalContext?.eventType || "");
           setPerformanceType(recording.culturalContext?.performanceType || "");
-          setInstruments(recording.culturalContext?.instruments || []);
+
+          // Instruments: if we got IDs, store in initial list for resolver
+          const incomingInst = recording.culturalContext?.instruments || [];
+          if (incomingInst.length > 0 && incomingInst[0].length === 36) {
+            setInitialInstrumentIds(incomingInst);
+            setInstruments([]);
+          } else {
+            setInstruments(incomingInst);
+          }
+
+          setInitialCommuneId((recording.culturalContext as any)?.communeId || null);
+          setInitialEthnicGroupId((recording.culturalContext as any)?.ethnicGroupId || null);
+          setInitialCeremonyId((recording.culturalContext as any)?.ceremonyId || null);
+          setInitialVocalStyleId((recording.culturalContext as any)?.vocalStyleId || null);
+          setInitialMusicalScaleId((recording.culturalContext as any)?.musicalScaleId || null);
+
           setDescription(recording.additionalNotes?.description || "");
           setFieldNotes(recording.additionalNotes?.fieldNotes || "");
           setTranscription(recording.additionalNotes?.transcription || "");
@@ -2535,15 +2623,19 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           setArchiveOrg(recording.adminInfo?.archiveOrg || "");
           setCatalogId(recording.adminInfo?.catalogId || "");
 
-          const effectiveMediaType = (recording.mediaType || "audio") as "audio" | "video";
+          effectiveMediaType = (recording.mediaType || "audio") as "audio" | "video";
           const src =
             (recording.youtubeUrl && typeof recording.youtubeUrl === "string" && recording.youtubeUrl.trim())
               ? recording.youtubeUrl.trim()
-              : (effectiveMediaType === "video" ? (recording.videoData ?? null) : (recording.audioData ?? null));
+              : (effectiveMediaType === "video"
+                ? ((recording as any).videoFileUrl || recording.videoData || null)
+                : ((recording as any).audioFileUrl || (recording as any).audioUrl || recording.audioData || null));
 
           setExistingMediaSrc(typeof src === "string" && src.trim().length > 0 ? src : null);
           setExistingMediaInfo({
-            name: recording.file?.name || (effectiveMediaType === "video" ? "Video đã tải lên" : "Âm thanh đã tải lên"),
+            name: (recording as any).audioFileUrl || (recording as any).videoFileUrl
+              ? "Tệp tin từ máy chủ"
+              : (recording.file?.name || (effectiveMediaType === "video" ? "Video đã tải lên" : "Âm thanh đã tải lên")),
             size: Number(recording.file?.size || 0),
             type: recording.file?.type || "",
             duration: Number(recording.file?.duration || 0),
@@ -2570,12 +2662,41 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           const recording = JSON.parse(editingData);
           if (cancelled) return;
 
-          setEditingRecordingId(recording.id);
-          setMediaType(recording.mediaType || "audio");
+          setEditingRecordingId(recording.recordingId || null);
+          setCurrentSubmissionId(recording.id || null);
+          effectiveMediaType = (recording.mediaType || "audio") as "audio" | "video";
+          setMediaType(effectiveMediaType);
           setTitle(recording.basicInfo?.title || "");
-          setArtist(recording.basicInfo?.artist || "");
-          setComposer(recording.basicInfo?.composer || "");
-          setLanguage(recording.basicInfo?.language || "");
+
+          const artistVal = recording.basicInfo?.artist || "";
+          if (artistVal === "Không rõ nghệ sĩ") {
+            setArtistUnknown(true);
+            setArtist("");
+          } else {
+            setArtist(artistVal);
+            setArtistUnknown(false);
+          }
+
+          const composerVal = recording.basicInfo?.composer || "";
+          if (composerVal === "Dân gian/Không rõ") {
+            setComposerUnknown(true);
+            setComposer("");
+          } else {
+            setComposer(composerVal);
+            setComposerUnknown(false);
+          }
+
+          const langVal = recording.basicInfo?.language || "";
+          if (langVal === "Không có ngôn ngữ") {
+            setNoLanguage(true);
+            setLanguage("");
+          } else if (langVal && !LANGUAGES.includes(langVal)) {
+            setLanguage("Khác");
+            setCustomLanguage(langVal);
+          } else {
+            setLanguage(langVal);
+          }
+
           setVocalStyle(recording.basicInfo?.genre || "");
           setRecordingDate(recording.basicInfo?.recordingDate || "");
           setDateEstimated(recording.basicInfo?.dateEstimated || false);
@@ -2586,7 +2707,22 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           setProvince(recording.culturalContext?.province || "");
           setEventType(recording.culturalContext?.eventType || "");
           setPerformanceType(recording.culturalContext?.performanceType || "");
-          setInstruments(recording.culturalContext?.instruments || []);
+
+          // Instruments: if we got IDs, store in initial list for resolver
+          const incomingInst = recording.culturalContext?.instruments || [];
+          if (incomingInst.length > 0 && incomingInst[0].length === 36) {
+            setInitialInstrumentIds(incomingInst);
+            setInstruments([]);
+          } else {
+            setInstruments(incomingInst);
+          }
+
+          setInitialCommuneId((recording.culturalContext as any)?.communeId || null);
+          setInitialEthnicGroupId((recording.culturalContext as any)?.ethnicGroupId || null);
+          setInitialCeremonyId((recording.culturalContext as any)?.ceremonyId || null);
+          setInitialVocalStyleId((recording.culturalContext as any)?.vocalStyleId || null);
+          setInitialMusicalScaleId((recording.culturalContext as any)?.musicalScaleId || null);
+
           setDescription(recording.additionalNotes?.description || "");
           setFieldNotes(recording.additionalNotes?.fieldNotes || "");
           setTranscription(recording.additionalNotes?.transcription || "");
@@ -2595,26 +2731,24 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           setArchiveOrg(recording.adminInfo?.archiveOrg || "");
           setCatalogId(recording.adminInfo?.catalogId || "");
 
-          setInitialCommuneId((recording.culturalContext as any)?.communeId || null);
-          setInitialEthnicGroupId((recording.culturalContext as any)?.ethnicGroupId || null);
-          setInitialCeremonyId((recording.culturalContext as any)?.ceremonyId || null);
-          setInitialVocalStyleId((recording.culturalContext as any)?.vocalStyleId || null);
-          setInitialMusicalScaleId((recording.culturalContext as any)?.musicalScaleId || null);
-
           const existing = await getLocalRecordingFull(recording.id) as LocalRecordingStorage | null;
           if (cancelled) return;
           const existingLoaded = existing as LoadedRecording | null;
           const recordingLoaded = recording as LoadedRecording;
 
-          const effectiveMediaType = (existing?.mediaType || recording.mediaType || "audio") as "audio" | "video";
+          effectiveMediaType = (existing?.mediaType || recording.mediaType || "audio") as "audio" | "video";
           const src =
             (existing?.youtubeUrl && typeof existing.youtubeUrl === "string" && existing.youtubeUrl.trim())
               ? existing.youtubeUrl.trim()
-              : (effectiveMediaType === "video" ? (existing?.videoData ?? null) : (existing?.audioData ?? null));
+              : (effectiveMediaType === "video"
+                ? ((recording as any).videoFileUrl || existing?.videoData || recording.videoData || null)
+                : ((recording as any).audioFileUrl || (recording as any).audioUrl || existing?.audioData || recording.audioData || null));
 
           setExistingMediaSrc(typeof src === "string" && src.trim().length > 0 ? src : null);
           setExistingMediaInfo({
-            name: existingLoaded?.file?.name || recordingLoaded?.file?.name || (effectiveMediaType === "video" ? "Video đã tải lên" : "Âm thanh đã tải lên"),
+            name: (recording as any).audioFileUrl || (recording as any).videoFileUrl
+              ? "Tệp tin từ máy chủ"
+              : (existingLoaded?.file?.name || recordingLoaded?.file?.name || (effectiveMediaType === "video" ? "Video đã tải lên" : "Âm thanh đã tải lên")),
             size: Number(existingLoaded?.file?.size || recordingLoaded?.file?.size || 0),
             type: existingLoaded?.file?.type || recordingLoaded?.file?.type || "",
             duration: Number(existingLoaded?.file?.duration || recordingLoaded?.file?.duration || 0),
@@ -2632,7 +2766,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         cancelled = true;
       };
     }
-  }, [isEditModeParam, recordingId]);
+  }, [isEditModeParam, recordingId, searchParams]);
 
   // Resolver Effect: Map IDs back to Names once Data is loaded
   useEffect(() => {
@@ -2652,7 +2786,13 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       const match = musicalScalesData.find(m => m.id === initialMusicalScaleId);
       if (match) setMusicalScale(match.name);
     }
-  }, [isEditMode, initialEthnicGroupId, ethnicGroupsData, initialCeremonyId, ceremoniesData, initialVocalStyleId, vocalStylesData, initialMusicalScaleId, musicalScalesData]);
+    if (isEditMode && initialInstrumentIds.length > 0 && instrumentsData.length > 0 && instruments.length === 0) {
+      const names = initialInstrumentIds
+        .map(id => instrumentsData.find(i => i.id === id)?.name)
+        .filter((name): name is string => !!name);
+      if (names.length > 0) setInstruments(names);
+    }
+  }, [isEditMode, initialEthnicGroupId, ethnicGroupsData, initialCeremonyId, ceremoniesData, initialVocalStyleId, vocalStylesData, initialMusicalScaleId, musicalScalesData, initialInstrumentIds, instrumentsData]);
 
   // Resolve Commune/Province hierarchical data
   useEffect(() => {
@@ -2667,7 +2807,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           const provMatch = provincesData.find(p => p.id === distMatch.provinceId);
           if (provMatch) {
             setProvince(provMatch.name);
-            setRegion(provMatch.regionCode);
+            setRegion(REGION_CODE_TO_NAME[provMatch.regionCode] || "");
           }
         }
       }
@@ -2706,24 +2846,24 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   // Navigation guard for Step 2 (Metadata entry)
   // Triggers browser confirmation if leaving during meaningful progress
   useEffect(() => {
-    // Only guard during Step 2 of the wizard (where data loss is most painful)
-    const isStep2Active = !isEditMode && uploadWizardStep === 2;
-    if (!isStep2Active || isSubmitting || submitStatus === "success") return;
+    // Guard in edit mode or during Step 2-4 of the wizard
+    const shouldBlock = isEditMode || uploadWizardStep >= 2;
+    if (!shouldBlock || isSubmitting || submitStatus === "success") return;
 
     // Only alert if some data has actually been entered
-      const hasEnteredData =
-        title.trim() !== "" ||
-        (artist.trim() !== "" && !artistUnknown) ||
-        (composer.trim() !== "" && !composerUnknown) ||
-        vocalStyle !== "" ||
-        description.trim() !== "";
+    const hasEnteredData =
+      title.trim() !== "" ||
+      (artist.trim() !== "" && !artistUnknown) ||
+      (composer.trim() !== "" && !composerUnknown) ||
+      vocalStyle !== "" ||
+      description.trim() !== "";
 
     if (!hasEnteredData) return;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       // Modern browsers require preventDefault and setting returnValue to show the dialog
       e.preventDefault();
-      e.returnValue = "Thông tin bạn đã nhập sẽ không được lưu nếu bạn rời khỏi trang. Bạn có chắc chắn muốn rời đi?";
+      e.returnValue = "Thay đổi chưa được lưu của bạn sẽ bị mất. Bạn có chắc chắn muốn rời đi?";
       return e.returnValue;
     };
 
@@ -2735,9 +2875,9 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   // Only available since we migrated to Data Router (createBrowserRouter)
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) => {
-      // Only guard during Step 2 of the wizard
-      const isStep2Active = !isEditMode && uploadWizardStep === 2;
-      if (!isStep2Active || isSubmitting || submitStatus === "success") return false;
+      // Guard in edit mode or during Step 2-4 of the wizard
+      const shouldBlock = isEditMode || uploadWizardStep >= 2;
+      if (!shouldBlock || isSubmitting || submitStatus === "success") return false;
 
       // Only alert if some data has actually been entered
       const hasEnteredData =
@@ -2755,7 +2895,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   // Handle the blocker state
   useEffect(() => {
     if (blocker.state === "blocked") {
-      const proceed = window.confirm("Thông tin bạn đã nhập sẽ không được lưu nếu bạn rời khỏi trang. Bạn có chắc chắn muốn rời đi?");
+      const proceed = window.confirm("Thay đổi chưa được lưu của bạn sẽ bị mất. Bạn có chắc chắn muốn rời đi?");
       if (proceed) {
         blocker.proceed();
       } else {
@@ -2789,12 +2929,11 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     if (isSubmitting) return;
 
     if (!validateForm()) {
-      setSubmitStatus("error");
-      setSubmitMessage("Vui lòng điền đầy đủ thông tin bắt buộc");
+      // Message is already set inside validateForm
       setTimeout(() => {
         setSubmitStatus("idle");
         setSubmitMessage("");
-      }, 5000);
+      }, 8000);
       return;
     }
 
@@ -2802,8 +2941,25 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setShowConfirmDialog(true);
   };
 
-  const handleConfirmSubmit = async () => {
-    setShowConfirmDialog(false);
+  const handleSaveDraft = async () => {
+    if (isSubmitting) return;
+
+    if (!validateForm()) {
+      // Message is already set inside validateForm
+      setTimeout(() => {
+        setSubmitStatus("idle");
+        setSubmitMessage("");
+      }, 8000);
+      return;
+    }
+
+    await handleConfirmSubmit(false);
+  };
+
+  const handleConfirmSubmit = async (isFinal: boolean = true) => {
+    if (isFinal) {
+      setShowConfirmDialog(false);
+    }
     setIsSubmitting(true);
     setSubmitStatus("idle");
     setSubmitMessage("");
@@ -2853,7 +3009,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         audioFormat: audioFormat || undefined,
         durationSeconds: durationSeconds,
         fileSizeBytes: fileSizeBytes,
-        uploadedById: currentUser?.id?.length === 36 ? currentUser.id : "00000000-0000-0000-0007-000000000002",
+        uploadedById: currentUser?.id ? currentUser.id.toString() : "1",
         communeId: selectedCommuneId || undefined,
         ethnicGroupId: ethnicGroupId || undefined,
         ceremonyId: ceremonyId || undefined,
@@ -2869,18 +3025,39 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         gpsLongitude: 0,
         tempo: 0,
         keySignature: undefined,
-        instrumentIds: selectedInstrumentIds
+        instrumentIds: selectedInstrumentIds,
+        composer: composerUnknown ? "Dân gian/Không rõ" : (composer || undefined),
+        language: noLanguage ? "Không có ngôn ngữ" : (language === "Khác" ? customLanguage : (language || undefined)),
+        recordingLocation: recordingLocation || undefined,
+        ...(isFinal ? { status: 1 } : {}), // SET STATUS = 1 (Đang xử lý) CHỈ khi gửi đóng góp thành công
       };
 
-      // 3. Send PUT Request to Backend
+      // 3. Send PUT Request to Backend to update recording metadata
       await recordingService.updateRecording(targetId, payload);
-      setSubmitStatus("success");
-      setSubmitMessage(isEditMode ? "Cập nhật bản thu thành công!" : "Tải lên thành công! Bản thu của bạn đã được gửi để duyệt.");
+
+      // 4. Call confirm-submit-submission API to finalize the submission (ONLY for final submission)
+      if (isFinal) {
+        const subIdToConfirm = currentSubmissionId || (isEditMode ? editingRecordingId : null);
+        if (subIdToConfirm) {
+          const confirmRes = await submissionService.confirmSubmission(subIdToConfirm);
+          if (!confirmRes || !confirmRes.isSuccess) {
+            throw new Error(confirmRes?.message || "Không thể xác nhận bản đóng góp. Vui lòng thử lại.");
+          }
+        }
+
+        setSubmitStatus("success");
+        setSubmitMessage(isEditMode ? "Cập nhật bản thu thành công!" : "Tải lên thành công! Bản thu của bạn đã được gửi để duyệt.");
+      } else {
+        // Just Save Draft
+        setIsSubmitting(false);
+        notify.success("Thành công", isEditMode ? "Đã cập nhật bản chỉnh sửa." : "Đã lưu bản nháp thành công.");
+      }
 
     } catch (error: any) {
       console.error("Lỗi khi lưu dữ liệu:", error);
       // ... error handling logic ...
 
+      setIsSubmitting(false);
       // Extract detailed validation errors from Axios response if available
       let errorDetail = "Lỗi không xác định khi lưu dữ liệu. Vui lòng thử lại.";
       if (error.response && error.response.data) {
@@ -2960,8 +3137,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   const isFormComplete = useMemo(() => {
     if (isFormDisabled) return false;
 
-    // Media presence: file or (edit mode with existing media)
-    if (!file && !(isEditMode && !!existingMediaSrc)) return false;
+    // Media presence: only required for new uploads. For edits, it's optional.
+    if (!isEditMode && !file) return false;
 
     // Basic required fields
     if (!title.trim()) return false;
@@ -3316,6 +3493,36 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           </div>
         )}
 
+        {/* Media Player for NEW Uploads (once uploaded to server) - Only show in Step 2 as requested */}
+        {!isEditMode && newUploadedUrl && uploadWizardStep === 2 && (
+          <div className="border border-primary-200/80 rounded-2xl p-6 bg-white shadow-md mb-6" style={{ backgroundColor: "#FFFCF5" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-primary-100 rounded-lg">
+                <Music className="w-5 h-5 text-primary-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-neutral-800">Bản thu đã tải lên</h3>
+                <p className="text-sm text-neutral-500">Xem trước tệp tin vừa tải lên máy chủ</p>
+              </div>
+            </div>
+
+            {mediaType === "video" ? (
+              <VideoPlayer
+                src={newUploadedUrl}
+                title={audioInfo?.name || title || "File video"}
+                artist={artist || "Người đóng góp"}
+                showContainer={true}
+              />
+            ) : (
+              <AudioPlayer
+                src={newUploadedUrl}
+                title={audioInfo?.name || title || "File âm thanh"}
+                artist={artist || "Người đóng góp"}
+              />
+            )}
+          </div>
+        )}
+
         {(uploadWizardStep === 2 || !showWizard) && (
           <>
             <div
@@ -3568,103 +3775,103 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                       {errors.instruments && (
                         <p className="text-sm text-red-400">{errors.instruments}</p>
                       )}
+                    </FormField>
+                  </div>
+                )}
+
+                {/* File Uploads Section (Instruments Image & Lyrics) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2">
+                  {/* Instrument image upload: for instrumental or vocal_accompaniment */}
+                  {(performanceType === "instrumental" || performanceType === "vocal_accompaniment") && (
+                    <div className={performanceType === "vocal_accompaniment" ? "col-span-1" : "col-span-1 md:col-span-2"}>
+                      <FormField label="Tải lên hình ảnh nhạc cụ (nếu có)" hint="Ảnh minh họa cho các nhạc cụ sử dụng">
+                        <div className="flex items-center gap-3">
+                          <label
+                            className={`px-4 py-2 rounded-xl text-sm text-neutral-800 border border-neutral-300 transition-colors shadow-sm inline-block ${isFormDisabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-md cursor-pointer"}`}
+                            style={{ backgroundColor: "#FFFCF5" }}
+                            onMouseEnter={e => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#F5F0E8" }}
+                            onMouseLeave={e => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#FFFCF5" }}
+                          >
+                            Chọn ảnh
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleInstrumentImageChange}
+                              className="sr-only"
+                              disabled={isFormDisabled}
+                            />
+                          </label>
+                          {instrumentImage && (
+                            <span className="text-neutral-800/60 text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">{instrumentImage.name}</span>
+                          )}
+                          {instrumentImagePreview && (
+                            <img src={instrumentImagePreview} alt="Xem trước ảnh nhạc cụ" className="h-10 rounded-lg border border-neutral-300" />
+                          )}
+                          {instrumentImage && (
+                            <button
+                              type="button"
+                              className="ml-2 text-xs text-red-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                              onClick={() => {
+                                if (isFormDisabled) return;
+                                setInstrumentImage(null);
+                                setInstrumentImagePreview("");
+                              }}
+                              disabled={isFormDisabled}
+                            >
+                              Xóa
+                            </button>
+                          )}
+                        </div>
                       </FormField>
                     </div>
                   )}
 
-                  {/* File Uploads Section (Instruments Image & Lyrics) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2">
-                    {/* Instrument image upload: for instrumental or vocal_accompaniment */}
-                    {(performanceType === "instrumental" || performanceType === "vocal_accompaniment") && (
-                      <div className={performanceType === "vocal_accompaniment" ? "col-span-1" : "col-span-1 md:col-span-2"}>
-                        <FormField label="Tải lên hình ảnh nhạc cụ (nếu có)" hint="Ảnh minh họa cho các nhạc cụ sử dụng">
-                          <div className="flex items-center gap-3">
-                            <label
-                              className={`px-4 py-2 rounded-xl text-sm text-neutral-800 border border-neutral-300 transition-colors shadow-sm inline-block ${isFormDisabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-md cursor-pointer"}`}
-                              style={{ backgroundColor: "#FFFCF5" }}
-                              onMouseEnter={e => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#F5F0E8" }}
-                              onMouseLeave={e => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#FFFCF5" }}
+                  {/* Lyrics upload: for acappella or vocal_accompaniment */}
+                  {allowsLyrics && (
+                    <div className={performanceType === "vocal_accompaniment" ? "col-span-1" : "col-span-1 md:col-span-2"}>
+                      <FormField
+                        label="Tải lên lời bài hát (nếu có)"
+                        hint="File .txt hoặc .docx"
+                      >
+                        <div className="flex items-center gap-3">
+                          <label
+                            className={`px-4 py-2 rounded-xl text-sm text-neutral-800 border border-neutral-300 transition-colors shadow-sm inline-block ${isFormDisabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-md cursor-pointer"}`}
+                            style={{ backgroundColor: "#FFFCF5" }}
+                            onMouseEnter={(e) => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#F5F0E8" }}
+                            onMouseLeave={(e) => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#FFFCF5" }}
+                          >
+                            Chọn file
+                            <input
+                              type="file"
+                              accept=".txt,.doc,.docx"
+                              onChange={handleLyricsFileChange}
+                              className="sr-only"
+                              disabled={isFormDisabled}
+                            />
+                          </label>
+                          <span className="text-neutral-800/60 text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">
+                            {lyricsFile ? lyricsFile.name : "Chưa chọn file"}
+                          </span>
+                          {lyricsFile && (
+                            <button
+                              type="button"
+                              className="ml-2 text-xs text-red-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                              onClick={() => {
+                                if (isFormDisabled) return;
+                                setLyricsFile(null);
+                              }}
+                              disabled={isFormDisabled}
                             >
-                              Chọn ảnh
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleInstrumentImageChange}
-                                className="sr-only"
-                                disabled={isFormDisabled}
-                              />
-                            </label>
-                            {instrumentImage && (
-                              <span className="text-neutral-800/60 text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">{instrumentImage.name}</span>
-                            )}
-                            {instrumentImagePreview && (
-                              <img src={instrumentImagePreview} alt="Xem trước ảnh nhạc cụ" className="h-10 rounded-lg border border-neutral-300" />
-                            )}
-                            {instrumentImage && (
-                              <button
-                                type="button"
-                                className="ml-2 text-xs text-red-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-                                onClick={() => {
-                                  if (isFormDisabled) return;
-                                  setInstrumentImage(null);
-                                  setInstrumentImagePreview("");
-                                }}
-                                disabled={isFormDisabled}
-                              >
-                                Xóa
-                              </button>
-                            )}
-                          </div>
-                        </FormField>
-                      </div>
-                    )}
-
-                    {/* Lyrics upload: for acappella or vocal_accompaniment */}
-                    {allowsLyrics && (
-                      <div className={performanceType === "vocal_accompaniment" ? "col-span-1" : "col-span-1 md:col-span-2"}>
-                        <FormField
-                          label="Tải lên lời bài hát (nếu có)"
-                          hint="File .txt hoặc .docx"
-                        >
-                          <div className="flex items-center gap-3">
-                            <label
-                              className={`px-4 py-2 rounded-xl text-sm text-neutral-800 border border-neutral-300 transition-colors shadow-sm inline-block ${isFormDisabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-md cursor-pointer"}`}
-                              style={{ backgroundColor: "#FFFCF5" }}
-                              onMouseEnter={(e) => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#F5F0E8" }}
-                              onMouseLeave={(e) => { if (!isFormDisabled) e.currentTarget.style.backgroundColor = "#FFFCF5" }}
-                            >
-                              Chọn file
-                              <input
-                                type="file"
-                                accept=".txt,.doc,.docx"
-                                onChange={handleLyricsFileChange}
-                                className="sr-only"
-                                disabled={isFormDisabled}
-                              />
-                            </label>
-                            <span className="text-neutral-800/60 text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">
-                              {lyricsFile ? lyricsFile.name : "Chưa chọn file"}
-                            </span>
-                            {lyricsFile && (
-                              <button
-                                type="button"
-                                className="ml-2 text-xs text-red-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-                                onClick={() => {
-                                  if (isFormDisabled) return;
-                                  setLyricsFile(null);
-                                }}
-                                disabled={isFormDisabled}
-                              >
-                                Xóa
-                              </button>
-                            )}
-                          </div>
-                        </FormField>
-                      </div>
-                    )}
-                  </div>
+                              Xóa
+                            </button>
+                          )}
+                        </div>
+                      </FormField>
+                    </div>
+                  )}
                 </div>
               </div>
+            </div>
 
             <CollapsibleSection
               icon={MapPin}
@@ -3980,8 +4187,17 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     Đặt lại
                   </button>
                   <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={isAnalyzing || isSubmitting || isFormDisabled}
+                    className="px-6 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-full font-medium transition-all duration-200 border border-neutral-300 shadow-sm hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Lưu
+                  </button>
+                  <button
                     type="submit"
-                    disabled={!isFormComplete || isAnalyzing || isSubmitting || isFormDisabled}
+                    disabled={isAnalyzing || isSubmitting || isFormDisabled}
                     title={isFormDisabled ? (isApprovedEdit ? "Bạn cần có tài khoản Người đóng góp hoặc Chuyên gia để chỉnh sửa bản thu" : "Bạn cần có tài khoản Người đóng góp để đóng góp bản thu") : (!isFormComplete ? "Vui lòng hoàn thành các trường bắt buộc" : undefined)}
                     className="px-8 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2 cursor-pointer"
                   >
@@ -4009,22 +4225,35 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
             <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-neutral-200/80">
               <button
                 type="button"
-                onClick={() => setUploadWizardStep((s) => Math.max(1, s - 1))}
+                onClick={handlePrevStep}
                 disabled={uploadWizardStep === 1}
                 className="px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 Quay lại
               </button>
-              {uploadWizardStep < 4 ? (
-                <button
-                  type="button"
-                  onClick={handleNextStep}
-                  disabled={!canNavigateToStep(uploadWizardStep + 1)}
-                  className="px-6 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium cursor-pointer disabled:opacity-60 flex items-center gap-2 transition-all"
-                >
-                  Tiếp theo
-                </button>
-              ) : null}
+              <div className="flex gap-3">
+                {uploadWizardStep >= 2 && uploadWizardStep < 4 && (
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={isAnalyzing || isSubmitting || isFormDisabled}
+                    className="px-6 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl font-medium transition-all duration-200 border border-neutral-300 shadow-sm hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Lưu
+                  </button>
+                )}
+                {uploadWizardStep < 4 && (
+                  <button
+                    type="button"
+                    onClick={handleNextStep}
+                    disabled={!canNavigateToStep(uploadWizardStep + 1)}
+                    className="px-6 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium cursor-pointer disabled:opacity-60 flex items-center gap-2 transition-all"
+                  >
+                    Tiếp theo
+                  </button>
+                )}
+              </div>
             </div>
           )
         }
@@ -4093,7 +4322,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                   Xem lại
                 </button>
                 <button
-                  onClick={handleConfirmSubmit}
+                  onClick={() => handleConfirmSubmit(true)}
                   className="px-6 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer"
                 >
                   {isApprovedEdit ? "Hoàn tất chỉnh sửa" : "Gửi"}

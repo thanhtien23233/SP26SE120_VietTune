@@ -12,19 +12,19 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  // Researcher: trang chủ là Cổng nghiên cứu — chuyển "/" sang "/researcher"
+  // Researcher: trang chủ là Cổng nghiên cứu — chuyển "/" sang "/researcher" nếu đã xác thực và kích hoạt
   useEffect(() => {
-    if (location.pathname === "/" && user?.role === UserRole.RESEARCHER) {
+    if (location.pathname === "/" && user?.role === UserRole.RESEARCHER && user?.isActive) {
       navigate("/researcher", { replace: true });
     }
-  }, [location.pathname, user?.role, navigate]);
-
-  // Expert: trang chủ là Kiểm duyệt — chuyển "/" sang "/moderation"
+  }, [location.pathname, user?.role, user?.isActive, navigate]);
+  
+  // Expert: trang chủ là Kiểm duyệt — chuyển "/" sang "/moderation" nếu đã xác thực và kích hoạt
   useEffect(() => {
-    if (location.pathname === "/" && user?.role === UserRole.EXPERT) {
+    if (location.pathname === "/" && user?.role === UserRole.EXPERT && user?.isActive) {
       navigate("/moderation", { replace: true });
     }
-  }, [location.pathname, user?.role, navigate]);
+  }, [location.pathname, user?.role, user?.isActive, navigate]);
 
   useEffect(() => {
     // Ghi nhớ trang truy cập cuối cùng (trừ đăng nhập/đăng ký và "/" khi Researcher/Expert)

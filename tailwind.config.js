@@ -4,18 +4,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Primary: Đỏ nâu đậm (Deep Burgundy Red) - như trong hình
+        // Primary: Đỏ VietTune (Vibrant Red)
         primary: {
           50: "#fef2f2",
           100: "#fde8e8",
           200: "#fbd5d5",
           300: "#f8b4b4",
-          400: "#e57373",
-          500: "#c62828",
-          600: "#9B2C2C",
-          700: "#7f1d1d",
-          800: "#6b1818",
-          900: "#4a1010",
+          400: "#f17070",
+          500: "#da251d",
+          600: "#be1e16",
+          700: "#a11912",
+          800: "#84140e",
+          900: "#69100b",
         },
         // Secondary: Vàng cờ Việt Nam (Vietnamese Flag Yellow/Gold)
         secondary: {

@@ -42,7 +42,7 @@ const EVENT_TYPES = [
 const PERFORMANCE_TYPES = [
   { key: "instrumental", label: "Chỉ nhạc cụ (Instrumental)" },
   { key: "acappella", label: "Chỉ giọng hát không đệm (Acappella)" },
-  { key: "vocal_accompaniment", label: "Giọng hát có nhạc đệm (Vocal with accompaniment)" },
+  { key: "vocal_accompaniment", label: "Hát có nhạc đệm (Vocal with accompaniment)" },
 ];
 
 const VERIFICATION_STATUS = [
