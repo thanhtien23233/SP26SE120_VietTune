@@ -212,7 +212,7 @@ namespace VietTuneArchive.Application.Services
                     foreach (var item in analysesArray.EnumerateArray())
                     {
                         analysesList.Add(new AIAnalysisItemDto(
-                            Tempo: SafeGetString(item, "tempo"),
+                            Tempo: SafeGetDouble(item, "tempo"),
                             Ethnic: SafeGetString(item, "ethnic"),
                             Language: SafeGetString(item, "language"),
                             Instruments: SafeGetStringList(item, "instruments"),
