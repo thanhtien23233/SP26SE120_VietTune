@@ -5,13 +5,14 @@ import { UserRole } from "@/types";
 import BackButton from "@/components/common/BackButton";
 import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import { notify } from "@/stores/notificationStore";
-import { LogIn, ChevronLeft, ChevronRight, Clock, FileAudio, AlertCircle, X, Music, User, Calendar, MapPin, Loader2, Trash2 } from "lucide-react";
+import { LogIn, ChevronLeft, ChevronRight, Clock, FileAudio, AlertCircle, X, Music, User, Loader2, Trash2 } from "lucide-react";
 import { submissionService, type Submission } from "@/services/submissionService";
 import AudioPlayer from "@/components/features/AudioPlayer";
 import VideoPlayer from "@/components/features/VideoPlayer";
 import { isYouTubeUrl } from "@/utils/youtube";
 import { deleteFileFromSupabase } from "@/services/uploadService";
 import { sessionSetItem } from "@/services/storageService";
+import { referenceDataService, type InstrumentItem } from "@/services/referenceDataService";
 
 // Helpers for formatted strings
 const formatDuration = (seconds?: number | null) => {
@@ -91,10 +92,25 @@ export default function ContributionsPage() {
   // Detail modal
   const [detailSubmission, setDetailSubmission] = useState<Submission | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [isRequestingEdit, setIsRequestingEdit] = useState(false);
 
   // Delete confirmation
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [instruments, setInstruments] = useState<InstrumentItem[]>([]);
+
+  useEffect(() => {
+    const fetchInstruments = async () => {
+      try {
+        const data = await referenceDataService.getInstruments();
+        setInstruments(data);
+      } catch (err) {
+        console.error("Failed to fetch instruments:", err);
+      }
+    };
+    fetchInstruments();
+  }, []);
 
   const loadSubmissions = useCallback(async () => {
     if (!user?.id) return;
@@ -327,11 +343,21 @@ export default function ContributionsPage() {
                   {renderStageBadge(sub.currentStage)}
                 </div>
               )}
-              {sub.recording?.performanceContext && (
-                <span className="inline-flex items-center gap-1.5 font-medium">
-                  <Music className="w-3.5 h-3.5" />
-                  {formatPerformanceType(sub.recording.performanceContext)}
-                </span>
+              {(sub.recording?.performanceContext || (sub.recording?.instrumentIds && sub.recording.instrumentIds.length > 0)) && (
+                <div className="flex items-center gap-1.5 font-medium" title={
+                  [
+                    sub.recording?.performanceContext ? formatPerformanceType(sub.recording.performanceContext) : "",
+                    (sub.recording?.instrumentIds && sub.recording.instrumentIds.length > 0) ? sub.recording.instrumentIds.map(id => instruments.find(i => i.id === id)?.name || `Nhạc cụ`).join(", ") : ""
+                  ].filter(Boolean).join(" - ")
+                }>
+                  <Music className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="line-clamp-1">
+                    {[
+                      sub.recording?.performanceContext ? formatPerformanceType(sub.recording.performanceContext) : "",
+                      (sub.recording?.instrumentIds && sub.recording.instrumentIds.length > 0) ? sub.recording.instrumentIds.map(id => instruments.find(i => i.id === id)?.name || `Nhạc cụ`).join(", ") : ""
+                    ].filter(Boolean).join(" - ")}
+                  </span>
+                </div>
               )}
             </div>
 
@@ -352,18 +378,12 @@ export default function ContributionsPage() {
     );
   };
 
-  const renderDetailField = (label: string, value: string | number | null | undefined, icon?: React.ReactNode) => {
-    if (value === null || value === undefined || value === "" || value === 0 && label.toLowerCase().includes("tempo")) return null;
+  const renderDetailField = (label: string, value: string | number | null | undefined) => {
+    if (value === null || value === undefined || value === "" || (value === 0 && label.toLowerCase().includes("tempo"))) return null;
     return (
-      <div className="grid grid-cols-[1.5rem_1fr] items-start gap-x-3 py-2.5 border-b border-neutral-100 last:border-0">
-        {/* Icon column — always reserved so content aligns */}
-        <span className="text-primary-600 mt-0.5 flex-shrink-0 flex justify-center">
-          {icon ?? <span className="w-4 h-4 block" />}
-        </span>
-        <div className="min-w-0">
-          <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{label}</span>
-          <p className="text-sm text-neutral-900 font-medium mt-0.5 break-words">{String(value)}</p>
-        </div>
+      <div className="py-2.5 flex flex-col border-b border-neutral-100 last:border-0">
+        <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{label}</span>
+        <p className="text-sm text-neutral-900 font-medium mt-0.5 break-words">{String(value)}</p>
       </div>
     );
   };
@@ -532,29 +552,44 @@ export default function ContributionsPage() {
 
                   {/* Submission info card */}
                   <div className="rounded-xl border border-neutral-200/80 p-4 space-y-1" style={{ backgroundColor: '#FFFCF5' }}>
-                    <h3 className="text-base font-semibold text-neutral-800 mb-2">Thông tin submission</h3>
-                    {renderDetailField("Ngày gửi", formatDate(detailSubmission.submittedAt), <Calendar className="w-4 h-4" />)}
-                    {renderDetailField("Cập nhật lần cuối", formatDate(detailSubmission.updatedAt), <Clock className="w-4 h-4" />)}
+                    <h3 className="text-base font-semibold text-neutral-800 mb-2">Thông tin đóng góp</h3>
+                    {renderDetailField("Ngày gửi", formatDate(detailSubmission.submittedAt))}
+                    {renderDetailField("Cập nhật lần cuối", formatDate(detailSubmission.updatedAt))}
                     {renderDetailField("Ghi chú", detailSubmission.notes)}
                   </div>
 
                   {/* Recording metadata card */}
                   <div className="rounded-xl border border-neutral-200/80 p-4 space-y-1" style={{ backgroundColor: '#FFFCF5' }}>
                     <h3 className="text-base font-semibold text-neutral-800 mb-2">Metadata bản thu</h3>
-                    {renderDetailField("Tiêu đề", detailSubmission.recording?.title, <Music className="w-4 h-4" />)}
-                    {renderDetailField("Nghệ sĩ", detailSubmission.recording?.performerName, <User className="w-4 h-4" />)}
+                    {renderDetailField("Tiêu đề", detailSubmission.recording?.title)}
+                    {renderDetailField("Nghệ sĩ", detailSubmission.recording?.performerName)}
                     {renderDetailField("Mô tả", detailSubmission.recording?.description)}
                     {renderDetailField("Bối cảnh biểu diễn", formatPerformanceType(detailSubmission.recording?.performanceContext))}
-                    {renderDetailField("Định dạng", detailSubmission.recording?.audioFormat, <FileAudio className="w-4 h-4" />)}
+                    {detailSubmission.recording?.instrumentIds && detailSubmission.recording.instrumentIds.length > 0 && (
+                      <div className="py-2.5 flex flex-col border-b border-neutral-100 last:border-0">
+                        <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Nhạc cụ</span>
+                        <div className="flex flex-wrap gap-2 mt-1.5">
+                          {detailSubmission.recording.instrumentIds.map(id => {
+                            const instrument = instruments.find(i => i.id === id);
+                            return (
+                              <span key={id} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-primary-50 text-primary-700 border border-primary-200">
+                                {instrument ? instrument.name : `Nhạc cụ (ID: ${id})`}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {renderDetailField("Định dạng", detailSubmission.recording?.audioFormat)}
                     {renderDetailField("Thời lượng", formatDuration(detailSubmission.recording?.durationSeconds))}
                     {renderDetailField("Kích thước", formatSize(detailSubmission.recording?.fileSizeBytes))}
-                    {renderDetailField("Ngày ghi âm", formatDate(detailSubmission.recording?.recordingDate || null), <Calendar className="w-4 h-4" />)}
+                    {renderDetailField("Ngày ghi âm", formatDate(detailSubmission.recording?.recordingDate || null))}
                     {renderDetailField("Lời gốc", detailSubmission.recording?.lyricsOriginal)}
                     {renderDetailField("Lời tiếng Việt", detailSubmission.recording?.lyricsVietnamese)}
                     {renderDetailField("Tempo", detailSubmission.recording?.tempo)}
                     {renderDetailField("Khóa nhạc", detailSubmission.recording?.keySignature)}
                     {(detailSubmission.recording?.gpsLatitude != null && detailSubmission.recording?.gpsLongitude != null && (detailSubmission.recording.gpsLatitude !== 0 || detailSubmission.recording.gpsLongitude !== 0)) && (
-                      renderDetailField("Tọa độ GPS", `${detailSubmission.recording.gpsLatitude}, ${detailSubmission.recording.gpsLongitude}`, <MapPin className="w-4 h-4" />)
+                      renderDetailField("Tọa độ GPS", `${detailSubmission.recording.gpsLatitude}, ${detailSubmission.recording.gpsLongitude}`)
                     )}
                   </div>
 
@@ -629,13 +664,30 @@ export default function ContributionsPage() {
               {detailSubmission && [1, 2, 3].includes(detailSubmission.status) && (
                 <button
                   type="button"
-                  className="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
-                  onClick={() => {
-                    notify.success("Thành công", "Yêu cầu chỉnh sửa đã được gửi đến ban quản trị.");
-                    setDetailSubmission(null);
+                  disabled={isRequestingEdit}
+                  className={`px-6 py-2.5 bg-primary-600 text-white rounded-full font-medium transition-all duration-200 shadow-md ${
+                    isRequestingEdit ? "opacity-70 cursor-not-allowed" : "hover:bg-primary-700 hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer"
+                  }`}
+                  onClick={async () => {
+                    setIsRequestingEdit(true);
+                    try {
+                      const res = await submissionService.requestEditSubmission(detailSubmission.id);
+                      if (res?.isSuccess) {
+                        notify.success("Thành công", "Yêu cầu chỉnh sửa đã được gửi đến ban quản trị.");
+                        setDetailSubmission(null);
+                        loadSubmissions();
+                      } else {
+                        notify.error("Lỗi", res?.message || "Không thể gửi yêu cầu chỉnh sửa.");
+                      }
+                    } catch (err: any) {
+                      console.error("Failed to request edit:", err);
+                      notify.error("Lỗi", err.response?.data?.message || err.message || "Đã xảy ra lỗi khi gửi yêu cầu chỉnh sửa.");
+                    } finally {
+                      setIsRequestingEdit(false);
+                    }
                   }}
                 >
-                  Yêu cầu chỉnh sửa
+                  {isRequestingEdit ? "Đang gửi..." : "Yêu cầu chỉnh sửa"}
                 </button>
               )}
 

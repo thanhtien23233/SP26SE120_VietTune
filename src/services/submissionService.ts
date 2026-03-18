@@ -87,4 +87,15 @@ export const submissionService = {
       {}
     );
   },
+
+  /** Request edit for a submission */
+  requestEditSubmission: async (submissionId: string) => {
+    // We send submissionId as a JSON string `"guid"` assuming it binds to [FromBody] Guid submissionId
+    // or we might need { submissionId } depending on backend. We will try passing just the string wrapper.
+    return api.put<{ isSuccess: boolean; message: string; data: boolean }>(
+      '/Submission/edit-request-submission',
+      `"${submissionId}"`,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+  },
 };
