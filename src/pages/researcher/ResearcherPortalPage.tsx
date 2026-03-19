@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, MessageSquare, Network, GitCompare, Play, FileText, Check, Send, Bot, Lightbulb, Info, X, Download } from "lucide-react";
+import { Search, MessageSquare, Network, GitCompare, Play, FileText, Check, Send, Bot, Lightbulb, Info, X, Download, MapPin } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import SearchableDropdown from "@/components/common/SearchableDropdown";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
@@ -21,6 +21,12 @@ type TabId = "search" | "qa" | "graph" | "compare";
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  citations?: ChatCitation[];
+}
+
+interface ChatCitation {
+  recordingId: string;
+  label: string;
 }
 
 interface SearchFiltersState {
@@ -28,6 +34,7 @@ interface SearchFiltersState {
   instrument: string;
   region: string;
   ceremony: string;
+  commune: string;
 }
 
 const QUICK_QUESTIONS = [
@@ -94,8 +101,100 @@ function applyFilters(list: Recording[], f: SearchFiltersState): Recording[] {
       const has = r.tags?.some((t) => t === f.ceremony || t.includes(f.ceremony)) ?? false;
       if (!has) return false;
     }
+    if (f.commune) {
+      const communeName = getCommuneName(r).toLowerCase();
+      if (!communeName || !communeName.includes(f.commune.toLowerCase())) return false;
+    }
     return true;
   });
+}
+
+function getCommuneName(r: Recording): string {
+  const maybeWithCommune = r as Recording & {
+    communeName?: string;
+    commune?: { name?: string };
+    metadata?: Recording["metadata"] & { communeName?: string };
+  };
+  return (
+    maybeWithCommune.communeName ||
+    maybeWithCommune.commune?.name ||
+    maybeWithCommune.metadata?.communeName ||
+    ""
+  );
+}
+
+function getTranscriptText(r?: Recording): string {
+  if (!r) return "";
+  const lines = [r.metadata?.transcription, r.metadata?.lyrics, r.metadata?.lyricsTranslation];
+  return lines.filter(Boolean).join("\n").trim();
+}
+
+function highlightTranscriptDiff(left: string, right: string): { leftHtml: string; rightHtml: string } {
+  const leftWords = left.split(/\s+/).filter(Boolean);
+  const rightWords = right.split(/\s+/).filter(Boolean);
+  const rightSet = new Set(rightWords.map((w) => w.toLowerCase()));
+  const leftSet = new Set(leftWords.map((w) => w.toLowerCase()));
+
+  const toHtml = (words: string[], oppositeSet: Set<string>) =>
+    words
+      .map((w) => {
+        const escaped = w
+          .split("&").join("&amp;")
+          .split("<").join("&lt;")
+          .split(">").join("&gt;");
+        const changed = !oppositeSet.has(w.toLowerCase());
+        return changed
+          ? `<mark class="bg-amber-200 text-amber-900 rounded px-1">${escaped}</mark>`
+          : escaped;
+      })
+      .join(" ");
+
+  return {
+    leftHtml: toHtml(leftWords, rightSet),
+    rightHtml: toHtml(rightWords, leftSet),
+  };
+}
+
+function buildExpertComparativeNotes(left?: Recording, right?: Recording): string[] {
+  if (!left || !right) return [];
+  const notes: string[] = [];
+  const leftEth = left.ethnicity?.nameVietnamese ?? left.ethnicity?.name ?? "không rõ";
+  const rightEth = right.ethnicity?.nameVietnamese ?? right.ethnicity?.name ?? "không rõ";
+  if (leftEth !== rightEth) {
+    notes.push(`Hai bản thu thuộc hai cộng đồng khác nhau (${leftEth} và ${rightEth}), cần lưu ý dị bản vùng miền khi trích dẫn học thuật.`);
+  }
+  const leftInst = new Set((left.instruments ?? []).map((i) => i.nameVietnamese ?? i.name));
+  const rightInst = new Set((right.instruments ?? []).map((i) => i.nameVietnamese ?? i.name));
+  const sharedInst = Array.from(leftInst).filter((x) => rightInst.has(x));
+  if (sharedInst.length > 0) {
+    notes.push(`Cả hai bản thu cùng dùng nhạc cụ: ${sharedInst.join(", ")}, phù hợp để đối chiếu kỹ thuật diễn tấu.`);
+  } else {
+    notes.push("Bộ nhạc cụ giữa hai bản thu khác nhau rõ rệt, thuận lợi cho phân tích khác biệt âm sắc.");
+  }
+  const leftVariation = left.metadata?.regionalVariation;
+  const rightVariation = right.metadata?.regionalVariation;
+  if (leftVariation || rightVariation) {
+    notes.push(`Ghi chú dị bản: ${leftVariation || "Bản 1 chưa có ghi chú"} | ${rightVariation || "Bản 2 chưa có ghi chú"}`);
+  }
+  return notes;
+}
+
+function buildCitationCandidates(question: string, recordings: Recording[]): ChatCitation[] {
+  const tokens = tokenize(question);
+  if (tokens.length === 0) return [];
+  return recordings
+    .map((r) => ({ r, score: scoreRecording(r, tokens) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(({ r }) => {
+      const ethnicity = r.ethnicity?.nameVietnamese ?? r.ethnicity?.name ?? "Không rõ dân tộc";
+      const region = r.region ? REGION_NAMES[r.region as keyof typeof REGION_NAMES] : "Không rõ vùng";
+      return {
+        recordingId: r.id,
+        label: `${r.title} — ${ethnicity} — ${region}`,
+      };
+    });
 }
 
 export default function ResearcherPortalPage() {
@@ -110,6 +209,7 @@ export default function ResearcherPortalPage() {
     instrument: "",
     region: "",
     ceremony: "",
+    commune: "",
   });
   const [approvedRecordings, setApprovedRecordings] = useState<Recording[]>([]);
   const [searchLoading, setSearchLoading] = useState(true);
@@ -124,6 +224,7 @@ export default function ResearcherPortalPage() {
   const [compareLeftId, setCompareLeftId] = useState("");
   const [compareRightId, setCompareRightId] = useState("");
   const [graphView, setGraphView] = useState<"overview" | "instruments" | "ethnicity">("overview");
+  const [selectedGraphNode, setSelectedGraphNode] = useState<{ type: "instrument" | "ethnicity"; name: string } | null>(null);
   const chatListRef = useRef<HTMLDivElement | null>(null);
 
   // Reference data from API (replaces hardcoded arrays)
@@ -139,6 +240,7 @@ export default function ResearcherPortalPage() {
   ]);
   const [EVENT_TYPES, setEVENT_TYPES] = useState<string[]>([]);
   const [INSTRUMENTS, setINSTRUMENTS] = useState<string[]>([]);
+  const [COMMUNES, setCOMMUNES] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,6 +259,10 @@ export default function ResearcherPortalPage() {
         const instrumentItems = await referenceDataService.getInstruments();
         if (!cancelled && instrumentItems.length > 0) setINSTRUMENTS(instrumentItems.map((i) => i.name));
       } catch (err) { console.warn("Failed to load instruments", err); }
+      try {
+        const communes = await referenceDataService.getCommunes();
+        if (!cancelled && communes.length > 0) setCOMMUNES(communes.map((c) => c.name));
+      } catch (err) { console.warn("Failed to load communes", err); }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -193,7 +299,16 @@ export default function ResearcherPortalPage() {
       setSearchLoading(true);
       try {
         const res = await recordingService.getRecordings(1, 500);
-        const items = Array.isArray((res as any)?.items) ? (res as any).items : (Array.isArray((res as any)?.data?.items) ? (res as any).data.items : (Array.isArray((res as any)?.data) ? (res as any).data : []));
+        const response = res as
+          | { items?: Recording[]; data?: { items?: Recording[] } | Recording[] }
+          | undefined;
+        const items = Array.isArray(response?.items)
+          ? response.items
+          : Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response?.data?.items)
+              ? response.data.items
+              : [];
         if (!cancelled) setApprovedRecordings(items);
       } catch (err) {
         console.error("Failed to load approved recordings:", err);
@@ -233,6 +348,18 @@ export default function ResearcherPortalPage() {
     }
     return applyFilters(list, filters);
   }, [approvedRecordings, searchQuery, filters]);
+
+  const graphRelatedRecordings = useMemo(() => {
+    if (!selectedGraphNode) return [];
+    if (selectedGraphNode.type === "instrument") {
+      return approvedRecordings.filter((r) =>
+        r.instruments?.some((i) => (i.nameVietnamese ?? i.name) === selectedGraphNode.name)
+      );
+    }
+    return approvedRecordings.filter(
+      (r) => (r.ethnicity?.nameVietnamese ?? r.ethnicity?.name) === selectedGraphNode.name
+    );
+  }, [approvedRecordings, selectedGraphNode]);
 
   const handleExportDataset = useCallback(() => {
     const payload = filteredResults.map((r) => ({
@@ -285,7 +412,7 @@ export default function ResearcherPortalPage() {
     chatListRef.current?.scrollTo({ top: chatListRef.current.scrollHeight, behavior: "smooth" });
   }, [chatMessages, isTyping]);
 
-  const pushAiResponseForExpertReview = useCallback(async (question: string, answer: string) => {
+  const pushAiResponseForExpertReview = useCallback(async (question: string, answer: string, citations?: ChatCitation[]) => {
     try {
       const raw = await getItemAsync(AI_RESPONSES_REVIEW_KEY);
       const list = raw ? JSON.parse(raw) : [];
@@ -296,6 +423,7 @@ export default function ResearcherPortalPage() {
           question,
           answer,
           source: "Cổng nghiên cứu",
+          citations: citations ?? [],
           createdAt: new Date().toISOString(),
         },
       ];
@@ -314,14 +442,15 @@ export default function ResearcherPortalPage() {
     try {
       const reply = await sendResearcherChatMessage(text);
       const content = reply ?? CHAT_API_FALLBACK;
-      setChatMessages((prev) => [...prev, { role: "assistant", content }]);
-      void pushAiResponseForExpertReview(text, content);
+      const citations = buildCitationCandidates(text, filteredResults);
+      setChatMessages((prev) => [...prev, { role: "assistant", content, citations }]);
+      void pushAiResponseForExpertReview(text, content, citations);
     } catch {
       setChatMessages((prev) => [...prev, { role: "assistant", content: CHAT_API_FALLBACK }]);
     } finally {
       setIsTyping(false);
     }
-  }, [chatInput, pushAiResponseForExpertReview]);
+  }, [chatInput, filteredResults, pushAiResponseForExpertReview]);
 
   const handleQaKeyDown = async (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -345,14 +474,15 @@ export default function ResearcherPortalPage() {
     try {
       const reply = await sendResearcherChatMessage(text);
       const content = reply ?? CHAT_API_FALLBACK;
-      setChatMessages((prev) => [...prev, { role: "assistant", content }]);
-      void pushAiResponseForExpertReview(text, content);
+      const citations = buildCitationCandidates(text, filteredResults);
+      setChatMessages((prev) => [...prev, { role: "assistant", content, citations }]);
+      void pushAiResponseForExpertReview(text, content, citations);
     } catch {
       setChatMessages((prev) => [...prev, { role: "assistant", content: CHAT_API_FALLBACK }]);
     } finally {
       setIsTyping(false);
     }
-  }, [pushAiResponseForExpertReview]);
+  }, [filteredResults, pushAiResponseForExpertReview]);
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
     { id: "search", label: "Tìm kiếm nâng cao", icon: Search },
@@ -369,6 +499,22 @@ export default function ResearcherPortalPage() {
             Cổng nghiên cứu
           </h1>
           <BackButton />
+        </div>
+
+        <div className="rounded-2xl border border-primary-200/80 bg-white shadow-sm p-4 sm:p-5 mb-5">
+          <h2 className="text-sm sm:text-base font-semibold text-primary-800 mb-3">Luồng nghiệp vụ chính của Researcher</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            {[
+              { title: "1) Discovery & Research", desc: "Tìm kiếm ngữ nghĩa, hỏi đáp AI, biểu đồ tri thức, so sánh và xuất dataset." },
+              { title: "2) Expert Verification", desc: "Đánh giá 3 bước, gắn cờ phản hồi AI, cập nhật tri thức cộng tác." },
+              { title: "3) Contribution", desc: "Nộp bản thu hiện trường, điền metadata có cấu trúc, theo dõi tiến trình kiểm duyệt." },
+            ].map((flow) => (
+              <div key={flow.title} className="rounded-xl border border-neutral-200/80 bg-primary-50/40 px-3 py-2.5">
+                <p className="font-semibold text-primary-800 text-sm">{flow.title}</p>
+                <p className="text-xs text-neutral-700 mt-1">{flow.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Tabs — VietTune UI: rounded-2xl, #FFFCF5, border-neutral-200/80 */}
@@ -434,7 +580,7 @@ export default function ResearcherPortalPage() {
               </div>
 
               {/* Bộ lọc */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
                   <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
                     <span className="text-secondary-600">Dân tộc</span>
@@ -481,6 +627,19 @@ export default function ResearcherPortalPage() {
                     options={REGIONS}
                     placeholder="Tất cả vùng miền"
                     searchable={false}
+                  />
+                </div>
+                <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
+                    <MapPin className="w-4 h-4 text-secondary-600" strokeWidth={2.5} />
+                    Xã/Phường
+                  </label>
+                  <SearchableDropdown
+                    value={filters.commune}
+                    onChange={(v) => setFilters((prev) => ({ ...prev, commune: v }))}
+                    options={COMMUNES}
+                    placeholder="Tất cả xã/phường"
+                    searchable
                   />
                 </div>
               </div>
@@ -552,7 +711,7 @@ export default function ResearcherPortalPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
                               <div>
                                 <strong className="block text-primary-700 font-semibold mb-0.5">
                                   Dân tộc
@@ -590,6 +749,12 @@ export default function ResearcherPortalPage() {
                                 <span className="text-neutral-600">
                                   {result.tags?.find((t) => EVENT_TYPES.includes(t)) ?? result.metadata?.ritualContext ?? "—"}
                                 </span>
+                              </div>
+                              <div>
+                                <strong className="block text-primary-700 font-semibold mb-0.5">
+                                  Xã/Phường
+                                </strong>
+                                <span className="text-neutral-600">{getCommuneName(result) || "—"}</span>
                               </div>
                             </div>
                           </div>
@@ -748,6 +913,24 @@ export default function ResearcherPortalPage() {
                           <p className="text-sm leading-relaxed whitespace-pre-wrap">
                             {msg.content}
                           </p>
+                          {msg.role === "assistant" && msg.citations && msg.citations.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-neutral-200">
+                              <p className="text-[11px] font-semibold text-neutral-600 mb-1">Nguồn trích dẫn tham chiếu</p>
+                              <ul className="space-y-1 list-none pl-0">
+                                {msg.citations.map((c, cidx) => (
+                                  <li key={`${idx}-cite-${cidx}`}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDetail(c.recordingId)}
+                                      className="text-[11px] text-left text-primary-700 hover:text-primary-900 underline underline-offset-2 cursor-pointer"
+                                    >
+                                      [{cidx + 1}] {c.label}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -957,8 +1140,23 @@ export default function ResearcherPortalPage() {
                       </h3>
                       <ul className="space-y-1 text-sm text-neutral-700">
                         {(graphView === "instruments" ? graphData.instruments : graphData.ethnicities).map((name, idx) => (
-                          <li key={idx} className="truncate" title={name}>
-                            {name}
+                          <li key={idx}>
+                            <button
+                              type="button"
+                              className={`w-full truncate text-left px-2 py-1.5 rounded-lg transition-colors ${selectedGraphNode?.name === name
+                                ? "bg-primary-100 text-primary-800 font-semibold"
+                                : "hover:bg-neutral-100"
+                                }`}
+                              title={name}
+                              onClick={() =>
+                                setSelectedGraphNode({
+                                  type: graphView === "instruments" ? "instrument" : "ethnicity",
+                                  name,
+                                })
+                              }
+                            >
+                              {name}
+                            </button>
                           </li>
                         ))}
                       </ul>
@@ -1040,6 +1238,34 @@ export default function ResearcherPortalPage() {
                 )}
               </div>
 
+              {selectedGraphNode && (
+                <div className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold text-primary-800 mb-3">
+                    Bản thu liên quan: {selectedGraphNode.name}
+                  </h3>
+                  {graphRelatedRecordings.length === 0 ? (
+                    <p className="text-sm text-neutral-600">Chưa có bản thu phù hợp với nút đã chọn.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {graphRelatedRecordings.slice(0, 8).map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => handleDetail(r.id)}
+                          className="text-left rounded-xl border border-primary-200/80 bg-primary-50/50 px-4 py-3 hover:bg-primary-100/70 transition-colors cursor-pointer"
+                        >
+                          <p className="font-semibold text-primary-800 truncate">{r.title}</p>
+                          <p className="text-xs text-neutral-600 truncate">
+                            {r.ethnicity?.nameVietnamese ?? r.ethnicity?.name ?? "—"} •{" "}
+                            {r.instruments?.map((i) => i.nameVietnamese ?? i.name).slice(0, 2).join(", ") || "—"}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { label: "Dân tộc (trong đồ thị)", value: String(graphData.ethnicities.length), className: "bg-gradient-to-br from-primary-50 to-red-50 border-primary-200/80", valueColor: "text-primary-800" },
@@ -1061,6 +1287,10 @@ export default function ResearcherPortalPage() {
             const compareOptions = approvedRecordings.map((r) => r.title ?? "");
             const leftRecording = approvedRecordings.find((r) => r.id === compareLeftId);
             const rightRecording = approvedRecordings.find((r) => r.id === compareRightId);
+            const leftTranscript = getTranscriptText(leftRecording);
+            const rightTranscript = getTranscriptText(rightRecording);
+            const transcriptDiff = highlightTranscriptDiff(leftTranscript, rightTranscript);
+            const expertNotes = buildExpertComparativeNotes(leftRecording, rightRecording);
             const renderCompareCard = (rec: Recording | undefined, side: "left" | "right") => (
               <div className="rounded-xl border-2 border-secondary-200/80 p-4" style={{ background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)" }}>
                 <SearchableDropdown
@@ -1140,21 +1370,46 @@ export default function ResearcherPortalPage() {
                   style={{ backgroundColor: "#FFFCF5" }}
                 >
                   <h3 className="text-lg font-semibold text-primary-800 mb-3">
+                    So sánh phiên âm / lời hát
+                  </h3>
+                  {!leftTranscript && !rightTranscript ? (
+                    <p className="text-sm text-neutral-600 mb-6">Hai bản thu chưa có transcript/lyrics để so sánh.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                      <div className="rounded-xl border border-primary-200/80 bg-white p-3">
+                        <p className="text-xs font-semibold text-primary-700 mb-2">Bản #1</p>
+                        <div
+                          className="text-sm leading-7 text-neutral-700"
+                          dangerouslySetInnerHTML={{ __html: transcriptDiff.leftHtml || "Chưa có dữ liệu" }}
+                        />
+                      </div>
+                      <div className="rounded-xl border border-primary-200/80 bg-white p-3">
+                        <p className="text-xs font-semibold text-primary-700 mb-2">Bản #2</p>
+                        <div
+                          className="text-sm leading-7 text-neutral-700"
+                          dangerouslySetInnerHTML={{ __html: transcriptDiff.rightHtml || "Chưa có dữ liệu" }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <h3 className="text-lg font-semibold text-primary-800 mb-3">
                     Nhận xét từ chuyên gia
                   </h3>
-                  <div className="text-neutral-700 leading-relaxed space-y-3">
-                    <p>
-                      <strong className="text-primary-800">Điểm tương đồng:</strong> Cả hai phong
-                      cách đều sử dụng âm giai ngũ cung truyền thống của người Việt, với cấu trúc
-                      giai điệu mang tính tự do và ứng tác theo ngữ điệu tiếng Việt.
+                  {expertNotes.length === 0 ? (
+                    <p className="text-sm text-neutral-600">
+                      Chọn đủ 2 bản thu để hệ thống gợi ý nhận xét so sánh theo metadata đã kiểm duyệt.
                     </p>
-                    <p>
-                      <strong className="text-primary-800">Điểm khác biệt:</strong> Hát Xoan thể
-                      hiện tính chất nghi lễ với sự kết hợp của đàn nguyệt và trống, tạo nên âm sắc
-                      trang nghiêm. Trong khi đó, nhạc Khèn Mông mang đậm bản sắc văn hóa vùng cao
-                      với kỹ thuật thổi đặc trưng.
-                    </p>
-                  </div>
+                  ) : (
+                    <ul className="text-neutral-700 leading-relaxed space-y-2 list-none pl-0">
+                      {expertNotes.map((note, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-primary-600 font-bold">•</span>
+                          <span>{note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
             );

@@ -398,20 +398,37 @@ export default function ContributionsPage() {
 
         {/* Tabs */}
         {!isNotContributor && (
-          <div className="flex overflow-x-auto gap-2 pb-2 mb-6 scrollbar-hide">
-            {TABS.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => setActiveStatusTab(tab.value)}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all ${activeStatusTab === tab.value
-                  ? "bg-primary-600 text-white shadow-md border-primary-600"
-                  : "bg-white text-neutral-600 border border-neutral-200 hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200"
-                  }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="mb-6 space-y-3">
+            <div className="rounded-2xl border border-primary-200/80 bg-white px-4 py-3">
+              <p className="text-sm font-semibold text-primary-800 mb-2">Theo dõi luồng kiểm duyệt 3 bước</p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                {[
+                  "Khởi tạo bản nháp",
+                  "Bước 1: Sàng lọc ban đầu",
+                  "Bước 2: Xác minh chi tiết",
+                  "Bước 3: Phê duyệt xuất bản",
+                ].map((step) => (
+                  <span key={step} className="inline-flex items-center rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-primary-700">
+                    {step}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setActiveStatusTab(tab.value)}
+                  className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all ${activeStatusTab === tab.value
+                    ? "bg-primary-600 text-white shadow-md border-primary-600"
+                    : "bg-white text-neutral-600 border border-neutral-200 hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200"
+                    }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
