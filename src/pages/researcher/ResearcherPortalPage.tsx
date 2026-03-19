@@ -292,6 +292,11 @@ export default function ResearcherPortalPage() {
     return { ethnicities, instruments, edges };
   }, [approvedRecordings]);
 
+  // Clear selected node when switching graph view to avoid stale "Bản thu liên quan".
+  useEffect(() => {
+    setSelectedGraphNode(null);
+  }, [graphView]);
+
   // Load expert-approved recordings (contributor contributions approved by expert)
   useEffect(() => {
     let cancelled = false;
@@ -442,7 +447,7 @@ export default function ResearcherPortalPage() {
     try {
       const reply = await sendResearcherChatMessage(text);
       const content = reply ?? CHAT_API_FALLBACK;
-      const citations = buildCitationCandidates(text, filteredResults);
+      const citations = buildCitationCandidates(text, approvedRecordings);
       setChatMessages((prev) => [...prev, { role: "assistant", content, citations }]);
       void pushAiResponseForExpertReview(text, content, citations);
     } catch {
@@ -450,7 +455,7 @@ export default function ResearcherPortalPage() {
     } finally {
       setIsTyping(false);
     }
-  }, [chatInput, filteredResults, pushAiResponseForExpertReview]);
+  }, [chatInput, approvedRecordings, pushAiResponseForExpertReview]);
 
   const handleQaKeyDown = async (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -474,7 +479,7 @@ export default function ResearcherPortalPage() {
     try {
       const reply = await sendResearcherChatMessage(text);
       const content = reply ?? CHAT_API_FALLBACK;
-      const citations = buildCitationCandidates(text, filteredResults);
+      const citations = buildCitationCandidates(text, approvedRecordings);
       setChatMessages((prev) => [...prev, { role: "assistant", content, citations }]);
       void pushAiResponseForExpertReview(text, content, citations);
     } catch {
@@ -482,7 +487,7 @@ export default function ResearcherPortalPage() {
     } finally {
       setIsTyping(false);
     }
-  }, [filteredResults, pushAiResponseForExpertReview]);
+  }, [approvedRecordings, pushAiResponseForExpertReview]);
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
     { id: "search", label: "Tìm kiếm nâng cao", icon: Search },
@@ -1238,7 +1243,9 @@ export default function ResearcherPortalPage() {
                 )}
               </div>
 
-              {selectedGraphNode && (
+              {(graphView === "instruments" || graphView === "ethnicity") &&
+                selectedGraphNode &&
+                selectedGraphNode.type === (graphView === "instruments" ? "instrument" : "ethnicity") && (
                 <div className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6">
                   <h3 className="text-base sm:text-lg font-semibold text-primary-800 mb-3">
                     Bản thu liên quan: {selectedGraphNode.name}
