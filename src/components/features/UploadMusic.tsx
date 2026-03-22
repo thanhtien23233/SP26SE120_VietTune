@@ -16,8 +16,10 @@ import { getAddressFromCoordinates } from "@/services/geocodeService";
 import { referenceDataService, type EthnicGroupItem, type CeremonyItem, type ProvinceItem, type DistrictItem, type CommuneItem, type VocalStyleItem, type MusicalScaleItem, type InstrumentItem } from "@/services/referenceDataService";
 import { uploadFileToSupabase } from "@/services/uploadService";
 import { recordingService } from "@/services/recordingService";
+import type { RecordingDto } from "@/services/recordingDto";
 import { submissionService } from "@/services/submissionService";
 import { notify } from "@/stores/notificationStore";
+import { isAxiosError } from "axios";
 
 // Extended type for local recording storage (supports both legacy and new formats)
 type LocalRecordingStorage = LocalRecording & {
@@ -1895,6 +1897,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
     })();
     return () => { cancelled = true; };
+    // Intentionally run once on mount for admin hierarchy prefetch (edit mode).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isEditModeParam/recordingId would re-fetch unnecessarily
   }, []);
 
   // Fetch districts when province changes
@@ -2416,7 +2420,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         setCreatedRecordingId("EDIT_MODE_UPLOADED");
       }
       setUploadProgress(100);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Lỗi khi tải lên file hoặc tạo bản thu:", error);
       setErrors((prev) => ({
         ...prev,
@@ -2541,6 +2545,15 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     additionalNotes?: { description?: string; fieldNotes?: string; transcription?: string };
     adminInfo?: { collector?: string; copyright?: string; archiveOrg?: string; catalogId?: string };
     file?: { name?: string; size?: number; type?: string; duration?: number; bitrate?: number; sampleRate?: number };
+    culturalContext?: NonNullable<LocalRecordingStorage["culturalContext"]> & {
+      communeId?: string | null;
+      ethnicGroupId?: string | null;
+      ceremonyId?: string | null;
+      vocalStyleId?: string | null;
+      musicalScaleId?: string | null;
+    };
+    videoFileUrl?: string | null;
+    audioFileUrl?: string | null;
   };
 
   // Load editing recording: by recordingId (EditRecordingPage) or from session (ContributionsPage → /upload?edit=true)
@@ -2609,11 +2622,11 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
             setInstruments(incomingInst);
           }
 
-          setInitialCommuneId((recording.culturalContext as any)?.communeId || null);
-          setInitialEthnicGroupId((recording.culturalContext as any)?.ethnicGroupId || null);
-          setInitialCeremonyId((recording.culturalContext as any)?.ceremonyId || null);
-          setInitialVocalStyleId((recording.culturalContext as any)?.vocalStyleId || null);
-          setInitialMusicalScaleId((recording.culturalContext as any)?.musicalScaleId || null);
+          setInitialCommuneId(recording.culturalContext?.communeId || null);
+          setInitialEthnicGroupId(recording.culturalContext?.ethnicGroupId || null);
+          setInitialCeremonyId(recording.culturalContext?.ceremonyId || null);
+          setInitialVocalStyleId(recording.culturalContext?.vocalStyleId || null);
+          setInitialMusicalScaleId(recording.culturalContext?.musicalScaleId || null);
 
           setDescription(recording.additionalNotes?.description || "");
           setFieldNotes(recording.additionalNotes?.fieldNotes || "");
@@ -2624,16 +2637,17 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           setCatalogId(recording.adminInfo?.catalogId || "");
 
           effectiveMediaType = (recording.mediaType || "audio") as "audio" | "video";
+          const lr = recording as LoadedRecording;
           const src =
-            (recording.youtubeUrl && typeof recording.youtubeUrl === "string" && recording.youtubeUrl.trim())
-              ? recording.youtubeUrl.trim()
+            (lr.youtubeUrl && typeof lr.youtubeUrl === "string" && lr.youtubeUrl.trim())
+              ? lr.youtubeUrl.trim()
               : (effectiveMediaType === "video"
-                ? ((recording as any).videoFileUrl || recording.videoData || null)
-                : ((recording as any).audioFileUrl || (recording as any).audioUrl || recording.audioData || null));
+                ? (lr.videoFileUrl || lr.videoData || null)
+                : (lr.audioFileUrl || lr.audioUrl || lr.audioData || null));
 
           setExistingMediaSrc(typeof src === "string" && src.trim().length > 0 ? src : null);
           setExistingMediaInfo({
-            name: (recording as any).audioFileUrl || (recording as any).videoFileUrl
+            name: lr.audioFileUrl || lr.videoFileUrl
               ? "Tệp tin từ máy chủ"
               : (recording.file?.name || (effectiveMediaType === "video" ? "Video đã tải lên" : "Âm thanh đã tải lên")),
             size: Number(recording.file?.size || 0),
@@ -2659,7 +2673,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           const editingData = sessionGetItem("editingRecording");
           if (!editingData) return;
 
-          const recording = JSON.parse(editingData);
+          const recording = JSON.parse(editingData) as LoadedRecording;
           if (cancelled) return;
 
           setEditingRecordingId(recording.recordingId || null);
@@ -2717,11 +2731,11 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
             setInstruments(incomingInst);
           }
 
-          setInitialCommuneId((recording.culturalContext as any)?.communeId || null);
-          setInitialEthnicGroupId((recording.culturalContext as any)?.ethnicGroupId || null);
-          setInitialCeremonyId((recording.culturalContext as any)?.ceremonyId || null);
-          setInitialVocalStyleId((recording.culturalContext as any)?.vocalStyleId || null);
-          setInitialMusicalScaleId((recording.culturalContext as any)?.musicalScaleId || null);
+          setInitialCommuneId(recording.culturalContext?.communeId || null);
+          setInitialEthnicGroupId(recording.culturalContext?.ethnicGroupId || null);
+          setInitialCeremonyId(recording.culturalContext?.ceremonyId || null);
+          setInitialVocalStyleId(recording.culturalContext?.vocalStyleId || null);
+          setInitialMusicalScaleId(recording.culturalContext?.musicalScaleId || null);
 
           setDescription(recording.additionalNotes?.description || "");
           setFieldNotes(recording.additionalNotes?.fieldNotes || "");
@@ -2731,22 +2745,26 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           setArchiveOrg(recording.adminInfo?.archiveOrg || "");
           setCatalogId(recording.adminInfo?.catalogId || "");
 
-          const existing = await getLocalRecordingFull(recording.id) as LocalRecordingStorage | null;
+          const storageKey = recording.recordingId ?? recording.id;
+          const existing = storageKey
+            ? ((await getLocalRecordingFull(storageKey)) as LocalRecordingStorage | null)
+            : null;
           if (cancelled) return;
           const existingLoaded = existing as LoadedRecording | null;
-          const recordingLoaded = recording as LoadedRecording;
+          const recordingLoaded = recording;
 
           effectiveMediaType = (existing?.mediaType || recording.mediaType || "audio") as "audio" | "video";
+          const lr = recording as LoadedRecording;
           const src =
             (existing?.youtubeUrl && typeof existing.youtubeUrl === "string" && existing.youtubeUrl.trim())
               ? existing.youtubeUrl.trim()
               : (effectiveMediaType === "video"
-                ? ((recording as any).videoFileUrl || existing?.videoData || recording.videoData || null)
-                : ((recording as any).audioFileUrl || (recording as any).audioUrl || existing?.audioData || recording.audioData || null));
+                ? (lr.videoFileUrl || existing?.videoData || recording.videoData || null)
+                : (lr.audioFileUrl || lr.audioUrl || existing?.audioData || recording.audioData || null));
 
           setExistingMediaSrc(typeof src === "string" && src.trim().length > 0 ? src : null);
           setExistingMediaInfo({
-            name: (recording as any).audioFileUrl || (recording as any).videoFileUrl
+            name: lr.audioFileUrl || lr.videoFileUrl
               ? "Tệp tin từ máy chủ"
               : (existingLoaded?.file?.name || recordingLoaded?.file?.name || (effectiveMediaType === "video" ? "Video đã tải lên" : "Âm thanh đã tải lên")),
             size: Number(existingLoaded?.file?.size || recordingLoaded?.file?.size || 0),
@@ -2792,7 +2810,20 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         .filter((name): name is string => !!name);
       if (names.length > 0) setInstruments(names);
     }
-  }, [isEditMode, initialEthnicGroupId, ethnicGroupsData, initialCeremonyId, ceremoniesData, initialVocalStyleId, vocalStylesData, initialMusicalScaleId, musicalScalesData, initialInstrumentIds, instrumentsData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot ID→name when lookups load; full deps would overwrite user edits
+  }, [
+    isEditMode,
+    initialEthnicGroupId,
+    ethnicGroupsData,
+    initialCeremonyId,
+    ceremoniesData,
+    initialVocalStyleId,
+    vocalStylesData,
+    initialMusicalScaleId,
+    musicalScalesData,
+    initialInstrumentIds,
+    instrumentsData,
+  ]);
 
   // Resolve Commune/Province hierarchical data
   useEffect(() => {
@@ -2812,7 +2843,14 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         }
       }
     }
-  }, [isEditMode, initialCommuneId, communesData, districtsData, provincesData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot commune chain; commune in deps re-runs after setCommune
+  }, [
+    isEditMode,
+    initialCommuneId,
+    communesData,
+    districtsData,
+    provincesData,
+  ]);
 
   // Disable body scroll when dialogs are open
   useEffect(() => {
@@ -3000,8 +3038,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
       const finalMediaUrl = newUploadedUrl || existingMediaSrc || "";
 
-      // 2. Construct API Payload matching the user's requested structure (PUT /api/Recording/{id})
-      const payload: any = {
+      // 2. Construct API payload (PUT /Recording/{id}/upload — RecordingDto)
+      const payload: RecordingDto = {
         title: title || undefined,
         description: description || undefined,
         audioFileUrl: mediaType === "audio" ? finalMediaUrl : undefined,
@@ -3053,33 +3091,38 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         notify.success("Thành công", isEditMode ? "Đã cập nhật bản chỉnh sửa." : "Đã lưu bản nháp thành công.");
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Lỗi khi lưu dữ liệu:", error);
-      // ... error handling logic ...
 
       setIsSubmitting(false);
-      // Extract detailed validation errors from Axios response if available
       let errorDetail = "Lỗi không xác định khi lưu dữ liệu. Vui lòng thử lại.";
-      if (error.response && error.response.data) {
-        console.error("Backend Error Data:", error.response.data);
-        if (typeof error.response.data === 'string') {
-          errorDetail = `Lỗi từ server: ${error.response.data}`;
-        } else if (Array.isArray(error.response.data.errors)) {
-          const msgs = error.response.data.errors.map((e: any) => typeof e === 'string' ? e : JSON.stringify(e));
-          errorDetail = `Lỗi hệ thống: ${error.response.data.message || ''} - ${msgs.join(' | ')}`;
-        } else if (error.response.data.errors && typeof error.response.data.errors === 'object') {
-          // ASP.NET Core validation errors format
-          const validationErrors = Object.entries(error.response.data.errors)
-            .map(([field, msgs]) => {
-              if (Array.isArray(msgs)) return `${field}: ${msgs.join(', ')}`;
-              return `${field}: ${JSON.stringify(msgs)}`;
-            })
-            .join(' | ');
-          errorDetail = `Lỗi dữ liệu: ${validationErrors}`;
-        } else if (error.response.data.message) {
-          errorDetail = error.response.data.message;
-        } else {
-          errorDetail = `Lỗi từ server: ${JSON.stringify(error.response.data)}`;
+      if (isAxiosError(error) && error.response?.data !== undefined) {
+        const data = error.response.data;
+        console.error("Backend Error Data:", data);
+        if (typeof data === "string") {
+          errorDetail = `Lỗi từ server: ${data}`;
+        } else if (typeof data === "object" && data !== null) {
+          const rec = data as Record<string, unknown>;
+          const rawErrors = rec.errors;
+          if (Array.isArray(rawErrors)) {
+            const msgs = rawErrors.map((e: unknown) =>
+              typeof e === "string" ? e : JSON.stringify(e)
+            );
+            const msg = typeof rec.message === "string" ? rec.message : "";
+            errorDetail = `Lỗi hệ thống: ${msg} - ${msgs.join(" | ")}`;
+          } else if (rawErrors && typeof rawErrors === "object") {
+            const validationErrors = Object.entries(rawErrors as Record<string, unknown>)
+              .map(([field, msgs]) => {
+                if (Array.isArray(msgs)) return `${field}: ${msgs.join(", ")}`;
+                return `${field}: ${JSON.stringify(msgs)}`;
+              })
+              .join(" | ");
+            errorDetail = `Lỗi dữ liệu: ${validationErrors}`;
+          } else if (typeof rec.message === "string") {
+            errorDetail = rec.message;
+          } else {
+            errorDetail = `Lỗi từ server: ${JSON.stringify(data)}`;
+          }
         }
       } else if (error instanceof Error) {
         errorDetail = `Lỗi: ${error.message}. Vui lòng thử lại.`;
@@ -3154,7 +3197,6 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   }, [
     file,
     isEditMode,
-    existingMediaSrc,
     title,
     artist,
     artistUnknown,

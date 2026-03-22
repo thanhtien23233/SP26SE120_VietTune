@@ -288,10 +288,14 @@ export interface LocalRecording {
     claimedBy?: string | null;
     claimedByName?: string | null;
     claimedAt?: string | null;
+    /** Phase 2: server returned 403 on assign — claim kept in local overlay only. */
+    assignBlockedByRbac?: boolean;
     reviewerId?: string | null;
     reviewerName?: string | null;
     reviewedAt?: string | null;
     rejectionNote?: string;
+    /** Ghi chú chuyên gia (Phase 1: local overlay; Phase 2: API / audit). */
+    notes?: string;
     /** True khi expert từ chối vĩnh viễn bản thu mà contributor đã chỉnh sửa (resubmission): contributor không được chỉnh sửa nữa, chỉ được yêu cầu xóa; chỉ expert được chỉnh sửa. */
     contributorEditLocked?: boolean;
   };

@@ -21,10 +21,13 @@ export const authService = {
       isActive: boolean;
     }
     try {
-      const response = await api.post<any>("/auth/login", credentials);
+      const response = await api.post<LoginResponse | { data: LoginResponse }>("/auth/login", credentials);
       
       // Handle both { token, ... } and { data: { token, ... } } structures
-      const authData: LoginResponse = response.token ? response : response.data;
+      const authData: LoginResponse =
+        response && typeof response === "object" && "token" in response && (response as LoginResponse).token
+          ? (response as LoginResponse)
+          : (response as { data: LoginResponse }).data;
       
       if (authData && authData.token) {
         await setItem("access_token", authData.token);

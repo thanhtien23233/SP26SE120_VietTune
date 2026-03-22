@@ -26,7 +26,11 @@ export default function ConfirmAccountPage() {
       const result = await authService.confirmEmail(data.otp);
       
       // Since axios only resolves on 2xx, reaching here means success at HTTP level
-      notify.success("Thành công", (result as any)?.message || "Xác thực tài khoản thành công.");
+      const msg =
+        result && typeof result === "object" && "message" in result && typeof (result as { message?: unknown }).message === "string"
+          ? (result as { message: string }).message
+          : "Xác thực tài khoản thành công.";
+      notify.success("Thành công", msg);
       // Navigate to login after successful confirmation so they can now enter the system
       navigate("/login");
     } catch (error: unknown) {

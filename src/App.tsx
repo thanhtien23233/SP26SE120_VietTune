@@ -31,11 +31,13 @@ import ForbiddenPage from "./pages/ForbiddenPage";
 import ScrollToTop from "./components/common/ScrollToTop";
 import NotificationProvider from "./components/common/NotificationProvider";
 import ErrorBoundary from "./components/common/ErrorBoundary";
+import { Toaster } from "react-hot-toast";
 
 // Root wrapper to provide shared context/components within the RouterProvider
 function RootWrapper() {
   return (
     <NotificationProvider>
+      <Toaster position="top-center" toastOptions={{ duration: 5000 }} />
       <ScrollToTop />
       <Outlet />
     </NotificationProvider>

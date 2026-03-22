@@ -5,6 +5,7 @@ import {
   PaginatedResponse,
   ApiResponse
 } from '@/types';
+import type { RecordingDto } from '@/services/recordingDto';
 
 export const recordingService = {
   // Get all recordings with pagination (backend: GET /api/Recording)
@@ -34,8 +35,8 @@ export const recordingService = {
     return api.post<ApiResponse<Recording>>('/Recording', data);
   },
 
-  // Update recording (backend: PUT /api/Recording/{id})
-  updateRecording: async (id: string, data: Partial<Recording>) => {
+  // Update recording (backend: PUT /api/Recording/{id}/upload — OpenAPI RecordingDto)
+  updateRecording: async (id: string, data: RecordingDto) => {
     return api.put<ApiResponse<Recording>>(`/Recording/${id}/upload`, data);
   },
 

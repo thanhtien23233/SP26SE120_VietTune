@@ -43,7 +43,11 @@ export default function RegisterPage() {
       const result = await authService.registerResearcher(payload);
       
       // Since axios only resolves on 2xx, reaching here means success
-      notify.success("Thành công", (result as any)?.message || "Đăng ký thành công. Vui lòng xác thực tài khoản.");
+      const msg =
+        result && typeof result === "object" && "message" in result && typeof (result as { message?: unknown }).message === "string"
+          ? (result as { message: string }).message
+          : "Đăng ký thành công. Vui lòng xác thực tài khoản.";
+      notify.success("Thành công", msg);
       navigate("/confirm-account");
     } catch (error: unknown) {
       const errorMessage =

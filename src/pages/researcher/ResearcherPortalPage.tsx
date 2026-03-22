@@ -30,6 +30,19 @@ interface SearchFiltersState {
   ceremony: string;
 }
 
+function extractRecordingListFromApiResponse(res: unknown): Recording[] {
+  if (!res || typeof res !== "object") return [];
+  const r = res as Record<string, unknown>;
+  if (Array.isArray(r.items)) return r.items as Recording[];
+  const data = r.data;
+  if (Array.isArray(data)) return data as Recording[];
+  if (data && typeof data === "object") {
+    const d = data as Record<string, unknown>;
+    if (Array.isArray(d.items)) return d.items as Recording[];
+  }
+  return [];
+}
+
 const QUICK_QUESTIONS = [
   "Đàn bầu có đặc điểm gì?",
   "So sánh nhạc cưới Tày và Thái",
@@ -193,7 +206,7 @@ export default function ResearcherPortalPage() {
       setSearchLoading(true);
       try {
         const res = await recordingService.getRecordings(1, 500);
-        const items = Array.isArray((res as any)?.items) ? (res as any).items : (Array.isArray((res as any)?.data?.items) ? (res as any).data.items : (Array.isArray((res as any)?.data) ? (res as any).data : []));
+        const items = extractRecordingListFromApiResponse(res);
         if (!cancelled) setApprovedRecordings(items);
       } catch (err) {
         console.error("Failed to load approved recordings:", err);

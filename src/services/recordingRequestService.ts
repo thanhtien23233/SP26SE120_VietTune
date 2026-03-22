@@ -27,6 +27,26 @@ function safeArray<T>(data: unknown): T[] {
   return [];
 }
 
+/** Loose shape returned by `/Review/*` list/detail endpoints */
+type ReviewDecisionRow = {
+  id?: string;
+  submissionId?: string;
+  recordingId?: string;
+  decision?: string;
+  stage?: string;
+  recordingTitle?: string;
+  comments?: string;
+  status?: string;
+};
+
+function asReviewRowRecord(res: unknown): Record<string, unknown> | null {
+  if (!res || typeof res !== "object") return null;
+  const top = res as Record<string, unknown>;
+  const inner = top.data;
+  if (inner && typeof inner === "object" && !Array.isArray(inner)) return inner as Record<string, unknown>;
+  return top;
+}
+
 export const recordingRequestService = {
   // --- Delete recording requests ---
 
@@ -91,12 +111,13 @@ export const recordingRequestService = {
   ): Promise<{ recordingId: string; recordingTitle: string } | null> {
     try {
       // Get the request details first
-      const res = await api.get<any>(`/Review/${requestId}`);
-      const req = res?.data || res;
+      const res = await api.get<unknown>(`/Review/${requestId}`);
+      const req = asReviewRowRecord(res);
       if (!req) return null;
 
-      const recordingId = req.submissionId || req.recordingId;
-      const recordingTitle = req.recordingTitle || req.comments || "Bản thu";
+      const recordingId = String(req.submissionId ?? req.recordingId ?? "");
+      if (!recordingId) return null;
+      const recordingTitle = String(req.recordingTitle ?? req.comments ?? "Bản thu");
 
       await removeRecordingFromStorage(recordingId);
 
@@ -123,10 +144,11 @@ export const recordingRequestService = {
   async getPendingDeleteRecordingIdsForContributor(contributorId: string): Promise<string[]> {
     try {
       const res = await api.get(`/Review/reviewer/${contributorId}`);
-      const all = safeArray<any>(res);
+      const all = safeArray<ReviewDecisionRow>(res);
       return all
-        .filter((r: any) => r.decision === "delete_request")
-        .map((r: any) => r.submissionId || r.recordingId);
+        .filter((r) => r.decision === "delete_request")
+        .map((r) => r.submissionId || r.recordingId)
+        .filter((id): id is string => !!id);
     } catch {
       return [];
     }
@@ -136,10 +158,11 @@ export const recordingRequestService = {
   async getDeleteApprovedRecordingIdsForContributor(contributorId: string): Promise<string[]> {
     try {
       const res = await api.get(`/Review/reviewer/${contributorId}`);
-      const all = safeArray<any>(res);
+      const all = safeArray<ReviewDecisionRow>(res);
       return all
-        .filter((r: any) => r.decision === "delete_approved")
-        .map((r: any) => r.submissionId || r.recordingId);
+        .filter((r) => r.decision === "delete_approved")
+        .map((r) => r.submissionId || r.recordingId)
+        .filter((id): id is string => !!id);
     } catch {
       return [];
     }
@@ -160,12 +183,13 @@ export const recordingRequestService = {
   },
 
   /** Revoke delete approval */
-  async revokeDeleteApproval(recordingId: string, _contributorId: string): Promise<void> {
+  async revokeDeleteApproval(recordingId: string, contributorId: string): Promise<void> {
+    void contributorId;
     try {
       // Find and remove the approval review
       const res = await api.get(`/Review/decision/delete_approved`);
-      const all = safeArray<any>(res);
-      const match = all.find((r: any) => (r.submissionId || r.recordingId) === recordingId);
+      const all = safeArray<ReviewDecisionRow>(res);
+      const match = all.find((r) => (r.submissionId || r.recordingId) === recordingId);
       if (match) {
         await api.delete(`/Review/${match.id}`);
       }
@@ -223,8 +247,10 @@ export const recordingRequestService = {
   async isEditApprovedForRecording(recordingId: string): Promise<boolean> {
     try {
       const res = await api.get("/Review/decision/edit_approved");
-      const all = safeArray<any>(res);
-      return all.some((r: any) => (r.submissionId || r.recordingId) === recordingId);
+      const all = safeArray<ReviewDecisionRow>(res);
+      return all.some(
+        (r) => (r.submissionId || r.recordingId) === recordingId
+      );
     } catch {
       return false;
     }
@@ -234,10 +260,11 @@ export const recordingRequestService = {
   async getPendingEditRecordingIdsForContributor(contributorId: string): Promise<string[]> {
     try {
       const res = await api.get(`/Review/reviewer/${contributorId}`);
-      const all = safeArray<any>(res);
+      const all = safeArray<ReviewDecisionRow>(res);
       return all
-        .filter((r: any) => r.decision === "edit_request" && r.stage === "pending")
-        .map((r: any) => r.submissionId || r.recordingId);
+        .filter((r) => r.decision === "edit_request" && r.stage === "pending")
+        .map((r) => r.submissionId || r.recordingId)
+        .filter((id): id is string => !!id);
     } catch {
       return [];
     }
@@ -247,8 +274,8 @@ export const recordingRequestService = {
   async revokeApprovedEdit(recordingId: string): Promise<void> {
     try {
       const res = await api.get("/Review/decision/edit_approved");
-      const all = safeArray<any>(res);
-      const match = all.find((r: any) => (r.submissionId || r.recordingId) === recordingId);
+      const all = safeArray<ReviewDecisionRow>(res);
+      const match = all.find((r) => (r.submissionId || r.recordingId) === recordingId);
       if (match) {
         await api.delete(`/Review/${match.id}`);
       }
@@ -292,8 +319,8 @@ export const recordingRequestService = {
   /** Expert: approve edit submission */
   async approveEditSubmission(submissionId: string): Promise<{ recordingId: string; recordingTitle: string } | null> {
     try {
-      const res = await api.get<any>(`/Review/${submissionId}`);
-      const req = res?.data || res;
+      const res = await api.get<unknown>(`/Review/${submissionId}`);
+      const req = asReviewRowRecord(res);
       if (!req) return null;
 
       await api.put(`/Review/${submissionId}`, {
@@ -302,8 +329,8 @@ export const recordingRequestService = {
       });
 
       return {
-        recordingId: req.submissionId || req.recordingId || "",
-        recordingTitle: req.recordingTitle || "",
+        recordingId: String(req.submissionId ?? req.recordingId ?? ""),
+        recordingTitle: String(req.recordingTitle ?? ""),
       };
     } catch {
       return null;
@@ -314,10 +341,11 @@ export const recordingRequestService = {
   async getPendingEditSubmissionRecordingIdsForContributor(contributorId: string): Promise<string[]> {
     try {
       const res = await api.get(`/Review/reviewer/${contributorId}`);
-      const all = safeArray<any>(res);
+      const all = safeArray<ReviewDecisionRow>(res);
       return all
-        .filter((r: any) => r.decision === "edit_submission")
-        .map((r: any) => r.submissionId || r.recordingId);
+        .filter((r) => r.decision === "edit_submission")
+        .map((r) => r.submissionId || r.recordingId)
+        .filter((id): id is string => !!id);
     } catch {
       return [];
     }
@@ -340,7 +368,8 @@ export const recordingRequestService = {
   },
 
   /** Get notifications for current user role */
-  async getNotificationsForRole(_role: UserRole): Promise<AppNotification[]> {
+  async getNotificationsForRole(role: UserRole): Promise<AppNotification[]> {
+    void role;
     try {
       const res = await api.get("/Notification");
       return safeArray<AppNotification>(res);
@@ -367,7 +396,8 @@ export const recordingRequestService = {
   },
 
   /** Mark all notifications as read for current role */
-  async markAllNotificationsReadForRole(_role: UserRole): Promise<void> {
+  async markAllNotificationsReadForRole(role: UserRole): Promise<void> {
+    void role;
     try {
       await api.put("/Notification/read-all", {});
     } catch (err) {
@@ -376,7 +406,8 @@ export const recordingRequestService = {
   },
 
   /** Mark all as unread (no backend endpoint, noop) */
-  async markAllNotificationsUnreadForRole(_role: UserRole): Promise<void> {
+  async markAllNotificationsUnreadForRole(role: UserRole): Promise<void> {
+    void role;
     console.warn("markAllNotificationsUnreadForRole: Not supported by backend API");
   },
 };

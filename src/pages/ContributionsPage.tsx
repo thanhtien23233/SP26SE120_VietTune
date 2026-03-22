@@ -6,7 +6,8 @@ import BackButton from "@/components/common/BackButton";
 import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import { notify } from "@/stores/notificationStore";
 import { LogIn, ChevronLeft, ChevronRight, Clock, FileAudio, AlertCircle, X, Music, User, Loader2, Trash2 } from "lucide-react";
-import { submissionService, type Submission } from "@/services/submissionService";
+import axios from "axios";
+import { submissionService, type Submission, type SubmissionRecording } from "@/services/submissionService";
 import AudioPlayer from "@/components/features/AudioPlayer";
 import VideoPlayer from "@/components/features/VideoPlayer";
 import { isYouTubeUrl } from "@/utils/youtube";
@@ -20,6 +21,12 @@ const formatDuration = (seconds?: number | null) => {
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+/** Backend may expose alternate casing / legacy field names for media URLs. */
+type SubmissionRecordingMedia = SubmissionRecording & {
+  audioUrl?: string | null;
+  audiofileurl?: string | null;
 };
 
 const formatSize = (bytes?: number | null) => {
@@ -135,7 +142,7 @@ export default function ContributionsPage() {
         setSubmissions([]);
         setHasMore(false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to load submissions:", err);
       setError("Không thể tải danh sách đóng góp. Vui lòng thử lại.");
       setSubmissions([]);
@@ -188,15 +195,15 @@ export default function ContributionsPage() {
       recordingId: sub.recordingId,
       mediaType: effectiveMediaType,
       youtubeUrl: rec?.videoFileUrl?.includes("youtube") ? rec.videoFileUrl : null,
-      audioData: effectiveMediaType === "audio" ? (rec as any)?.audioFileUrl || (rec as any)?.audioUrl : null,
+      audioData: effectiveMediaType === "audio" ? rec?.audioFileUrl || (rec as SubmissionRecordingMedia).audioUrl : null,
       videoData: effectiveMediaType === "video" ? rec.videoFileUrl : null,
       basicInfo: {
         title: rec?.title || "",
         artist: rec?.performerName || "",
-        composer: (rec as any).composer || "",
-        language: (rec as any).language || "",
+        composer: rec?.composer || "",
+        language: rec?.language || "",
         genre: "",
-        recordingLocation: (rec as any).recordingLocation || "",
+        recordingLocation: rec?.recordingLocation || "",
         recordingDate: rec?.recordingDate || "",
       },
       culturalContext: {
@@ -244,7 +251,7 @@ export default function ContributionsPage() {
       
       // 4. Cleanup files
       if (submissionToDelete?.recording) {
-        const rec = submissionToDelete.recording as any;
+        const rec = submissionToDelete.recording as SubmissionRecordingMedia;
         const urls = [rec.audioUrl, rec.audioFileUrl, rec.audiofileurl, rec.videoFileUrl];
         const supabaseUrls = [...new Set(urls.filter((url): url is string => !!url && url.includes("supabase.co")))];
 
@@ -254,8 +261,9 @@ export default function ContributionsPage() {
       }
 
       notify.success("Thành công", "Bản đóng góp đã được xóa.");
-    } catch (err: any) {
-      const isActuallySuccess = [200, 201, 204, 400, 404].includes(err.response?.status);
+    } catch (err: unknown) {
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+      const isActuallySuccess = status !== undefined && [200, 201, 204, 400, 404].includes(status);
       
       if (!isActuallySuccess) {
         console.error("Delete call background error:", err);
@@ -269,7 +277,7 @@ export default function ContributionsPage() {
       } else {
         // Even if we got a 400/404, the deletion happened, so clean up files now
         if (submissionToDelete?.recording) {
-          const rec = submissionToDelete.recording as any;
+          const rec = submissionToDelete.recording as SubmissionRecordingMedia;
           const urls = [rec.audioUrl, rec.audioFileUrl, rec.audiofileurl, rec.videoFileUrl];
           const supabaseUrls = [...new Set(urls.filter((url): url is string => !!url && url.includes("supabase.co")))];
 
@@ -602,7 +610,8 @@ export default function ContributionsPage() {
                         const performer = rec.performerName || "Đang cập nhật...";
 
                         // Try all possible media source fields from backend
-                        const audioSrc = (rec as any).audioFileUrl || (rec as any).audioUrl;
+                        const recMedia = rec as SubmissionRecordingMedia;
+                        const audioSrc = recMedia.audioFileUrl || recMedia.audioUrl;
                         const videoSrc = rec.videoFileUrl;
 
                         if (videoSrc && (isYouTubeUrl(videoSrc) || videoSrc.match(/\.(mp4|webm|ogg)$/i) || videoSrc.startsWith('data:video/'))) {
@@ -679,9 +688,14 @@ export default function ContributionsPage() {
                       } else {
                         notify.error("Lỗi", res?.message || "Không thể gửi yêu cầu chỉnh sửa.");
                       }
-                    } catch (err: any) {
+                    } catch (err: unknown) {
                       console.error("Failed to request edit:", err);
-                      notify.error("Lỗi", err.response?.data?.message || err.message || "Đã xảy ra lỗi khi gửi yêu cầu chỉnh sửa.");
+                      const apiMsg =
+                        axios.isAxiosError(err) && err.response?.data && typeof err.response.data === "object" && "message" in err.response.data
+                          ? String((err.response.data as { message?: string }).message ?? "")
+                          : "";
+                      const fallback = err instanceof Error ? err.message : "";
+                      notify.error("Lỗi", apiMsg || fallback || "Đã xảy ra lỗi khi gửi yêu cầu chỉnh sửa.");
                     } finally {
                       setIsRequestingEdit(false);
                     }

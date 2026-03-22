@@ -6,6 +6,11 @@
  */
 
 import { api } from "@/services/api";
+import { buildRecordingUploadPayload } from "@/services/recordingDto";
+import {
+  extractSubmissionRows,
+  mapSubmissionToLocalRecording,
+} from "@/services/submissionApiMapper";
 import type { LocalRecording } from "@/types";
 
 // NOTE: Since we are moving entirely to the backend, these functions now serve as thin adapters
@@ -13,8 +18,10 @@ import type { LocalRecording } from "@/types";
 
 export async function getLocalRecordingIds(): Promise<string[]> {
   try {
-    const res = await api.get<{ data: any[] }>("/Submission/my");
-    return (res.data || []).map((x: any) => x.id);
+    const res = await api.get<unknown>("/Submission/my");
+    return extractSubmissionRows(res)
+      .map((x) => x.id as string | undefined)
+      .filter((id): id is string => !!id);
   } catch (err) {
     console.warn("Failed to get submission IDs", err);
     return [];
@@ -23,18 +30,8 @@ export async function getLocalRecordingIds(): Promise<string[]> {
 
 export async function getLocalRecordingMetaList(): Promise<LocalRecording[]> {
   try {
-    const res = await api.get<{ data: any[] }>("/Submission/my");
-    return (res.data || []).map((x: any) => ({
-      id: x.id,
-      title: x.title || "Không có tiêu đề",
-      mediaType: x.audioFileUrl ? "audio" : x.videoFileUrl ? "video" : undefined,
-      audioUrl: x.audioFileUrl,
-      videoData: x.videoFileUrl,
-      moderation: { status: x.status || "PENDING" },
-      uploadedDate: x.createdAt || new Date().toISOString(),
-      basicInfo: { title: x.title, artist: x.performerName },
-      uploader: { id: x.uploadedById }
-    } as unknown as LocalRecording));
+    const res = await api.get<unknown>("/Submission/my");
+    return extractSubmissionRows(res).map((row) => mapSubmissionToLocalRecording(row));
   } catch (err) {
     console.warn("Failed to get submissions list", err);
     return [];
@@ -45,21 +42,11 @@ export async function getLocalRecordingFull(
   id: string,
 ): Promise<LocalRecording | null> {
   try {
-    // Try to get submission first
-    const res = await api.get<{ data: any }>(`/Submission/${id}`);
-    const x = res.data;
-    if (!x) return null;
-    return {
-      id: x.id,
-      title: x.title || "Không có tiêu đề",
-      mediaType: x.audioFileUrl ? "audio" : x.videoFileUrl ? "video" : undefined,
-      audioUrl: x.audioFileUrl,
-      videoData: x.videoFileUrl,
-      moderation: { status: x.status || "PENDING" },
-      uploadedDate: x.createdAt || new Date().toISOString(),
-      basicInfo: { title: x.title, artist: x.performerName },
-      uploader: { id: x.uploadedById }
-    } as unknown as LocalRecording;
+    const res = await api.get<unknown>(`/Submission/${id}`);
+    const envelope = res as Record<string, unknown>;
+    const x = (envelope?.data ?? res) as Record<string, unknown> | null;
+    if (!x || typeof x !== "object") return null;
+    return mapSubmissionToLocalRecording(x);
   } catch (err) {
     return null;
   }
@@ -68,10 +55,11 @@ export async function getLocalRecordingFull(
 export async function setLocalRecording(
   recording: LocalRecording,
 ): Promise<void> {
-  // If it has an ID and it's not a local string, it might be an update
+  // Remote update: OpenAPI PUT /Recording/{id}/upload with RecordingDto body (no extra properties).
   if (recording.id && !recording.id.startsWith("local-")) {
     try {
-      await api.put(`/Recording/${recording.id}`, recording);
+      const body = buildRecordingUploadPayload(recording);
+      await api.put(`/Recording/${recording.id}/upload`, body);
       return;
     } catch {
       // Fallback to create if update fails

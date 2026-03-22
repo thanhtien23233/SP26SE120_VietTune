@@ -85,6 +85,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  * Preferred hook for accessing auth state in components.
  * Uses AuthContext if available, falls back to authStore directly.
  */
+// Fast refresh: hook co-located with provider is intentional for this module.
+// eslint-disable-next-line react-refresh/only-export-components -- useAuth must live next to AuthProvider
 export function useAuth(): AuthContextValue {
     const ctx = useContext(AuthContext);
 

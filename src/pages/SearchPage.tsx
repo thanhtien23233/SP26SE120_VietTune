@@ -75,7 +75,7 @@ export default function SearchPage() {
     setLoading(true);
     try {
       type ApiResponseType = { items: Recording[]; total: number; totalPages: number };
-      let response: any;
+      let response: ApiResponseType | unknown;
       if (Object.keys(filters).length > 0) {
         response = await recordingService.searchRecordings(
           filters,
