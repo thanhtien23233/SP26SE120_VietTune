@@ -1,131 +1,109 @@
 ﻿{
   "type": "object",
   "properties": {
-    "analyses": {
+    "title": {
+      "type": "string",
+      "description": "Tên bài hát / bản ghi nhận dạng được"
+    },
+    "tempo": {
+      "type": "number",
+      "description": "Nhịp độ BPM"
+    },
+    "keySignature": {
+      "type": "string",
+      "enum": ["ngũ cung Bắc Bộ", "ngũ cung Nam Bộ", "chromatic", "unknown"]
+    },
+    "ethnicGroup": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"],
+      "description": "Dân tộc — lấy từ DB Reference"
+    },
+    "language": {
+      "type": "string",
+      "enum": [
+        "tiếng Tày", "tiếng Nùng", "tiếng Việt", "tiếng Chăm",
+        "tiếng Thái", "tiếng H'Mông", "instrumental", "unknown"
+      ]
+    },
+    "instruments": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "title": {
-            "type": "string",
-            "description": "Tên bài hát / bản ghi nhận dạng được"
-          },
-          "description": {
-            "type": "string",
-            "description": "Mô tả ngắn về nội dung bản ghi"
-          },
-          "tempo": {
-            "type": "number",
-            "description": "Nhịp độ (BPM)"
-          },
-          "keySignature": {
-            "type": "string",
-            "enum": [
-              "ngũ cung Bắc Bộ",
-              "ngũ cung Nam Bộ",
-              "chromatic",
-              "unknown"
-            ]
-          },
-          "ethnicGroup": {
-            "type": "string",
-            "description": "Tên dân tộc từ danh sách DB (xem context)"
-          },
-          "language": {
-            "type": "string",
-            "enum": [
-              "tiếng Tày",
-              "tiếng Nùng",
-              "tiếng Việt",
-              "tiếng Chăm",
-              "tiếng Thái",
-              "tiếng H'Mông",
-              "instrumental",
-              "unknown"
-            ]
-          },
-          "instruments": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "description": "Tên nhạc cụ từ danh sách DB (xem context)"
-            },
-            "description": "Danh sách các nhạc cụ nhận dạng được"
-          },
-          "genre": {
-            "type": "string",
-            "enum": [
-              "Hát Ru",
-              "Quan Họ",
-              "Ca Trù",
-              "Hát Văn",
-              "Nhã Nhạc",
-              "Đờn Ca Tài Tử",
-              "Cải Lương",
-              "Chèo",
-              "Ví Giặm",
-              "Hò",
-              "instrumental",
-              "unknown"
-            ]
-          },
-          "performanceContext": {
-            "type": "string",
-            "enum": [
-              "hát ru",
-              "lễ hội",
-              "nghi lễ",
-              "giải trí",
-              "lao động",
-              "unknown"
-            ],
-            "description": "Bối cảnh trình diễn"
-          },
-          "vocalStyle": {
-            "type": "string",
-            "description": "Tên phong cách giọng hát từ danh sách DB (xem context)"
-          },
-          "musicalScale": {
-            "type": "string",
-            "description": "Tên thang âm / điệu thức từ danh sách DB (xem context)"
-          },
-          "composer": {
-            "type": "string",
-            "description": "Tác giả (null nếu dân gian khuyết danh)"
-          },
-          "recordingLocation": {
-            "type": "string",
-            "description": "Vùng miền / địa phương ước đoán"
-          },
-          "lyricsOriginal": {
-            "type": "string",
-            "description": "Lời gốc phiên âm (nếu nghe được)"
-          },
-          "lyricsVietnamese": {
-            "type": "string",
-            "description": "Bản dịch tiếng Việt (nếu ngôn ngữ gốc khác)"
-          }
+          "id": { "type": "string" },
+          "name": { "type": "string" }
         },
-        "required": [
-          "tempo",
-          "keySignature",
-          "ethnicGroup",
-          "language",
-          "instruments",
-          "genre",
-          "performanceContext"
-        ]
+        "required": ["id", "name"]
       },
-      "minItems": 1,
-      "maxItems": 3
+      "description": "Nhạc cụ — lấy từ DB Reference"
     },
-    "best_match": {
-      "type": "integer",
-      "description": "Index của analysis chính xác nhất (0, 1, hoặc 2)"
+    "genre": {
+      "type": "string",
+      "enum": [
+        "Hát Ru", "Quan Họ", "Ca Trù", "Hát Văn", "Nhã Nhạc",
+        "Đờn Ca Tài Tử", "Cải Lương", "Chèo", "Ví Giặm", "Hò",
+        "instrumental", "unknown"
+      ]
+    },
+    "performanceContext": {
+      "type": "string",
+      "enum": ["hát ru", "lễ hội", "nghi lễ", "giải trí", "lao động", "unknown"]
+    },
+    "ceremony": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"],
+      "description": "Nghi lễ / lễ hội — lấy từ DB Reference (null nếu không xác định)"
+    },
+    "vocalStyle": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"],
+      "description": "Phong cách giọng hát — lấy từ DB Reference (null nếu instrumental)"
+    },
+    "musicalScale": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"],
+      "description": "Thang âm — lấy từ DB Reference (null nếu không xác định)"
+    },
+    "composer": {
+      "type": "string",
+      "description": "Tác giả (null nếu dân gian)"
+    },
+    "recordingLocation": {
+      "type": "string",
+      "description": "Vùng miền / địa phương ước đoán"
+    },
+    "lyricsOriginal": {
+      "type": "string",
+      "description": "Lời gốc (nếu nghe được)"
+    },
+    "lyricsVietnamese": {
+      "type": "string",
+      "description": "Bản dịch tiếng Việt (nếu ngôn ngữ gốc khác)"
     }
   },
   "required": [
-    "analyses",
-    "best_match"
+    "tempo",
+    "keySignature",
+    "ethnicGroup",
+    "language",
+    "instruments",
+    "genre",
+    "performanceContext"
   ]
 }

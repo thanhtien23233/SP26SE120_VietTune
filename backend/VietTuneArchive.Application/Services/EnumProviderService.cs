@@ -2,25 +2,24 @@
 // Services/EnumProviderService.cs
 // ============================================================
 //
-// Service này chịu trách nhiệm:
-//   1. Đọc file schema + prompt từ Assets
-//   2. Query DB lấy danh sách EthnicGroups, Instruments, VocalStyles, MusicalScales
-//   3. Cache lại để không query mỗi request
-//   4. Inject DB context vào system prompt
+// Giờ inject DB context dạng:
+//   EthnicGroups:
+//     { "id": "uuid-1", "name": "Kinh" }
+//     { "id": "uuid-2", "name": "Tày" }
+//   Instruments:
+//     { "id": "uuid-3", "name": "đàn bầu" }
+//     ...
 //
 // Token budget ước tính:
-//   ~54 ethnic groups  × ~15 chars  = ~200 tokens
-//   ~200 instruments   × ~20 chars  = ~1000 tokens
-//   ~30 vocal styles   × ~20 chars  = ~150 tokens
-//   ~20 musical scales × ~20 chars  = ~100 tokens
-//   ─────────────────────────────────────────────
-//   Tổng thêm: ~1,500 tokens/request (chấp nhận được)
+//   Mỗi item ~25 tokens (uuid + name)
+//   ~300 items × 25 = ~7,500 tokens
+//   Vẫn nằm trong context window thoải mái.
 
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Text;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Domain.Context;
 
@@ -28,17 +27,16 @@ public class EnumProviderService : IEnumProviderService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMemoryCache _cache;
-    private readonly IWebHostEnvironment _env;
+    private readonly IHostEnvironment _env;
     private readonly ILogger<EnumProviderService> _logger;
 
-    // Cache keys
     private const string CacheKey_DbContext = "AI_DbContext";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(6);
 
     public EnumProviderService(
         IServiceScopeFactory scopeFactory,
         IMemoryCache cache,
-        IWebHostEnvironment env,
+        IHostEnvironment env,
         ILogger<EnumProviderService> logger)
     {
         _scopeFactory = scopeFactory;
@@ -48,7 +46,7 @@ public class EnumProviderService : IEnumProviderService
     }
 
     // =================================================================
-    // 1. SCHEMA & PROMPT (đọc file tĩnh)
+    // 1. SCHEMA & PROMPT
     // =================================================================
 
     public string GetJsonSchema()
@@ -62,13 +60,12 @@ public class EnumProviderService : IEnumProviderService
         var path = Path.Combine(_env.ContentRootPath, "Assets", "system_prompt.txt");
         var template = File.ReadAllText(path);
 
-        // Inject DB context vào placeholder {DB_CONTEXT}
         var dbContext = BuildDbContext();
         return template.Replace("{DB_CONTEXT}", dbContext);
     }
 
     // =================================================================
-    // 2. DB CONTEXT BUILDER (cached)
+    // 2. DB CONTEXT BUILDER — id + name format
     // =================================================================
 
     public string BuildDbContext()
@@ -82,56 +79,71 @@ public class EnumProviderService : IEnumProviderService
 
     private string BuildDbContextFromDatabase()
     {
-        // Tạo scope mới vì service này có thể là Singleton
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DBContext>();
 
-        // Query chỉ Name — không lấy Description, ImageUrl... để tiết kiệm token
+        // Query Id + Name cho mỗi category
         var ethnicGroups = db.EthnicGroups
             .OrderBy(e => e.Name)
-            .Select(e => e.Name)
+            .Select(e => new { e.Id, e.Name })
             .ToList();
 
         var instruments = db.Instruments
             .OrderBy(i => i.Name)
-            .Select(i => i.Name)
+            .Select(i => new { i.Id, i.Name })
             .ToList();
 
         var vocalStyles = db.VocalStyles
             .OrderBy(v => v.Name)
-            .Select(v => v.Name)
+            .Select(v => new { v.Id, v.Name })
             .ToList();
 
         var musicalScales = db.MusicalScales
             .OrderBy(m => m.Name)
-            .Select(m => m.Name)
+            .Select(m => new { m.Id, m.Name })
             .ToList();
 
-        // Format compact: mỗi category 1 dòng, phân cách bằng " | "
-        // Tối ưu token hơn so với JSON array
-        var sb = new System.Text.StringBuilder();
+        var ceremonies = db.Ceremonies
+            .OrderBy(c => c.Name)
+            .Select(c => new { c.Id, c.Name })
+            .ToList();
 
-        sb.AppendLine($"EthnicGroups: {string.Join(" | ", ethnicGroups)}");
-        sb.AppendLine($"Instruments: {string.Join(" | ", instruments)}");
-        sb.AppendLine($"VocalStyles: {string.Join(" | ", vocalStyles)}");
-        sb.AppendLine($"MusicalScales: {string.Join(" | ", musicalScales)}");
+        var sb = new StringBuilder();
+
+        sb.AppendLine("EthnicGroups:");
+        foreach (var e in ethnicGroups)
+            sb.AppendLine($"  {{ \"id\": \"{e.Id}\", \"name\": \"{e.Name}\" }}");
+
+        sb.AppendLine("Instruments:");
+        foreach (var i in instruments)
+            sb.AppendLine($"  {{ \"id\": \"{i.Id}\", \"name\": \"{i.Name}\" }}");
+
+        sb.AppendLine("VocalStyles:");
+        foreach (var v in vocalStyles)
+            sb.AppendLine($"  {{ \"id\": \"{v.Id}\", \"name\": \"{v.Name}\" }}");
+
+        sb.AppendLine("MusicalScales:");
+        foreach (var m in musicalScales)
+            sb.AppendLine($"  {{ \"id\": \"{m.Id}\", \"name\": \"{m.Name}\" }}");
+
+        sb.AppendLine("Ceremonies:");
+        foreach (var c in ceremonies)
+            sb.AppendLine($"  {{ \"id\": \"{c.Id}\", \"name\": \"{c.Name}\" }}");
 
         _logger.LogInformation(
-            "Built DB context: {EthnicCount} ethnicGroups, {InstrumentCount} instruments, " +
-            "{VocalCount} vocalStyles, {ScaleCount} musicalScales",
-            ethnicGroups.Count, instruments.Count, vocalStyles.Count, musicalScales.Count);
+            "Built DB context: {Ethnic} ethnic, {Inst} instruments, {Vocal} vocal, {Scale} scales, {Cere} ceremonies",
+            ethnicGroups.Count, instruments.Count, vocalStyles.Count, musicalScales.Count, ceremonies.Count);
 
         return sb.ToString();
     }
 
     // =================================================================
-    // 3. CACHE REFRESH (gọi khi admin cập nhật data)
+    // 3. CACHE REFRESH
     // =================================================================
 
     public Task RefreshCacheAsync()
     {
         _cache.Remove(CacheKey_DbContext);
-        // Pre-warm cache
         BuildDbContext();
         _logger.LogInformation("AI DB context cache refreshed.");
         return Task.CompletedTask;
