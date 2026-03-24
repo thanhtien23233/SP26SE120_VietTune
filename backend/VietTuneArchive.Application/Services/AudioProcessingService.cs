@@ -66,7 +66,6 @@ public class AudioProcessingService : IAudioProcessingService
             fileUri = await UploadToGeminiAsync(audioBytes, mimeType);
             await WaitForFileActiveAsync(fileUri);
 
-            // Schema từ file tĩnh
             string schemaJson = _enumsProvider.GetJsonSchema();
             var structuredSchema = JsonSerializer.Deserialize<Schema>(schemaJson, new JsonSerializerOptions
             {
@@ -79,7 +78,6 @@ public class AudioProcessingService : IAudioProcessingService
                 ResponseSchema = structuredSchema
             };
 
-            // System prompt ĐÃ ĐƯỢC INJECT DB context bên trong GetSystemPrompt()
             var request = new GenerateContentRequest
             {
                 Contents = new List<Content>
@@ -98,13 +96,49 @@ public class AudioProcessingService : IAudioProcessingService
 
             var response = await _aiModel.GenerateContentAsync(request);
 
+            // === TRÍCH XUẤT TOKEN USAGE ===
+            var tokenUsage = ExtractTokenUsage(response);
+
+            _logger.LogInformation(
+                "Gemini token usage — Prompt: {Prompt}, Candidates: {Candidates}, Total: {Total}",
+                tokenUsage?.PromptTokenCount ?? 0,
+                tokenUsage?.CandidatesTokenCount ?? 0,
+                tokenUsage?.TotalTokenCount ?? 0);
+
             var analysisResult = ParseResponseJson(response.Text);
-            return analysisResult with { GeminiFileUri = fileUri };
+            return analysisResult with
+            {
+                GeminiFileUri = fileUri,
+                TokenUsage = tokenUsage
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Gemini Analysis Failed");
             return GetDefaultResult() with { GeminiFileUri = fileUri };
+        }
+    }
+
+    /// <summary>
+    /// Trích xuất token usage từ GenerateContentResponse.
+    /// Mscc.GenerativeAI SDK map UsageMetadata từ Gemini API response.
+    /// </summary>
+    private static TokenUsageDto? ExtractTokenUsage(GenerateContentResponse response)
+    {
+        try
+        {
+            var usage = response?.UsageMetadata;
+            if (usage == null) return null;
+
+            return new TokenUsageDto(
+                PromptTokenCount: usage.PromptTokenCount,
+                CandidatesTokenCount: usage.CandidatesTokenCount,
+                TotalTokenCount: usage.TotalTokenCount
+            );
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -150,7 +184,7 @@ public class AudioProcessingService : IAudioProcessingService
     }
 
     // =================================================================
-    // 3. PARSING (CẬP NHẬT THEO SCHEMA MỚI)
+    // 3. PARSING — SINGLE RESULT + DbRefDto
     // =================================================================
 
     private AIAnalysisResultDto ParseResponseJson(string jsonString)
@@ -161,44 +195,26 @@ public class AudioProcessingService : IAudioProcessingService
             using var jsonDoc = JsonDocument.Parse(cleanedJson);
             var root = jsonDoc.RootElement;
 
-            var analysesList = new List<AIAnalysisItemDto>();
+            return new AIAnalysisResultDto(
+                // --- Required ---
+                Tempo: SafeGetDouble(root, "tempo"),
+                KeySignature: SafeGetString(root, "keySignature"),
+                EthnicGroup: SafeGetDbRef(root, "ethnicGroup"),
+                Language: SafeGetString(root, "language"),
+                Instruments: SafeGetDbRefList(root, "instruments"),
+                Genre: SafeGetString(root, "genre"),
+                PerformanceContext: SafeGetString(root, "performanceContext"),
 
-            if (root.TryGetProperty("analyses", out var analysesArray)
-                && analysesArray.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var item in analysesArray.EnumerateArray())
-                {
-                    analysesList.Add(new AIAnalysisItemDto(
-                        // --- Required fields ---
-                        Tempo: SafeGetDouble(item, "tempo"),
-                        KeySignature: SafeGetString(item, "keySignature"),
-                        EthnicGroup: SafeGetString(item, "ethnicGroup"),
-                        Language: SafeGetString(item, "language"),
-                        Instruments: SafeGetStringList(item, "instruments"),
-                        Genre: SafeGetString(item, "genre"),
-                        PerformanceContext: SafeGetString(item, "performanceContext"),
-
-                        // --- Optional fields ---
-                        Title: SafeGetNullableString(item, "title"),
-                        Description: SafeGetNullableString(item, "description"),
-                        VocalStyle: SafeGetNullableString(item, "vocalStyle"),
-                        MusicalScale: SafeGetNullableString(item, "musicalScale"),
-                        Composer: SafeGetNullableString(item, "composer"),
-                        RecordingLocation: SafeGetNullableString(item, "recordingLocation"),
-                        LyricsOriginal: SafeGetNullableString(item, "lyricsOriginal"),
-                        LyricsVietnamese: SafeGetNullableString(item, "lyricsVietnamese")
-                    ));
-                }
-            }
-
-            int bestMatch = 0;
-            if (root.TryGetProperty("best_match", out var bmElement)
-                && bmElement.TryGetInt32(out var bmVal))
-            {
-                bestMatch = bmVal;
-            }
-
-            return new AIAnalysisResultDto(analysesList, bestMatch, null);
+                // --- Optional ---
+                Title: SafeGetNullableString(root, "title"),
+                Ceremony: SafeGetDbRef(root, "ceremony"),
+                VocalStyle: SafeGetDbRef(root, "vocalStyle"),
+                MusicalScale: SafeGetDbRef(root, "musicalScale"),
+                Composer: SafeGetNullableString(root, "composer"),
+                RecordingLocation: SafeGetNullableString(root, "recordingLocation"),
+                LyricsOriginal: SafeGetNullableString(root, "lyricsOriginal"),
+                LyricsVietnamese: SafeGetNullableString(root, "lyricsVietnamese")
+            );
         }
         catch (Exception ex)
         {
@@ -210,6 +226,53 @@ public class AudioProcessingService : IAudioProcessingService
     // =================================================================
     // 4. SAFE GETTERS
     // =================================================================
+
+    private static DbRefDto? SafeGetDbRef(JsonElement element, string property)
+    {
+        if (!element.TryGetProperty(property, out var prop))
+            return null;
+
+        if (prop.ValueKind == JsonValueKind.Null)
+            return null;
+
+        if (prop.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var idStr = SafeGetString(prop, "id");
+        var name = SafeGetString(prop, "name");
+
+        if (idStr == "unknown" || !Guid.TryParse(idStr, out var guid))
+            return null;
+
+        return new DbRefDto(guid, name);
+    }
+
+    private static List<DbRefDto> SafeGetDbRefList(JsonElement element, string property)
+    {
+        var list = new List<DbRefDto>();
+
+        if (!element.TryGetProperty(property, out var prop))
+            return list;
+
+        if (prop.ValueKind != JsonValueKind.Array)
+            return list;
+
+        foreach (var item in prop.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var idStr = SafeGetString(item, "id");
+            var name = SafeGetString(item, "name");
+
+            if (idStr != "unknown" && Guid.TryParse(idStr, out var guid))
+            {
+                list.Add(new DbRefDto(guid, name));
+            }
+        }
+
+        return list;
+    }
 
     private static double SafeGetDouble(JsonElement element, string property)
     {
@@ -230,15 +293,11 @@ public class AudioProcessingService : IAudioProcessingService
         return "unknown";
     }
 
-    /// <summary>
-    /// Trả về null thay vì "unknown" — dùng cho optional fields.
-    /// </summary>
     private static string? SafeGetNullableString(JsonElement element, string property)
     {
         if (element.TryGetProperty(property, out var prop) && prop.ValueKind == JsonValueKind.String)
         {
             var val = prop.GetString();
-            // Nếu AI trả về "unknown" hoặc rỗng → coi như null
             if (string.IsNullOrWhiteSpace(val) || val.Equals("unknown", StringComparison.OrdinalIgnoreCase))
                 return null;
             return val;
@@ -246,24 +305,17 @@ public class AudioProcessingService : IAudioProcessingService
         return null;
     }
 
-    private static List<string> SafeGetStringList(JsonElement element, string property)
-    {
-        var list = new List<string>();
-        if (element.TryGetProperty(property, out var prop) && prop.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var item in prop.EnumerateArray())
-            {
-                if (item.ValueKind == JsonValueKind.String)
-                    list.Add(item.GetString() ?? "unknown");
-            }
-        }
-        if (list.Count == 0) list.Add("unknown");
-        return list;
-    }
-
     private static AIAnalysisResultDto GetDefaultResult()
     {
-        return new AIAnalysisResultDto(new List<AIAnalysisItemDto>(), 0, null);
+        return new AIAnalysisResultDto(
+            Tempo: 0,
+            KeySignature: "unknown",
+            EthnicGroup: null,
+            Language: "unknown",
+            Instruments: new List<DbRefDto>(),
+            Genre: "unknown",
+            PerformanceContext: "unknown"
+        );
     }
 
     // =================================================================

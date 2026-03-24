@@ -9,39 +9,56 @@ namespace VietTuneArchive.Application.Mapper.DTOs
     public class AudioAnalysisResultDto
     {
         // 1. Chi tiết từng phán đoán âm nhạc (khớp với items trong Schema)
-        public record AIAnalysisItemDto(
-           // --- Required fields (từ schema "required") ---
-           double Tempo,
-           string KeySignature,
-           string EthnicGroup,
-           string Language,
-           List<string> Instruments,
-           string Genre,
-           string PerformanceContext,
-
-           // --- Optional fields (AI trả hoặc không) ---
-           string? Title = null,
-           string? Description = null,
-           string? VocalStyle = null,
-           string? MusicalScale = null,
-           string? Composer = null,
-           string? RecordingLocation = null,
-           string? LyricsOriginal = null,
-           string? LyricsVietnamese = null
+        public record DbRefDto(
+           Guid Id,
+           string Name
        );
 
-        // 2. DTO dùng để hứng kết quả trả về từ Gemini Service
-        // Đây chính là cái bạn đang tìm "ở đâu"
+        /// <summary>
+        /// Token usage trả về từ Gemini API.
+        /// </summary>
+        public record TokenUsageDto(
+            int PromptTokenCount,
+            int CandidatesTokenCount,
+            int? TotalTokenCount
+        );
+
+        /// <summary>
+        /// Kết quả phân tích AI — CHỈ 1 kết quả duy nhất (không còn mảng analyses).
+        /// Các field tham chiếu DB trả về DbRefDto (id + name).
+        /// </summary>
         public record AIAnalysisResultDto(
-            List<AIAnalysisItemDto> Analyses,
-            int BestMatch,
-            string? GeminiFileUri = null);
+            // --- Required fields ---
+            double Tempo,
+            string KeySignature,
+            DbRefDto? EthnicGroup,
+            string Language,
+            List<DbRefDto> Instruments,
+            string Genre,
+            string PerformanceContext,
 
-        // 4. DTO tổng hợp cuối cùng trả về cho Controller
+            // --- Optional fields ---
+            string? Title = null,
+            DbRefDto? Ceremony = null,
+            DbRefDto? VocalStyle = null,
+            DbRefDto? MusicalScale = null,
+            string? Composer = null,
+            string? RecordingLocation = null,
+            string? LyricsOriginal = null,
+            string? LyricsVietnamese = null,
+            string? GeminiFileUri = null,
+
+            // --- Token usage ---
+            TokenUsageDto? TokenUsage = null
+        );
+
+        /// <summary>
+        /// Kết quả xử lý audio hoàn chỉnh
+        /// </summary>
         public record AudioProcessResultDto(
-            AIAnalysisResultDto Analysis, // Toàn bộ kết quả AI ở trên
-            DateTime ProcessedAt);
-
+            AIAnalysisResultDto AnalysisResult,
+            DateTime ProcessedAt
+        );
         // DTO cho Background Job (nếu dùng)
         public record AIAnalysisJobDto(
             string JobId,
