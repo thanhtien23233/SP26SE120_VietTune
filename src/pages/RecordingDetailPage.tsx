@@ -84,7 +84,7 @@ export default function RecordingDetailPage() {
               <div>
                 {(() => {
                   if (recording.audioUrl) {
-                    const isVideo = isYouTubeUrl(recording.audioUrl) || recording.audioUrl.match(/\.(mp4|mov|avi|webm|mkv|mpeg|mpg|wmv|3gp|flv)$/i) || recording.audioUrl.startsWith('data:video/');
+                    const isVideo = isYouTubeUrl(recording.audioUrl) || recording.audioUrl.match(/\.(mp4|mov|avi|webm|mkv|mpeg|mpg|wmv|3gp|flv)$/i) || recording.audioUrl.startsWith('data:video/') || recording.audioUrl.includes('supabase.co');
                     if (isVideo) {
                       return (
                         <VideoPlayer

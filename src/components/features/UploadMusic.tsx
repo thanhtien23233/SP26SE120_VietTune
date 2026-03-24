@@ -2402,7 +2402,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         const uploaderId = currentUser?.id ? currentUser.id.toString() : "1";
 
         const res = await recordingService.createSubmission({
-          audioFileUrl: publicUrl,
+          audioFileUrl: mediaType === "audio" ? publicUrl : undefined,
+          videoFileUrl: mediaType === "video" ? publicUrl : undefined,
           uploadedById: uploaderId
         });
 

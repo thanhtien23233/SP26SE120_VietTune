@@ -631,7 +631,7 @@ export default function ContributionsPage() {
                         const audioSrc = recMedia.audioFileUrl || recMedia.audioUrl;
                         const videoSrc = rec.videoFileUrl;
 
-                        if (videoSrc && (isYouTubeUrl(videoSrc) || videoSrc.match(/\.(mp4|webm|ogg)$/i) || videoSrc.startsWith('data:video/'))) {
+                        if (videoSrc && (isYouTubeUrl(videoSrc) || videoSrc.match(/\.(mp4|mov|avi|webm|mkv|mpeg|mpg|wmv|3gp|flv)$/i) || videoSrc.startsWith('data:video/') || videoSrc.includes('supabase.co'))) {
                           return (
                             <VideoPlayer
                               src={videoSrc}

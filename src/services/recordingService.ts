@@ -41,12 +41,13 @@ export const recordingService = {
   },
 
   // Create submission (backend: POST /api/Submission/create-submission)
-  createSubmission: async (data: { audioFileUrl: string; uploadedById: string }) => {
+  createSubmission: async (data: { audioFileUrl?: string; videoFileUrl?: string; uploadedById: string }) => {
     return api.post<{
       isSuccess: boolean;
       message: string;
       data: {
-        audioFileUrl: string;
+        audioFileUrl?: string;
+        videoFileUrl?: string;
         uploadedById: string;
         submissionId: string;
         recordingId: string;
