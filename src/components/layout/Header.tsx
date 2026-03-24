@@ -21,9 +21,6 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const firstMenuItemRef = useRef<HTMLAnchorElement | null>(null);
 
-  const [isVisible, setIsVisible] = useState(true);
-  const lastScrollY = useRef(0);
-
   // Notifications dropdown refs/state
   const notiButtonRef = useRef<HTMLButtonElement | null>(null);
   const notiMenuRef = useRef<HTMLDivElement | null>(null);
@@ -39,27 +36,6 @@ export default function Header() {
       return () => clearInterval(t);
     }
   }, [isAuthenticated, user?.role]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
-        // Hide if scrolling down past 50px, and menus are not open
-        if (!isMobileMenuOpen && !isMenuOpen && !isNotiOpen) {
-          setIsVisible(false);
-        }
-      } else {
-        // Show if scrolling up
-        setIsVisible(true);
-      }
-
-      lastScrollY.current = currentScrollY;
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [isMobileMenuOpen, isMenuOpen, isNotiOpen]);
 
   const handleLogout = () => {
     // Set fromLogout before navigate so LoginPage sees it on mount and hides "Trở về".
@@ -105,7 +81,7 @@ export default function Header() {
     }
   }, [isMenuOpen]);
   return (
-    <header className={`fixed top-0 left-0 right-0 z-[60] pt-4 px-4 transition-transform duration-300 ease-in-out ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+    <header className="fixed top-0 left-0 right-0 z-[60] pt-4 px-4">
       <nav className="bg-gradient-to-br from-primary-700 to-primary-800 rounded-2xl shadow-lg backdrop-blur-sm">
         <div className="px-6 py-2.5">
           <div className="flex items-center justify-between">
@@ -186,13 +162,13 @@ export default function Header() {
             <div className="hidden lg:flex lg:items-center lg:space-x-3 flex-shrink-0">
               <Link
                 to="/search"
-                className="p-2 text-white hover:text-secondary-300 active:text-secondary-400 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                className="p-2 text-white hover:text-secondary-300 active:text-secondary-400 transition-colors duration-200 cursor-pointer"
               >
                 <Search className="h-5 w-5" strokeWidth={2.5} />
               </Link>
               <Link
                 to="/chatbot"
-                className="p-2 text-white hover:text-secondary-300 active:text-secondary-400 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                className="p-2 text-white hover:text-secondary-300 active:text-secondary-400 transition-colors duration-200 cursor-pointer"
                 aria-label={INTELLIGENCE_NAME}
               >
                 <MessageCircle className="h-5 w-5" strokeWidth={2.5} />
@@ -203,7 +179,7 @@ export default function Header() {
                     ref={(el) => (notiButtonRef.current = el)}
                     type="button"
                     onClick={() => setIsNotiOpen(!isNotiOpen)}
-                    className="p-2 text-white hover:text-secondary-300 active:text-secondary-400 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer relative"
+                    className="p-2 text-white hover:text-secondary-300 active:text-secondary-400 transition-colors duration-200 cursor-pointer relative"
                     aria-label="Thông báo"
                   >
                     <Bell className="h-5 w-5" strokeWidth={2.5} />
@@ -278,7 +254,7 @@ export default function Header() {
                       onClick={() => setIsMenuOpen((s) => !s)}
                       aria-expanded={isMenuOpen}
                       aria-haspopup="menu"
-                      className="flex items-center gap-1.5 text-sm px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer min-w-[140px] justify-center"
+                      className="flex items-center gap-1.5 text-sm px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-colors duration-200 shadow-md hover:shadow-lg cursor-pointer min-w-[140px] justify-center"
                     >
                       <User className="h-4 w-4" strokeWidth={2.5} />
                       <span className="text-xs font-medium">{user?.username || user?.fullName || "Người dùng"}</span>
@@ -325,7 +301,7 @@ export default function Header() {
                   </Link>
                   <Link
                     to="/register"
-                    className="text-sm px-4 py-2 bg-gradient-to-br from-secondary-500 to-secondary-600 hover:from-secondary-400 hover:to-secondary-500 text-white font-semibold rounded-xl transition-all duration-300 shadow-xl hover:shadow-2xl shadow-secondary-500/40 hover:scale-110 active:scale-95 cursor-pointer"
+                    className="text-sm px-4 py-2 bg-gradient-to-br from-secondary-500 to-secondary-600 hover:from-secondary-400 hover:to-secondary-500 text-white font-semibold rounded-xl transition-colors duration-300 shadow-xl hover:shadow-2xl shadow-secondary-500/40 cursor-pointer"
                   >
                     Đăng ký
                   </Link>
@@ -337,7 +313,7 @@ export default function Header() {
             <div className="lg:hidden flex items-center justify-end">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-1.5 text-white hover:text-secondary-300 active:text-secondary-400 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                className="p-1.5 text-white hover:text-secondary-300 active:text-secondary-400 transition-colors duration-200 cursor-pointer"
               >
                 {isMobileMenuOpen ? (
                   <X className="h-6 w-6" strokeWidth={2.5} />

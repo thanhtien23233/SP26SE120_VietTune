@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo, useId } from "react";
+import { useNavigate } from "react-router-dom";
 import { Region, RecordingType, RecordingQuality, VerificationStatus, Recording, UserRole, RecordingMetadata, Instrument, LocalRecording } from "@/types";
 import { useAuthStore } from "@/stores/authStore";
 import { ModerationStatus } from "@/types";
@@ -26,6 +27,7 @@ export interface AiResponseForReview {
     question: string;
     answer: string;
     source?: string;
+    citations?: Array<{ recordingId: string; label: string }>;
     createdAt: string;
     flagged?: boolean;
     flagNote?: string;
@@ -358,6 +360,7 @@ type RecordingWithLocalData = Recording & {
 
 export default function ModerationPage() {
     const { user } = useAuthStore();
+    const navigate = useNavigate();
     const [items, setItems] = useState<LocalRecordingMini[]>([]);
     const [allItems, setAllItems] = useState<LocalRecordingMini[]>([]);
     const [verificationStep, setVerificationStep] = useState<Record<string, number>>({});
@@ -1628,6 +1631,24 @@ export default function ModerationPage() {
                                             <p className="text-neutral-700 text-sm mb-3 whitespace-pre-wrap">{item.question}</p>
                                             <p className="text-neutral-800 font-medium mb-1">Câu trả lời AI:</p>
                                             <p className="text-neutral-700 text-sm mb-4 whitespace-pre-wrap">{item.answer}</p>
+                                            {item.citations && item.citations.length > 0 && (
+                                                <div className="mb-4 rounded-xl border border-sky-200/80 bg-sky-50/60 p-3">
+                                                    <p className="text-xs font-semibold text-sky-800 mb-1">Nguồn trích dẫn do Researcher gửi kèm</p>
+                                                    <ul className="space-y-1 list-none pl-0">
+                                                        {item.citations.map((citation, idx) => (
+                                                            <li key={`${item.id}-citation-${idx}`}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => navigate(`/recordings/${citation.recordingId}`, { state: { from: "/moderation" } })}
+                                                                    className="text-xs text-left text-sky-800 hover:text-sky-900 underline underline-offset-2 cursor-pointer"
+                                                                >
+                                                                    [{idx + 1}] {citation.label}
+                                                                </button>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
                                             {flagNoteId === item.id ? (
                                                 <div className="space-y-2">
                                                     <textarea
