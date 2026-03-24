@@ -6,10 +6,19 @@
       "items": {
         "type": "object",
         "properties": {
-          "tempo": {
-            "type": "number"
+          "title": {
+            "type": "string",
+            "description": "Tên bài hát / bản ghi nhận dạng được"
           },
-          "key": {
+          "description": {
+            "type": "string",
+            "description": "Mô tả ngắn về nội dung bản ghi"
+          },
+          "tempo": {
+            "type": "number",
+            "description": "Nhịp độ (BPM)"
+          },
+          "keySignature": {
             "type": "string",
             "enum": [
               "ngũ cung Bắc Bộ",
@@ -18,23 +27,9 @@
               "unknown"
             ]
           },
-          "ethnic": {
+          "ethnicGroup": {
             "type": "string",
-            "enum": [
-              "Tày",
-              "Nùng",
-              "Kinh Bắc",
-              "Kinh Trung",
-              "Kinh Nam",
-              "Chăm",
-              "Thái",
-              "Khmer",
-              "H'Mông",
-              "Dao",
-              "Ê Đê",
-              "Gia Rai",
-              "unknown"
-            ]
+            "description": "Tên dân tộc từ danh sách DB (xem context)"
           },
           "language": {
             "type": "string",
@@ -53,32 +48,9 @@
             "type": "array",
             "items": {
               "type": "string",
-<<<<<<< Updated upstream
-              "enum": ["đàn bầu", "đàn tranh", "đàn đáy", "đàn tính", "khèn lá", "khèn H'Mông", "đing năm", "trống chầu", "phách", "sáo trúc", "đàn nhị", "pinpeat", "đàn kìm", "đàn cò", "instrumental", "cồng chiêng", "unknown"]
-=======
-              "enum": [
-                "đàn bầu",
-                "đàn tranh",
-                "đàn đáy",
-                "đàn tính",
-                "khèn lá",
-                "khèn H'Mông",
-                "đing năm",
-                "trống chầu",
-                "phách",
-                "sáo trúc",
-                "đàn nhị",
-                "pinpeat",
-                "đàn kìm",
-                "đàn cò",
-                "cồng chiêng",
-                "đàn đá",
-                "instrumental",
-                "unknown"
-              ]
->>>>>>> Stashed changes
+              "description": "Tên nhạc cụ từ danh sách DB (xem context)"
             },
-            "description": "Danh sách các nhạc cụ"
+            "description": "Danh sách các nhạc cụ nhận dạng được"
           },
           "genre": {
             "type": "string",
@@ -97,7 +69,7 @@
               "unknown"
             ]
           },
-          "event": {
+          "performanceContext": {
             "type": "string",
             "enum": [
               "hát ru",
@@ -106,33 +78,42 @@
               "giải trí",
               "lao động",
               "unknown"
-            ]
+            ],
+            "description": "Bối cảnh trình diễn"
           },
-          "confidence": {
-            "type": "number",
-            "description": "0.0=unknown, 0.3=low, 0.6=medium, 1.0=high",
-            "maximum": 1
+          "vocalStyle": {
+            "type": "string",
+            "description": "Tên phong cách giọng hát từ danh sách DB (xem context)"
+          },
+          "musicalScale": {
+            "type": "string",
+            "description": "Tên thang âm / điệu thức từ danh sách DB (xem context)"
+          },
+          "composer": {
+            "type": "string",
+            "description": "Tác giả (null nếu dân gian khuyết danh)"
+          },
+          "recordingLocation": {
+            "type": "string",
+            "description": "Vùng miền / địa phương ước đoán"
+          },
+          "lyricsOriginal": {
+            "type": "string",
+            "description": "Lời gốc phiên âm (nếu nghe được)"
+          },
+          "lyricsVietnamese": {
+            "type": "string",
+            "description": "Bản dịch tiếng Việt (nếu ngôn ngữ gốc khác)"
           }
         },
-        "propertyOrdering": [
-          "tempo",
-          "key",
-          "ethnic",
-          "language",
-          "instruments",
-          "genre",
-          "event",
-          "confidence"
-        ],
         "required": [
           "tempo",
-          "key",
-          "ethnic",
+          "keySignature",
+          "ethnicGroup",
           "language",
           "instruments",
           "genre",
-          "event",
-          "confidence"
+          "performanceContext"
         ]
       },
       "minItems": 1,
@@ -140,13 +121,9 @@
     },
     "best_match": {
       "type": "integer",
-      "description": "Index của analysis có confidence cao nhất (0,1,2)"
+      "description": "Index của analysis chính xác nhất (0, 1, hoặc 2)"
     }
   },
-  "propertyOrdering": [
-    "analyses",
-    "best_match"
-  ],
   "required": [
     "analyses",
     "best_match"

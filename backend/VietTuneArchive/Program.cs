@@ -174,6 +174,8 @@ builder.Services.AddScoped<IQAMessageService, QAMessageService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
+
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IEnumProviderService, EnumProviderService>();
 // AutoMapper
 builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());

@@ -11,16 +11,16 @@ namespace VietTuneArchive.API.Controllers
     [Route("api/[controller]")]
     [ApiController]
     //[Authorize]
-    public class AudioController : ControllerBase
+    public class AIAnalysisController : ControllerBase
     {
         private readonly IAudioProcessingService _processingService;
-        private readonly ILogger<AudioController> _logger;
+        private readonly ILogger<AIAnalysisController> _logger;
 
         private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
 
-        public AudioController(
+        public AIAnalysisController(
             IAudioProcessingService processingService,
-            ILogger<AudioController> logger)
+            ILogger<AIAnalysisController> logger)
         {
             _processingService = processingService;
             _logger = logger;

@@ -10,13 +10,25 @@ namespace VietTuneArchive.Application.Mapper.DTOs
     {
         // 1. Chi tiết từng phán đoán âm nhạc (khớp với items trong Schema)
         public record AIAnalysisItemDto(
-            double Tempo,
-            string Ethnic,
-            string Language,
-            List<string> Instruments,
-            string Genre,
-            string Event,
-            double Confidence);
+           // --- Required fields (từ schema "required") ---
+           double Tempo,
+           string KeySignature,
+           string EthnicGroup,
+           string Language,
+           List<string> Instruments,
+           string Genre,
+           string PerformanceContext,
+
+           // --- Optional fields (AI trả hoặc không) ---
+           string? Title = null,
+           string? Description = null,
+           string? VocalStyle = null,
+           string? MusicalScale = null,
+           string? Composer = null,
+           string? RecordingLocation = null,
+           string? LyricsOriginal = null,
+           string? LyricsVietnamese = null
+       );
 
         // 2. DTO dùng để hứng kết quả trả về từ Gemini Service
         // Đây chính là cái bạn đang tìm "ở đâu"
