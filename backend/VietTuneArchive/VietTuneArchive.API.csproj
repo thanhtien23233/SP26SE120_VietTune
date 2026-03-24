@@ -27,4 +27,12 @@
     <ProjectReference Include="..\VietTuneArchive.Application\VietTuneArchive.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Assets\" />
+  </ItemGroup>
+	<ItemGroup>
+		<None Update="Assets\**\*.*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
 </Project>

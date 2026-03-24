@@ -1,0 +1,154 @@
+﻿{
+  "type": "object",
+  "properties": {
+    "analyses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tempo": {
+            "type": "number"
+          },
+          "key": {
+            "type": "string",
+            "enum": [
+              "ngũ cung Bắc Bộ",
+              "ngũ cung Nam Bộ",
+              "chromatic",
+              "unknown"
+            ]
+          },
+          "ethnic": {
+            "type": "string",
+            "enum": [
+              "Tày",
+              "Nùng",
+              "Kinh Bắc",
+              "Kinh Trung",
+              "Kinh Nam",
+              "Chăm",
+              "Thái",
+              "Khmer",
+              "H'Mông",
+              "Dao",
+              "Ê Đê",
+              "Gia Rai",
+              "unknown"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "tiếng Tày",
+              "tiếng Nùng",
+              "tiếng Việt",
+              "tiếng Chăm",
+              "tiếng Thái",
+              "tiếng H'Mông",
+              "instrumental",
+              "unknown"
+            ]
+          },
+          "instruments": {
+            "type": "array",
+            "items": {
+              "type": "string",
+<<<<<<< Updated upstream
+              "enum": ["đàn bầu", "đàn tranh", "đàn đáy", "đàn tính", "khèn lá", "khèn H'Mông", "đing năm", "trống chầu", "phách", "sáo trúc", "đàn nhị", "pinpeat", "đàn kìm", "đàn cò", "instrumental", "cồng chiêng", "unknown"]
+=======
+              "enum": [
+                "đàn bầu",
+                "đàn tranh",
+                "đàn đáy",
+                "đàn tính",
+                "khèn lá",
+                "khèn H'Mông",
+                "đing năm",
+                "trống chầu",
+                "phách",
+                "sáo trúc",
+                "đàn nhị",
+                "pinpeat",
+                "đàn kìm",
+                "đàn cò",
+                "cồng chiêng",
+                "đàn đá",
+                "instrumental",
+                "unknown"
+              ]
+>>>>>>> Stashed changes
+            },
+            "description": "Danh sách các nhạc cụ"
+          },
+          "genre": {
+            "type": "string",
+            "enum": [
+              "Hát Ru",
+              "Quan Họ",
+              "Ca Trù",
+              "Hát Văn",
+              "Nhã Nhạc",
+              "Đờn Ca Tài Tử",
+              "Cải Lương",
+              "Chèo",
+              "Ví Giặm",
+              "Hò",
+              "instrumental",
+              "unknown"
+            ]
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "hát ru",
+              "lễ hội",
+              "nghi lễ",
+              "giải trí",
+              "lao động",
+              "unknown"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "description": "0.0=unknown, 0.3=low, 0.6=medium, 1.0=high",
+            "maximum": 1
+          }
+        },
+        "propertyOrdering": [
+          "tempo",
+          "key",
+          "ethnic",
+          "language",
+          "instruments",
+          "genre",
+          "event",
+          "confidence"
+        ],
+        "required": [
+          "tempo",
+          "key",
+          "ethnic",
+          "language",
+          "instruments",
+          "genre",
+          "event",
+          "confidence"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 3
+    },
+    "best_match": {
+      "type": "integer",
+      "description": "Index của analysis có confidence cao nhất (0,1,2)"
+    }
+  },
+  "propertyOrdering": [
+    "analyses",
+    "best_match"
+  ],
+  "required": [
+    "analyses",
+    "best_match"
+  ]
+}

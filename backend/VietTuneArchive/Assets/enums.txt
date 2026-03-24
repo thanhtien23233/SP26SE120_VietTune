@@ -1,0 +1,5 @@
+﻿ETHNIC:Kinh Bắc|Kinh Trung|Kinh Nam|Chăm|Thái|Khmer|unknown|Tày
+LANGUAGE:tiếng Việt|tiếng Chăm|tiếng Thái|instrumental|unknown|tiếng Tày
+GENRE:Quan Họ|Ca Trù|Hát Văn|Nhã Nhạc|Đờn Ca Tài Tử|Cải Lương|Chèo|Ví Giặm|Hò|instrumental|unknown|Hát Ru
+EVENT:lễ hội|hát ru|nghi lễ|giải trí|lao động|unknown
+INSTRUMENTS:đàn bầu|đàn tranh|đàn đáy|đàn tính|khèn lá|khèn H'Mông|đing năm|trống chầu|phách|sáo trúc|đàn nhị|pinpeat|đàn kìm|đàn cò|instrumental|unknown
