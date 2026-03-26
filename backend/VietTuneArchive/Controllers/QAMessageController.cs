@@ -15,6 +15,13 @@ namespace VietTuneArchive.API.Controllers
         {
             _service = service;
         }
+        [HttpGet("get-by-user")]
+        public async Task<IActionResult> GetByConversationId(
+            [FromQuery] Guid conversationId)
+        {
+            var result = await _service.GetByConversationAsync(conversationId);
+            return Ok(result);
+        }
 
         [HttpGet]
         public async Task<ActionResult<PagedResponse<QAMessageDto>>> GetAll(

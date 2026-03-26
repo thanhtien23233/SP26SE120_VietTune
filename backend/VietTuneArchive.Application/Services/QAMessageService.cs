@@ -1,4 +1,5 @@
 using AutoMapper;
+using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Application.Responses;
@@ -10,43 +11,37 @@ namespace VietTuneArchive.Application.Services
     public class QAMessageService : GenericService<QAMessage, QAMessageDto>, IQAMessageService
     {
         private readonly IQAMessageRepository _messageRepository;
-
-        public QAMessageService(IQAMessageRepository repository, IMapper mapper)
+        private readonly IMapper _mapper;
+        private readonly IQAConversationRepository _conversationRepository;
+        public QAMessageService(IQAMessageRepository repository, IMapper mapper, IQAConversationRepository conversationRepository)
             : base(repository, mapper)
         {
             _messageRepository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _conversationRepository = conversationRepository ?? throw new ArgumentNullException(nameof(conversationRepository));
         }
 
         /// <summary>
         /// Get messages in a conversation
         /// </summary>
-        public async Task<ServiceResponse<List<QAMessageDto>>> GetByConversationAsync(Guid conversationId)
+        public async Task<Result<IEnumerable<QAMessageDto>>> GetByConversationAsync(Guid conversationId)
         {
             try
             {
                 if (conversationId == Guid.Empty)
                     throw new ArgumentException("Conversation id cannot be empty", nameof(conversationId));
-
+                var conversationExists = await _conversationRepository.GetByIdAsync(conversationId);
+                if (conversationExists == null)
+                    throw new ArgumentException("Conversation not found", nameof(conversationId));
                 var messages = await _messageRepository.GetAsync(m => m.ConversationId == conversationId);
                 var dtos = _mapper.Map<List<QAMessageDto>>(messages.OrderBy(m => m.CreatedAt).ToList());
-                return new ServiceResponse<List<QAMessageDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} messages"
-                };
+                return Result<IEnumerable<QAMessageDto>>.Success(dtos, $"Found {dtos.Count} messages");
             }
             catch (Exception ex)
             {
-                return new ServiceResponse<List<QAMessageDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
+                return Result<IEnumerable<QAMessageDto>>.Failure(ex.Message);
             }
         }
-
         /// <summary>
         /// Get flagged messages
         /// </summary>

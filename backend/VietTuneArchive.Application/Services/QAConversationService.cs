@@ -1,4 +1,5 @@
 using AutoMapper;
+using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Application.Responses;
@@ -10,40 +11,35 @@ namespace VietTuneArchive.Application.Services
     public class QAConversationService : GenericService<QAConversation, QAConversationDto>, IQAConversationService
     {
         private readonly IQAConversationRepository _conversationRepository;
-
-        public QAConversationService(IQAConversationRepository repository, IMapper mapper)
-            : base(repository, mapper)
+        private readonly IUserRepository _userRepository;
+        private readonly IMapper _mapper;
+        public QAConversationService(IQAConversationRepository conversationRepository, IUserRepository userRepository, IMapper mapper)
+            : base(conversationRepository, mapper)
         {
-            _conversationRepository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _conversationRepository = conversationRepository ?? throw new ArgumentNullException(nameof(conversationRepository));
+            _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         /// <summary>
         /// Get conversations by user
         /// </summary>
-        public async Task<ServiceResponse<List<QAConversationDto>>> GetByUserAsync(Guid userId)
+        public async Task<Result<IEnumerable<QAConversationDto>>> GetByUserAsync(Guid userId)
         {
             try
             {
                 if (userId == Guid.Empty)
                     throw new ArgumentException("User id cannot be empty", nameof(userId));
-
-                var conversations = await _conversationRepository.GetAsync(c => c.UserId == userId);
-                var dtos = _mapper.Map<List<QAConversationDto>>(conversations.OrderByDescending(c => c.CreatedAt).ToList());
-                return new ServiceResponse<List<QAConversationDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} conversations"
-                };
+                var userExists = await _userRepository.GetByIdAsync(userId);
+                if (userExists == null)
+                    throw new ArgumentException("User not found", nameof(userId));
+                var conversations = await _conversationRepository.GetByUserId(userId);
+                var dtos = _mapper.Map<IEnumerable<QAConversationDto>>(conversations);
+                return Result<IEnumerable<QAConversationDto>>.Success(dtos, "Conversations retrieved successfully");
             }
             catch (Exception ex)
             {
-                return new ServiceResponse<List<QAConversationDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
+                return Result<IEnumerable<QAConversationDto>>.Failure("Error retrieving conversations: " + ex.Message);
             }
         }
 
