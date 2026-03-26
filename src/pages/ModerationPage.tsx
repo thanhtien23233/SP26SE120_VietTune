@@ -395,6 +395,34 @@ export default function ModerationPage() {
     const [moderationA11yMessage, setModerationA11yMessage] = useState("");
     const prevItemsLengthRef = useRef<number | null>(null);
     const verificationDialogPanelRef = useRef<HTMLDivElement>(null);
+    const queueStatusMeta = useMemo(() => {
+        const counts = allItems.reduce<Record<string, number>>((acc, item) => {
+            const key = item.moderation?.status ?? "UNKNOWN";
+            acc[key] = (acc[key] ?? 0) + 1;
+            return acc;
+        }, {});
+        return {
+            counts,
+            groups: [
+                {
+                    title: "Đang xử lý",
+                    items: [
+                        { key: "ALL", label: "Tất cả", count: allItems.length },
+                        { key: ModerationStatus.PENDING_REVIEW, label: "Chờ được kiểm duyệt", count: counts[ModerationStatus.PENDING_REVIEW] ?? 0 },
+                        { key: ModerationStatus.IN_REVIEW, label: "Đang được kiểm duyệt", count: counts[ModerationStatus.IN_REVIEW] ?? 0 },
+                    ],
+                },
+                {
+                    title: "Đã xử lý",
+                    items: [
+                        { key: ModerationStatus.APPROVED, label: "Đã được kiểm duyệt", count: counts[ModerationStatus.APPROVED] ?? 0 },
+                        { key: ModerationStatus.REJECTED, label: "Đã bị từ chối vĩnh viễn", count: counts[ModerationStatus.REJECTED] ?? 0 },
+                        { key: ModerationStatus.TEMPORARILY_REJECTED, label: "Đã bị từ chối tạm thời", count: counts[ModerationStatus.TEMPORARILY_REJECTED] ?? 0 },
+                    ],
+                },
+            ],
+        };
+    }, [allItems]);
 
     const handleExpertReviewNotesChange = useCallback((submissionId: string, text: string) => {
         setExpertReviewNotesDraft((prev) => ({ ...prev, [submissionId]: text }));
@@ -1162,11 +1190,11 @@ export default function ModerationPage() {
 
                 {/* Tabs — VietTune UI */}
                 <div
-                    className="border border-neutral-200/80 rounded-2xl overflow-hidden shadow-lg backdrop-blur-sm mb-6 sm:mb-8 transition-all duration-300 hover:shadow-xl min-w-0 overflow-x-hidden"
-                    style={{ backgroundColor: "#FFFCF5" }}
+                    className="rounded-2xl overflow-hidden shadow-lg ring-1 ring-neutral-200/70 backdrop-blur-sm mb-6 sm:mb-8 transition-all duration-300 hover:shadow-xl min-w-0 overflow-x-hidden"
+                    style={{ backgroundColor: "#F8FAFC" }}
                 >
                     <nav
-                        className="flex flex-wrap gap-2 p-4 sm:p-6 lg:p-8 border-b border-neutral-200/80 bg-white/50"
+                        className="flex flex-wrap gap-2 p-4 sm:p-6 lg:p-8 bg-white/65"
                         aria-label="Cổng chuyên gia"
                         role="tablist"
                     >
@@ -1227,15 +1255,13 @@ export default function ModerationPage() {
                             id="moderation-panel-review"
                             role="tabpanel"
                             aria-labelledby="moderation-tab-review"
-                            className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-0 min-h-[calc(100vh-280px)] rounded-b-2xl"
+                            className="grid grid-cols-1 lg:grid-cols-[390px_1fr] gap-4 p-4 pt-3 rounded-b-2xl lg:h-[calc(100dvh-220px)]"
                         >
                             {/* Left: Hàng đợi */}
-                            <div
-                                className="rounded-b-2xl lg:rounded-b-none border-t border-neutral-200/80 flex flex-col overflow-hidden"
-                                style={{ backgroundColor: "#FFFCF5" }}
-                            >
-                                <div className="p-4 border-b border-neutral-200/80 flex-shrink-0">
-                                    <h2 className="text-lg font-semibold text-neutral-900 mb-3">Hàng đợi kiểm duyệt</h2>
+                            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-neutral-200/70 flex flex-col overflow-hidden">
+                                <div className="p-4 flex-shrink-0 bg-gradient-to-b from-neutral-50 to-white">
+                                    <h2 className="text-lg font-semibold text-neutral-900 mb-1">Hàng đợi kiểm duyệt</h2>
+                                    <p className="text-xs text-neutral-600 mb-3">Theo dõi bản thu theo trạng thái và ưu tiên xử lý bản mới.</p>
                                     <div className="space-y-3">
                                         <div className="relative">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
@@ -1243,32 +1269,43 @@ export default function ModerationPage() {
                                                 type="search"
                                                 placeholder="Tìm bản thu..."
                                                 aria-label="Tìm kiếm trong hàng đợi kiểm duyệt"
-                                                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-neutral-300 text-neutral-900 placeholder:text-neutral-600 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:border-primary-500"
-                                                style={{ backgroundColor: "#FFFCF5" }}
+                                                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-neutral-300 bg-white text-neutral-900 placeholder:text-neutral-500 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:border-primary-500"
                                             />
                                         </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {[
-                                                { key: "ALL", label: "Tất cả" },
-                                                { key: ModerationStatus.PENDING_REVIEW, label: "Chờ được kiểm duyệt" },
-                                                { key: ModerationStatus.IN_REVIEW, label: "Đang được kiểm duyệt" },
-                                                { key: ModerationStatus.APPROVED, label: "Đã được kiểm duyệt" },
-                                                { key: ModerationStatus.REJECTED, label: "Đã bị từ chối vĩnh viễn" },
-                                                { key: ModerationStatus.TEMPORARILY_REJECTED, label: "Đã bị từ chối tạm thời" },
-                                            ].map((f) => (
-                                                <button
-                                                    key={f.key}
-                                                    type="button"
-                                                    onClick={() => setStatusFilter(f.key)}
-                                                    aria-pressed={statusFilter === f.key}
-                                                    aria-label={`Lọc hàng đợi: ${f.label}`}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${statusFilter === f.key
-                                                        ? "bg-primary-600 text-white"
-                                                        : "bg-neutral-200 text-neutral-900 hover:bg-neutral-300"
-                                                        }`}
-                                                >
-                                                    {f.label}
-                                                </button>
+                                        <div className="space-y-2">
+                                            {queueStatusMeta.groups.map((group) => (
+                                                <div key={group.title}>
+                                                    <div className="mb-1 flex items-center justify-between">
+                                                        <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                                                            {group.title}
+                                                        </span>
+                                                        <span className="text-[11px] text-neutral-500">
+                                                            {group.items
+                                                                .filter((f) => f.key !== "ALL")
+                                                                .reduce((sum, f) => sum + f.count, 0)} bản thu
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {group.items.map((f) => (
+                                                            <button
+                                                                key={f.key}
+                                                                type="button"
+                                                                onClick={() => setStatusFilter(f.key)}
+                                                                aria-pressed={statusFilter === f.key}
+                                                                aria-label={`Lọc hàng đợi: ${f.label} (${f.count})`}
+                                                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${statusFilter === f.key
+                                                                    ? "bg-primary-600 text-white border-primary-600 shadow-sm"
+                                                                    : "bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700"
+                                                                    }`}
+                                                            >
+                                                                <span>{f.label}</span>
+                                                                <span className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${statusFilter === f.key ? "bg-white/20 text-white" : "bg-white text-neutral-600 border border-neutral-200"}`}>
+                                                                    {f.count}
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             ))}
                                         </div>
                                         <div className="space-y-1">
@@ -1290,7 +1327,7 @@ export default function ModerationPage() {
                                     aria-label="Danh sách bản thu trong hàng đợi kiểm duyệt"
                                 >
                                     {items.length === 0 ? (
-                                        <div className="p-4 text-center text-neutral-600 text-sm" role="status">
+                                        <div className="m-4 rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50 p-6 text-center text-neutral-600 text-sm" role="status">
                                             Không có bản thu nào trong hàng đợi.
                                         </div>
                                     ) : (
@@ -1323,7 +1360,7 @@ export default function ModerationPage() {
                                                             setSelectedId(it.id ?? null);
                                                         }
                                                     }}
-                                                    className={`p-4 border-b border-neutral-200/80 cursor-pointer transition-colors border-l-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 focus-visible:ring-offset-0 ${borderColor} ${selectedId === it.id ? "bg-primary-50/80" : "hover:bg-neutral-50"
+                                                    className={`m-2 p-4 rounded-xl border border-neutral-200 cursor-pointer transition-all duration-200 border-l-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 focus-visible:ring-offset-0 ${borderColor} ${selectedId === it.id ? "bg-primary-50/80 shadow-sm border-primary-200" : "hover:bg-neutral-50 hover:shadow-sm"
                                                         }`}
                                                 >
                                                     <div className="flex justify-between items-start gap-2 mb-1">
@@ -1362,10 +1399,7 @@ export default function ModerationPage() {
                             </div>
 
                             {/* Right: Chi tiết bản thu hoặc empty state */}
-                            <div
-                                className="rounded-b-2xl lg:rounded-bl-none border-t lg:border-t-0 lg:border-l border-neutral-200/80 overflow-y-auto p-4 sm:p-6"
-                                style={{ backgroundColor: "#FFFCF5" }}
-                            >
+                            <div className="rounded-2xl bg-gradient-to-b from-neutral-50 to-white overflow-y-auto p-4 sm:p-6 shadow-sm ring-1 ring-neutral-200/70">
                                 {selectedId && (() => {
                                     const item = selectedItemFull ?? allItems.find((i) => i.id === selectedId);
                                     if (!item) return null;
@@ -1574,10 +1608,12 @@ export default function ModerationPage() {
                                     );
                                 })()}
                                 {!selectedId && (
-                                    <div className="flex flex-col items-center justify-center min-h-[320px] text-center">
-                                        <FileText className="h-16 w-16 text-primary-300 mb-4" />
-                                        <h3 className="text-lg font-semibold text-neutral-800 mb-1">Chọn một bản thu</h3>
-                                        <p className="text-sm text-neutral-500">Chọn bản thu từ hàng đợi bên trái để xem chi tiết và kiểm duyệt.</p>
+                                    <div className="flex items-center justify-center min-h-[320px]">
+                                        <div className="max-w-md w-full rounded-2xl border-2 border-dashed border-primary-200 bg-white/90 p-8 text-center shadow-sm">
+                                            <FileText className="h-14 w-14 text-primary-300 mb-4 mx-auto" />
+                                            <h3 className="text-lg font-semibold text-neutral-800 mb-1">Chọn một bản thu</h3>
+                                            <p className="text-sm text-neutral-500">Chọn bản thu từ hàng đợi bên trái để xem chi tiết và kiểm duyệt.</p>
+                                        </div>
                                     </div>
                                 )}
                             </div>
