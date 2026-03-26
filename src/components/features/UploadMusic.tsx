@@ -20,6 +20,7 @@ import type { RecordingDto } from "@/services/recordingDto";
 import { submissionService } from "@/services/submissionService";
 import { notify } from "@/stores/notificationStore";
 import { isAxiosError } from "axios";
+import { api } from "@/services/api";
 
 // Extended type for local recording storage (supports both legacy and new formats)
 type LocalRecordingStorage = LocalRecording & {
@@ -1753,6 +1754,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [createdRecordingId, setCreatedRecordingId] = useState<string | null>(null);
+  const [useAiAnalysis, setUseAiAnalysis] = useState(false);
   const [currentSubmissionId, setCurrentSubmissionId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [newUploadedUrl, setNewUploadedUrl] = useState<string | null>(null);
@@ -2392,8 +2394,37 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     }, 500);
 
     try {
-      // Upload to Supabase first
-      const publicUrl = await uploadFileToSupabase(file);
+      let publicUrl = "";
+      let aiRes: any = null;
+
+      if (useAiAnalysis) {
+        const formData = new FormData();
+        formData.append("audioFile", file);
+
+        const [uploadResult, aiResult] = await Promise.allSettled([
+          uploadFileToSupabase(file),
+          api.post("/AIAnalysis/analyze-only", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+            timeout: 300000 // 5 minutes timeout for AI processing
+          })
+        ]);
+
+        if (uploadResult.status === "fulfilled") {
+          publicUrl = uploadResult.value as string;
+        } else {
+          throw uploadResult.reason;
+        }
+
+        if (aiResult.status === "fulfilled" && aiResult.value) {
+          aiRes = (aiResult.value as any).data || aiResult.value;
+        } else {
+          console.warn("AI Analysis failed:", aiResult.status === "rejected" ? aiResult.reason : "No value");
+          notify.error("Phân tích AI thất bại", "Vẫn tiếp tục tải lên bình thường.");
+        }
+      } else {
+        publicUrl = await uploadFileToSupabase(file);
+      }
+
       setUploadProgress(99);
       setNewUploadedUrl(publicUrl);
 
@@ -2402,7 +2433,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         const uploaderId = currentUser?.id ? currentUser.id.toString() : "1";
 
         const res = await recordingService.createSubmission({
-          audioFileUrl: publicUrl,
+          audioFileUrl: mediaType === "audio" ? publicUrl : undefined,
+          videoFileUrl: mediaType === "video" ? publicUrl : undefined,
           uploadedById: uploaderId
         });
 
@@ -2419,6 +2451,75 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         // In Edit mode, just store a dummy ID to avoid re-uploading in same session
         setCreatedRecordingId("EDIT_MODE_UPLOADED");
       }
+
+      if (aiRes) {
+        notify.success("Phân tích AI thành công", "Đã tự động điền các thông tin gợi ý.");
+        if (aiRes.title) setTitle(aiRes.title);
+        if (aiRes.composer) {
+          setComposer(aiRes.composer);
+          setComposerUnknown(false);
+        }
+        let isInstrumental = false;
+        if (aiRes.language) {
+          const langLower = aiRes.language.toLowerCase();
+          if (langLower === "instrumental" || langLower === "nhạc cụ" || langLower === "không có ngôn ngữ" || langLower === "none" || langLower === "không") {
+             isInstrumental = langLower === "instrumental" || langLower === "nhạc cụ";
+             setNoLanguage(true);
+             setLanguage("");
+          } else {
+             if (LANGUAGES.includes(aiRes.language)) {
+                setLanguage(aiRes.language);
+             } else {
+                setLanguage("Khác");
+                setCustomLanguage(aiRes.language);
+             }
+             setNoLanguage(false);
+          }
+        }
+        if (aiRes.recordingLocation) setRecordingLocation(aiRes.recordingLocation);
+        if (aiRes.lyricsOriginal) setTranscription(aiRes.lyricsOriginal);
+        if (aiRes.lyricsVietnamese && document.getElementById("field-transcription")) {
+          // You could also add a new text area or concatenate if wanted, for now just optional
+        }
+        
+        if (aiRes.instruments && Array.isArray(aiRes.instruments)) {
+          const names = aiRes.instruments.map((i: any) => i.name).filter(Boolean);
+          if (names.length > 0) setInstruments(names);
+        }
+        if (aiRes.ethnicGroup?.name) {
+          if (ethnicGroupsData.find(e => e.name === aiRes.ethnicGroup.name)) {
+             setEthnicity(aiRes.ethnicGroup.name);
+          } else {
+             setEthnicity("Khác");
+             setCustomEthnicity(aiRes.ethnicGroup.name);
+          }
+        }
+        if (aiRes.vocalStyle?.name || aiRes.genre) {
+          setVocalStyle(aiRes.vocalStyle?.name || aiRes.genre);
+        }
+        if (aiRes.musicalScale?.name) {
+          setMusicalScale(aiRes.musicalScale.name);
+        }
+        if (aiRes.ceremony?.name) {
+          if (ceremoniesData.find(c => c.name === aiRes.ceremony.name)) {
+             setEventType(aiRes.ceremony.name);
+          } else {
+             setEventType("Khác");
+             setCustomEventType(aiRes.ceremony.name);
+          }
+        }
+        if (isInstrumental) {
+          setPerformanceType("instrumental");
+        } else if (aiRes.performanceContext) {
+          const pt = aiRes.performanceContext;
+          if (["vocal_accompaniment", "instrumental_solo", "instrumental_ensemble", "acappella", "instrumental"].includes(pt)) {
+            setPerformanceType(pt);
+          } else {
+            setPerformanceType(pt === "Hát với nhạc cụ" ? "vocal_accompaniment" : (pt === "Nhạc cụ" ? "instrumental" : ""));
+          }
+        }
+      }
+
       setUploadProgress(100);
     } catch (error: unknown) {
       console.error("Lỗi khi tải lên file hoặc tạo bản thu:", error);
@@ -3457,11 +3558,33 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                         </div>
 
                         {(file && !createdRecordingId && (!isEditMode || !newUploadedUrl)) && (
-                          <div className="mt-5 w-full max-w-sm mx-auto">
+                          <div className="mt-5 w-full max-w-sm mx-auto space-y-4">
+                            {mediaType === "audio" && !isEditMode && (
+                              <label
+                                className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all cursor-pointer shadow-sm hover:shadow-md ${useAiAnalysis ? "bg-primary-50/70 border-primary-300 ring-1 ring-primary-200" : "bg-white border-neutral-200 hover:border-primary-300"}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={useAiAnalysis}
+                                  onChange={(e) => setUseAiAnalysis(e.target.checked)}
+                                  disabled={isUploadingMedia}
+                                  className="mt-1 w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                />
+                                <div className="flex-1 text-sm text-left">
+                                  <div className={`font-bold flex items-center gap-1.5 ${useAiAnalysis ? "text-primary-800" : "text-neutral-700"}`}>
+                                    <Sparkles className={`w-4 h-4 ${useAiAnalysis ? "text-primary-600" : "text-neutral-400"}`} />
+                                    AI Phân tích {useAiAnalysis && "(Tự động điền)"}
+                                  </div>
+                                  <p className="text-neutral-500 text-xs mt-1 leading-snug">Tính năng tự động điền: AI dự đoán tiêu đề, loại hình hát, dân tộc, và dụng cụ âm nhạc. Có thể tốn thêm thời gian.</p>
+                                </div>
+                              </label>
+                            )}
+                            
                             {isUploadingMedia ? (
                               <div className="space-y-2">
-                                <div className="flex justify-between text-xs font-semibold text-neutral-600">
-                                  <span>Đang tải lên và phân tích...</span>
+                                <div className="flex justify-between text-xs font-semibold text-neutral-600 mb-1">
+                                  <span>{useAiAnalysis ? "Đang tải lên & Phân tích AI..." : "Đang tải lên..."}</span>
                                   <span>{Math.round(uploadProgress)}%</span>
                                 </div>
                                 <div className="w-full bg-neutral-200/80 rounded-full h-2.5 overflow-hidden">
@@ -3478,9 +3601,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                                   e.stopPropagation();
                                   handleUploadAndCreateDraft();
                                 }}
-                                className="w-full px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-colors shadow-sm flex items-center gap-2 justify-center"
+                                className="w-full px-4 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 justify-center"
                               >
-                                <Upload className="h-4 w-4" /> {isEditMode ? "Tải lên file mới" : "Bắt đầu tải lên"}
+                                {useAiAnalysis ? <Sparkles className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                                {isEditMode ? "Tải lên tệp thay thế" : (useAiAnalysis ? "Tải lên & Phân Tích" : "Bắt đầu tải lên")}
                               </button>
                             )}
                           </div>
