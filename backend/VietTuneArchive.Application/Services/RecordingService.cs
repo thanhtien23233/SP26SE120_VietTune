@@ -148,6 +148,43 @@ namespace VietTuneArchive.Application.Services
         }
 
         /// <summary>
+        /// Search recordings by filter
+        /// </summary>
+        public async Task<Result<RecordingSearchResultDto>> SearchByFilterAsync(RecordingFilterDto filter)
+        {
+            try
+            {
+                if (filter == null)
+                    throw new ArgumentNullException(nameof(filter), "Filter cannot be null");
+
+                var (recordings, total) = await _recordingRepository.SearchByFilterAsync(
+                    filter.EthnicGroupId,
+                    filter.InstrumentId,
+                    filter.CeremonyId,
+                    filter.RegionCode,
+                    filter.CommuneId,
+                    filter.Page,
+                    filter.PageSize,
+                    filter.SortOrder ?? "desc");
+
+                var dtos = _mapper.Map<List<GetRecordingDto>>(recordings);
+                var result = new RecordingSearchResultDto
+                {
+                    Data = dtos,
+                    Total = total
+                };
+                
+                return Result<RecordingSearchResultDto>.Success(
+                    result,
+                    $"Found {total} recordings, returned {dtos.Count}");
+            }
+            catch (Exception ex)
+            {
+                return Result<RecordingSearchResultDto>.Failure($"Failed to search recordings by filter: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Get recordings by ethnic group
         /// </summary>
         public async Task<ServiceResponse<List<RecordingDto>>> GetByEthnicGroupAsync(Guid ethnicGroupId)

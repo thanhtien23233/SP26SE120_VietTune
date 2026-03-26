@@ -8,6 +8,7 @@ namespace VietTuneArchive.Application.IServices
     {
         Task<Result<RecordingDto>> UploadRecordInfo (RecordingDto recordingDto, Guid recordingId);
         Task<Result<IEnumerable<GetRecordingDto>>> SearchByTitleAsync(string title);
+        Task<Result<RecordingSearchResultDto>> SearchByFilterAsync(RecordingFilterDto filter);
         Task<ServiceResponse<List<RecordingDto>>> GetByEthnicGroupAsync(Guid ethnicGroupId);
         Task<ServiceResponse<List<RecordingDto>>> GetByCommuneAsync(Guid communeId);
         Task<ServiceResponse<List<RecordingDto>>> GetByPerformerAsync(string performerName);

@@ -15,7 +15,7 @@ namespace VietTuneArchive.API.Controllers
         {
             _service = service;
         }
-        [HttpGet("get-by-user")]
+        [HttpGet("get-by-conversation")]
         public async Task<IActionResult> GetByConversationId(
             [FromQuery] Guid conversationId)
         {
