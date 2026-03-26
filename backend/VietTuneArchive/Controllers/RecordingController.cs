@@ -30,6 +30,38 @@ namespace VietTuneArchive.API.Controllers
             return BadRequest(result);
         }
 
+        [HttpGet("search-by-filter")]
+        [Authorize(Roles = "Admin,Contributor,Expert,Researcher")]
+        public async Task<IActionResult> SearchByFilter(
+            [FromQuery] Guid? ethnicGroupId,
+            [FromQuery] Guid? instrumentId,
+            [FromQuery] Guid? ceremonyId,
+            [FromQuery] string? regionCode,
+            [FromQuery] Guid? communeId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? sortOrder = "desc")
+        {
+            var filter = new RecordingFilterDto
+            {
+                EthnicGroupId = ethnicGroupId,
+                InstrumentId = instrumentId,
+                CeremonyId = ceremonyId,
+                RegionCode = regionCode,
+                CommuneId = communeId,
+                Page = page,
+                PageSize = pageSize,
+                SortOrder = sortOrder
+            };
+
+            var result = await _service.SearchByFilterAsync(filter);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
         [HttpGet]
         [Authorize(Roles = "Admin,Contributor,Expert,Researcher")]
         public async Task<ActionResult<PagedResponse<RecordingDto>>> GetAll(
