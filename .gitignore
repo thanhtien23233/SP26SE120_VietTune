@@ -43,11 +43,11 @@ lerna-debug.log*
 
 # Cursor IDE (toàn bộ thư mục local, không commit)
 .cursor/
-# .agent/ — KHÔNG đưa vào .gitignore để Cursor index workflows (slash commands ổn định).
-# Muốn không track .agent/ cục bộ: thêm `.agent/` vào .git/info/exclude
+# Agent assets/workflows chỉ dùng local
+.agent/
 
 # Docs chỉ dùng cục bộ
-docs/AGENT-KIT.md
+docs/
 
 # Java/Spring Boot (backend)
 backend/target/
