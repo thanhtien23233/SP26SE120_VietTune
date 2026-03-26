@@ -59,6 +59,34 @@ const createQAMessage = async (data: QAMessageRequest) => {
   }
 };
 
+const fetchUserConversations = async (userId: string): Promise<QAConversationRequest[]> => {
+  try {
+    const token = getItem("access_token");
+    const res = await axios.get(`${API_BASE_URL}/QAConversation/get-by-user`, {
+      params: { userId },
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    return res.data?.data || [];
+  } catch (err) {
+    console.error("Lỗi khi lấy lịch sử hội thoại:", err);
+    return [];
+  }
+};
+
+const fetchConversationMessages = async (conversationId: string): Promise<QAMessageRequest[]> => {
+  try {
+    const token = getItem("access_token");
+    const res = await axios.get(`${API_BASE_URL}/QAMessage/get-by-conversation`, {
+      params: { conversationId },
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    return res.data?.data || [];
+  } catch (err) {
+    console.error("Lỗi khi lấy tin nhắn hội thoại:", err);
+    return [];
+  }
+};
+
 /** Tin chào — đồng bộ với tab Hỏi Đáp AI (ResearcherPortalPage). */
 const WELCOME_MESSAGE =
   "Xin chào! Tôi có thể giúp bạn tìm hiểu về âm nhạc truyền thống Việt Nam. Bạn muốn tìm hiểu về điều gì?";
@@ -71,6 +99,10 @@ export default function ChatbotPage() {
   const { user } = useAuth();
   const [conversationId, setConversationId] = useState<string>(() => crypto.randomUUID());
   const [isFirstMessage, setIsFirstMessage] = useState<boolean>(true);
+  const [history, setHistory] = useState<QAConversationRequest[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [chatTitle, setChatTitle] = useState("Cuộc trò chuyện mới");
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>(() => [
     {
@@ -86,12 +118,54 @@ export default function ChatbotPage() {
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (user?.id) {
+      void loadHistory();
+    }
+  }, [user?.id]);
+
+  const loadHistory = async () => {
+    if (!user?.id) return;
+    setIsLoadingHistory(true);
+    const data = await fetchUserConversations(user.id);
+    setHistory(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    setIsLoadingHistory(false);
+  };
+
+  const handleSelectConversation = async (conv: QAConversationRequest) => {
+    setConversationId(conv.id);
+    setIsFirstMessage(false);
+    setChatTitle(conv.title || "Cuộc trò chuyện mới");
+    setIsLoadingMessages(true);
+    
+    // Khởi tạo trạng thái rỗng trong lúc chờ
+    setMessages([]);
+
+    const remoteMsgs = await fetchConversationMessages(conv.id);
+    if (remoteMsgs && remoteMsgs.length > 0) {
+      const mapped: Message[] = remoteMsgs.map((m) => ({
+        id: m.id,
+        role: m.role === 0 ? "user" : "assistant",
+        content: m.content,
+        timestamp: new Date(m.createdAt),
+      }));
+      setMessages(mapped);
+    }
+    
+    setIsLoadingMessages(false);
+    // On mobile, close sidebar after selecting
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
+  };
+
+  useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
   const handleNewChat = () => {
     setConversationId(crypto.randomUUID());
     setIsFirstMessage(true);
+    setChatTitle("Cuộc trò chuyện mới");
     setMessages([
       {
         id: "welcome",
@@ -122,6 +196,7 @@ export default function ChatbotPage() {
 
     try {
       if (isFirstMessage) {
+        setChatTitle(text);
         await createQAConversation({
           id: conversationId,
           userId: user?.id || "00000000-0000-0000-0000-000000000000",
@@ -129,6 +204,7 @@ export default function ChatbotPage() {
           createdAt: userTimestamp.toISOString()
         });
         setIsFirstMessage(false);
+        void loadHistory(); // Refresh history list
       }
 
       await createQAMessage({
@@ -256,9 +332,40 @@ export default function ChatbotPage() {
 
             {/* Content Area */}
             <div className={`flex-1 overflow-y-auto p-4 flex flex-col gap-2 transition-opacity duration-300 ${isSidebarOpen ? "opacity-100" : "opacity-0 hidden lg:hidden"}`}>
-              <div className="flex items-center justify-center h-full text-neutral-500 text-sm italic whitespace-nowrap">
-                Chưa có lịch sử lưu trữ.
-              </div>
+              {isLoadingHistory ? (
+                <div className="flex flex-col gap-3">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-12 bg-neutral-100 animate-pulse rounded-xl" />
+                  ))}
+                </div>
+              ) : history.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-neutral-500 text-sm italic whitespace-nowrap">
+                  Chưa có lịch sử lưu trữ.
+                </div>
+              ) : (
+                history.map((conv) => (
+                  <button
+                    key={conv.id}
+                    onClick={() => void handleSelectConversation(conv)}
+                    className={`w-full text-left p-3 rounded-xl transition-all border-2 shadow-sm mb-2 ${
+                      conversationId === conv.id
+                        ? "bg-primary-50 border-primary-300 text-primary-900 ring-2 ring-primary-100"
+                        : "bg-white border-neutral-200 hover:border-primary-200 hover:bg-neutral-50 text-neutral-700"
+                    }`}
+                  >
+                    <p className="font-medium text-sm truncate">{conv.title || "Cuộc trò chuyện mới"}</p>
+                    <p className="text-[10px] text-neutral-500 mt-1">
+                      {new Date(conv.createdAt).toLocaleDateString("vi-VN", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </button>
+                ))
+              )}
             </div>
           </div>
 
@@ -266,10 +373,10 @@ export default function ChatbotPage() {
           <div className="flex-1 flex flex-col rounded-2xl border-2 border-primary-200/80 bg-white shadow-lg overflow-hidden transition-all duration-300 min-w-0">
             <div className="bg-gradient-to-r from-primary-700 to-primary-600 text-white px-4 sm:px-6 py-4 border-b-2 border-primary-800 flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold">{INTELLIGENCE_NAME}</h2>
-                  <p className="text-secondary-200 text-sm mt-0.5">
-                    Hệ thống thử nghiệm có thể có sai sót
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold truncate max-w-[200px] sm:max-w-md lg:max-w-xl">{chatTitle}</h2>
+                  <p className="text-secondary-200 text-sm mt-0.5 truncate max-w-[200px] sm:max-w-md lg:max-w-xl">
+                    {INTELLIGENCE_NAME}
                   </p>
                 </div>
               </div>
@@ -282,7 +389,16 @@ export default function ChatbotPage() {
                 background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)",
               }}
             >
-              {messages.map((m) => (
+              {isLoadingMessages ? (
+                <div className="flex justify-center h-full items-center text-neutral-500 font-medium">
+                  Đang tải tin nhắn...
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex justify-center items-center h-full text-neutral-500 italic text-sm">
+                  Không có tin nhắn nào.
+                </div>
+              ) : (
+                messages.map((m) => (
                 <div
                   key={m.id}
                   className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
@@ -315,7 +431,7 @@ export default function ChatbotPage() {
                     </p>
                   </div>
                 </div>
-              ))}
+              )))}
               {isTyping && (
                 <div className="flex justify-start">
                   <div className="rounded-2xl px-4 py-3 bg-white border-2 border-secondary-200/80 shadow-sm flex gap-1.5">

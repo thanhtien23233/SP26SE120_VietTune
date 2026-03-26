@@ -687,7 +687,7 @@ export default function ContributionsPage() {
                 </button>
               )}
 
-              {detailSubmission && [1, 2, 3].includes(detailSubmission.status) && (
+              {detailSubmission && detailSubmission.status === 1 && (
                 <button
                   type="button"
                   disabled={isRequestingEdit}
