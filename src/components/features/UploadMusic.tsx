@@ -1585,14 +1585,16 @@ function FormField({
   required = false,
   children,
   hint,
+  id,
 }: {
   label: string;
   required?: boolean;
   children: React.ReactNode;
   hint?: string;
+  id?: string;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5" id={id}>
       <label className="block text-sm font-medium text-neutral-800">
         {label}
         {required && <span className="text-red-400 ml-1">*</span>}
@@ -2079,8 +2081,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           parts.push(`Nhạc cụ: ${res.instruments.join(", ")}`);
         }
         if (parts.length > 0) {
-          setAiSuggestSuccess(`Đã áp dụng gợi ý: ${parts.join(" · ")}. Xem lại ở Bước 2.`);
-          setUploadWizardStep(2);
+          setAiSuggestSuccess(`Đã áp dụng gợi ý: ${parts.join(" · ")}. Xem lại kết quả phía trên.`);
         }
       }
     } catch {
@@ -2369,6 +2370,16 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     if (missingFields.length > 0) {
       setSubmitStatus("error");
       setSubmitMessage(`Vui lòng hoàn thành các trường bắt buộc: ${missingFields.join(", ")}`);
+      
+      // Auto scroll to first error field
+      setTimeout(() => {
+        const firstErrorKey = Object.keys(newErrors)[0];
+        const errorElement = document.getElementById(`field-${firstErrorKey}`) || document.querySelector(`[name="${firstErrorKey}"]`);
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+
       return false;
     }
 
@@ -2552,15 +2563,11 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         if (!artistUnknown && !artist.trim()) {
           newErrors.artist = "Vui lòng nhập tên nghệ sĩ hoặc chọn 'Không rõ'";
         }
-        // Only require vocalStyle if it's supposed to be visible (vocal_accompaniment or acappella)
-        if ((performanceType === "vocal_accompaniment" || performanceType === "acappella") && !vocalStyle) {
-          newErrors.vocalStyle = "Vui lòng chọn lối hát / thể loại";
-        }
-      }
-    } else if (uploadWizardStep === 3) {
-      if (!isEditMode) {
         if (!performanceType) {
           newErrors.performanceType = "Vui lòng chọn loại hình biểu diễn";
+        }
+        if ((performanceType === "vocal_accompaniment" || performanceType === "acappella") && !vocalStyle) {
+          newErrors.vocalStyle = "Vui lòng chọn lối hát / thể loại";
         }
         if (requiresInstruments && instruments.length === 0) {
           newErrors.instruments = "Vui lòng chọn ít nhất một nhạc cụ";
@@ -2599,7 +2606,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
     // Scroll to top when moving to next step
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setUploadWizardStep((s) => Math.min(4, s + 1));
+    setUploadWizardStep((s) => Math.min(3, s + 1));
   };
 
   const handlePrevStep = () => {
@@ -2626,12 +2633,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       if (!title.trim()) return false;
       if (!artistUnknown && !artist.trim()) return false;
       if (!composerUnknown && !composer.trim()) return false;
-      if ((performanceType === "vocal_accompaniment" || performanceType === "acappella") && !vocalStyle) return false;
-    }
-
-    // To go to step 4: step 3 must be valid
-    if (targetStep >= 4) {
       if (!performanceType) return false;
+      if ((performanceType === "vocal_accompaniment" || performanceType === "acappella") && !vocalStyle) return false;
       if (requiresInstruments && instruments.length === 0) return false;
     }
 
@@ -3168,7 +3171,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         composer: composerUnknown ? "Dân gian/Không rõ" : (composer || undefined),
         language: noLanguage ? "Không có ngôn ngữ" : (language === "Khác" ? customLanguage : (language || undefined)),
         recordingLocation: recordingLocation || undefined,
-        ...(isFinal ? { status: 1 } : {}), // SET STATUS = 1 (Đang xử lý) CHỈ khi gửi đóng góp thành công
+        ...(isFinal ? { status: 1 } : {}), // SET STATUS = 1 (Chờ phê duyệt) CHỈ khi gửi đóng góp thành công
       };
 
       // 3. Send PUT Request to Backend to update recording metadata
@@ -3326,9 +3329,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
             <div className="flex flex-wrap items-center gap-2 sm:gap-4">
               {[
                 { step: 1, label: "Tải lên", icon: Upload },
-                { step: 2, label: "Metadata", icon: Info },
-                { step: 3, label: "GPS & Gợi ý AI", icon: MapPin },
-                { step: 4, label: "Xem lại & Gửi", icon: Check },
+                { step: 2, label: "Metadata & AI", icon: Info },
+                { step: 3, label: "Xem lại & Gửi", icon: Check },
               ].map(({ step, label, icon: Icon }) => {
                 const isNavigable = canNavigateToStep(step);
                 return (
@@ -3505,7 +3507,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
             {/* File Upload */}
             {
-              <div className="mt-4">
+              <div className="mt-4" id="field-file">
                 <div
                   onClick={() => {
                     if (isFormDisabled || isAnalyzing || file) return;
@@ -3702,7 +3704,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
               />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField label="Tiêu đề/Tên bản nhạc" required>
+                <FormField label="Tiêu đề/Tên bản nhạc" required id="field-title">
                   <TextInput
                     value={title}
                     onChange={setTitle}
@@ -3718,6 +3720,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                   <FormField
                     label="Nghệ sĩ/Người biểu diễn"
                     required={!artistUnknown}
+                    id="field-artist"
                   >
                     <TextInput
                       value={artist}
@@ -3747,7 +3750,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                 </div>
 
                 <div className="space-y-2">
-                  <FormField label="Nhạc sĩ/Tác giả" required={!composerUnknown}>
+                  <FormField label="Nhạc sĩ/Tác giả" required={!composerUnknown} id="field-composer">
                     <TextInput
                       value={composer}
                       onChange={setComposer}
@@ -3860,7 +3863,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                 </FormField>
 
                 <div className="md:col-span-2">
-                  <FormField label="Loại hình biểu diễn" required>
+                  <FormField label="Loại hình biểu diễn" required id="field-performanceType">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {PERFORMANCE_TYPES.map((pt) => (
                         <button
@@ -3908,7 +3911,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
                 {(performanceType === "vocal_accompaniment" || performanceType === "acappella") && (
                   <div className={performanceType === "vocal_accompaniment" ? "md:col-span-1" : "md:col-span-2"}>
-                    <FormField label="Lối hát / Thể loại (Vocal Style)" required>
+                    <FormField label="Lối hát / Thể loại (Vocal Style)" required id="field-vocalStyle">
                       <SearchableDropdown
                         value={vocalStyle}
                         onChange={(val) => {
@@ -3930,6 +3933,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                       label="Nhạc cụ sử dụng"
                       required={requiresInstruments}
                       hint="Chọn một hoặc nhiều nhạc cụ"
+                      id="field-instruments"
                     >
                       <MultiSelectTags
                         values={instruments}
@@ -4166,83 +4170,81 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                 </FormField>
               </div>
             </CollapsibleSection>
-          </>
-        )
-        }
 
-        {/* Bước 3: GPS & Gợi ý metadata từ AI */}
-        {
-          (uploadWizardStep === 3 || !showWizard) && (
-            <div
-              className="border border-neutral-200/80 rounded-2xl p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
-              style={{ backgroundColor: "#FFFCF5" }}
-            >
-              <SectionHeader
-                icon={Navigation}
-                title="Gắn GPS"
-                subtitle="Lấy tọa độ hiện tại để gắn vào địa điểm ghi âm"
-                optional
-              />
-              <div className="space-y-2 mb-6">
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleGetGpsLocation}
-                    disabled={isFormDisabled || gpsLoading}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer"
-                  >
-                    <Navigation className="w-4 h-4" strokeWidth={2.5} />
-                    {gpsLoading ? "Đang lấy vị trí và địa chỉ..." : "Lấy vị trí hiện tại"}
-                  </button>
-                  <span className="text-sm text-neutral-600">Địa điểm sẽ được thêm vào Địa điểm ghi âm ở Bước 2.</span>
+            {/* GPS & Gợi ý metadata từ AI merged into Step 2 */}
+            <div className="border border-neutral-200/80 rounded-2xl p-6 sm:p-8 bg-primary-50/30 shadow-sm mt-6 mb-2 border-dashed">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <SectionHeader
+                    icon={Navigation}
+                    title="Gắn vị trí GPS"
+                    subtitle="Lấy địa chỉ hiện tại để điền vào 'Địa điểm ghi âm' phía trên"
+                    optional
+                  />
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleGetGpsLocation}
+                        disabled={isFormDisabled || gpsLoading}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer text-sm"
+                      >
+                        <Navigation className="w-4 h-4" strokeWidth={2.5} />
+                        {gpsLoading ? "Đang lấy vị trí..." : "Lấy vị trí hiện tại"}
+                      </button>
+                    </div>
+                    {gpsError && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {gpsError}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                {gpsError && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {gpsError}
-                  </p>
-                )}
-              </div>
-              <SectionHeader
-                icon={Sparkles}
-                title="Gợi ý metadata từ AI"
-                subtitle="Dựa trên thể loại đã chọn, AI gợi ý dân tộc phù hợp (bạn có thể chỉnh sửa)"
-                optional
-              />
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleAiSuggestMetadata}
-                    disabled={isFormDisabled || aiSuggestLoading || !vocalStyle}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer"
-                  >
-                    <Sparkles className="w-4 h-4" strokeWidth={2.5} />
-                    {aiSuggestLoading ? "Đang gợi ý..." : "Lấy gợi ý từ AI"}
-                  </button>
-                  {!vocalStyle && (
-                    <span className="text-sm text-neutral-600">Chọn lối hát / thể loại ở Bước 2 trước khi dùng gợi ý AI.</span>
-                  )}
+
+                <div className="space-y-4">
+                  <SectionHeader
+                    icon={Sparkles}
+                    title="Hỗ trợ điền bằng AI"
+                    subtitle="Dựa trên 'Lối hát' để gợi ý Dân tộc & Nhạc cụ phù hợp"
+                    optional
+                  />
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleAiSuggestMetadata}
+                        disabled={isFormDisabled || aiSuggestLoading || !vocalStyle}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer text-sm"
+                      >
+                        <Sparkles className="w-4 h-4" strokeWidth={2.5} />
+                        {aiSuggestLoading ? "Đang xử lý..." : "Lấy gợi ý AI"}
+                      </button>
+                      {!vocalStyle && (
+                        <span className="text-xs text-neutral-500 italic">Chọn lối hát/thể loại trước khi dùng</span>
+                      )}
+                    </div>
+                    {aiSuggestError && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {aiSuggestError}
+                      </p>
+                    )}
+                    {aiSuggestSuccess && (
+                      <p className="text-xs text-green-700 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" />
+                        {aiSuggestSuccess}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                {aiSuggestError && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {aiSuggestError}
-                  </p>
-                )}
-                {aiSuggestSuccess && (
-                  <p className="text-sm text-green-700 flex items-center gap-1">
-                    <Check className="w-4 h-4" />
-                    {aiSuggestSuccess}
-                  </p>
-                )}
               </div>
             </div>
-          )
-        }
+          </>
+        )}
 
         {
-          (uploadWizardStep === 4 || !showWizard) && (
+          (uploadWizardStep === 3 || !showWizard) && (
             <>
               <CollapsibleSection
                 icon={Info}
@@ -4398,7 +4400,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                 Quay lại
               </button>
               <div className="flex gap-3">
-                {uploadWizardStep >= 2 && uploadWizardStep < 4 && (
+                {uploadWizardStep >= 2 && uploadWizardStep < 3 && (
                   <button
                     type="button"
                     onClick={handleSaveDraft}
@@ -4409,7 +4411,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     Lưu
                   </button>
                 )}
-                {uploadWizardStep < 4 && (
+                {uploadWizardStep < 3 && (
                   <button
                     type="button"
                     onClick={handleNextStep}

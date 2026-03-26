@@ -38,7 +38,7 @@ const formatSize = (bytes?: number | null) => {
 // Status labels
 const STATUS_LABELS: Record<number, { label: string; color: string }> = {
   0: { label: "Bản nháp", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
-  1: { label: "Đang xử lý", color: "bg-blue-100 text-blue-800 border-blue-300" },
+  1: { label: "Chờ phê duyệt", color: "bg-blue-100 text-blue-800 border-blue-300" },
   2: { label: "Đã duyệt", color: "bg-green-100 text-green-800 border-green-300" },
   3: { label: "Từ chối", color: "bg-red-100 text-red-800 border-red-300" },
   4: { label: "Yêu cầu cập nhật", color: "bg-orange-100 text-orange-800 border-orange-300" },
@@ -90,7 +90,7 @@ export default function ContributionsPage() {
   const TABS: Array<{ label: string, value: number | "ALL" }> = [
     { label: "Tất cả", value: "ALL" },
     { label: "Bản nháp", value: 0 },
-    { label: "Đang xử lý", value: 1 },
+    { label: "Chờ phê duyệt", value: 1 },
     { label: "Yêu cầu cập nhật", value: 4 },
     { label: "Đã duyệt", value: 2 },
     { label: "Từ chối", value: 3 },
@@ -488,7 +488,7 @@ export default function ContributionsPage() {
               <h2 className="text-xl font-semibold mb-2 text-neutral-900">Không có dữ liệu</h2>
               <p className="text-neutral-700 font-medium">
                 {activeStatusTab === 0 && "Chưa có bản ghi nháp"}
-                {activeStatusTab === 1 && "Chưa có đóng góp đang được xử lý"}
+                {activeStatusTab === 1 && "Chưa có đóng góp đang chờ phê duyệt"}
                 {activeStatusTab === 2 && "Chưa có đóng góp được duyệt"}
                 {activeStatusTab === 3 && "Chưa có đóng góp bị từ chối"}
                 {activeStatusTab === 4 && "Chưa có bản ghi đang yêu cầu cập nhật"}

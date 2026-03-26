@@ -159,7 +159,7 @@ export default function UploadPage() {
                   <ul className="space-y-2 text-neutral-700 font-medium leading-relaxed">
                     <li className="flex items-start gap-2">
                       <span className="text-sky-600 flex-shrink-0">•</span>
-                      <span>Làm theo 5 bước hướng dẫn trên hệ thống</span>
+                      <span>Làm theo 3 bước hướng dẫn trên hệ thống</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-sky-600 flex-shrink-0">•</span>
