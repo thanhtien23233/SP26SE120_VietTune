@@ -3,11 +3,13 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Search, Sparkles, Music, ArrowRight } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import SearchBar from "@/components/features/SearchBar";
-import RecordingCard from "@/components/features/RecordingCard";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import { Recording, SearchFilters, Region, RecordingType, VerificationStatus } from "@/types";
 import { recordingService } from "@/services/recordingService";
 import { fetchVerifiedSubmissionsAsRecordings } from "@/services/researcherArchiveService";
+import { useAuth } from "@/contexts/AuthContext";
+import { normalizeSearchText } from "@/utils/searchText";
+import SingleTrackPlayer from "@/components/researcher/SingleTrackPlayer";
 
 
 function filtersFromSearchParams(searchParams: URLSearchParams): SearchFilters {
@@ -44,6 +46,38 @@ function searchParamsFromFilters(filters: SearchFilters): Record<string, string>
 
 
 type ApiResponseType = { items: Recording[]; total: number; totalPages: number };
+type ExploreDataSource = "recordingGuest" | "recordingApi" | "searchApi" | "archiveFallback" | "empty";
+
+function applyGuestFilters(rows: Recording[], filters: SearchFilters): Recording[] {
+  const query = normalizeSearchText(filters.query ?? "");
+  const selectedRegion = filters.regions?.[0];
+  const selectedType = filters.recordingTypes?.[0];
+  const dateFrom = filters.dateFrom ? new Date(filters.dateFrom).getTime() : null;
+  const dateTo = filters.dateTo ? new Date(filters.dateTo).getTime() : null;
+  const tags = (filters.tags ?? []).map((t) => normalizeSearchText(t)).filter(Boolean);
+
+  return rows.filter((r) => {
+    if (query) {
+      const title = normalizeSearchText(`${r.title ?? ""} ${r.titleVietnamese ?? ""}`);
+      const desc = normalizeSearchText(r.description ?? "");
+      const tagText = normalizeSearchText((r.tags ?? []).join(" "));
+      const haystack = `${title} ${desc} ${tagText}`;
+      if (!haystack.includes(query)) return false;
+    }
+    if (selectedRegion && r.region !== selectedRegion) return false;
+    if (selectedType && r.recordingType !== selectedType) return false;
+    if (tags.length > 0) {
+      const tagSet = new Set((r.tags ?? []).map((x) => normalizeSearchText(x)));
+      if (!tags.every((t) => tagSet.has(t))) return false;
+    }
+    if (dateFrom || dateTo) {
+      const ts = new Date(r.recordedDate || r.uploadedDate || 0).getTime();
+      if (Number.isFinite(dateFrom) && ts < (dateFrom as number)) return false;
+      if (Number.isFinite(dateTo) && ts > (dateTo as number)) return false;
+    }
+    return true;
+  });
+}
 
 /**
  * Explore: latest approved recordings (contributor + expert moderation).
@@ -51,6 +85,7 @@ type ApiResponseType = { items: Recording[]; total: number; totalPages: number }
  */
 export default function ExplorePage() {
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const returnTo = location.pathname + location.search;
 
@@ -61,17 +96,53 @@ export default function ExplorePage() {
   const [filters, setFilters] = useState<SearchFilters>(initialFiltersFromUrl);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
+  const [dataSource, setDataSource] = useState<ExploreDataSource>("empty");
+
+  const logExploreTelemetry = useCallback(
+    (source: ExploreDataSource, count: number, extra?: Record<string, unknown>) => {
+      if (!import.meta.env.DEV) return;
+      console.info("[ExplorePage]", {
+        source,
+        count,
+        isAuthenticated,
+        page: currentPage,
+        filters,
+        ...extra,
+      });
+    },
+    [currentPage, filters, isAuthenticated],
+  );
 
   const fetchRecordings = useCallback(async () => {
     setLoading(true);
     try {
       let response: ApiResponseType;
-      if (Object.keys(filters).length > 0) {
+      if (!isAuthenticated) {
+        // Guest flow: always use dedicated public API without token.
+        const guestRes = await recordingService.getGuestRecordings(currentPage, 20);
+        const filteredGuestItems = applyGuestFilters(
+          Array.isArray(guestRes?.items) ? guestRes.items : [],
+          filters,
+        );
+        response = {
+          items: filteredGuestItems,
+          total: filteredGuestItems.length,
+          totalPages: 1,
+        };
+        setDataSource(filteredGuestItems.length > 0 ? "recordingGuest" : "empty");
+        logExploreTelemetry(filteredGuestItems.length > 0 ? "recordingGuest" : "empty", filteredGuestItems.length);
+      } else if (Object.keys(filters).length > 0) {
         const res = await recordingService.searchRecordings(filters, currentPage, 20);
         response = res as ApiResponseType;
+        const count = Array.isArray((res as ApiResponseType)?.items) ? (res as ApiResponseType).items.length : 0;
+        setDataSource(count > 0 ? "searchApi" : "empty");
+        logExploreTelemetry(count > 0 ? "searchApi" : "empty", count);
       } else {
         const res = await recordingService.getRecordings(currentPage, 20);
         response = res as ApiResponseType;
+        const count = Array.isArray((res as ApiResponseType)?.items) ? (res as ApiResponseType).items.length : 0;
+        setDataSource(count > 0 ? "recordingApi" : "empty");
+        logExploreTelemetry(count > 0 ? "recordingApi" : "empty", count);
       }
       const apiItems = Array.isArray(response?.items) ? response.items : [];
       const apiTotal = typeof response?.total === "number" ? response.total : apiItems.length;
@@ -85,20 +156,25 @@ export default function ExplorePage() {
       // Guest fallback: still show approved archive when /Recording endpoints are restricted.
       try {
         const fallback = await fetchVerifiedSubmissionsAsRecordings();
-        const sorted = [...fallback].sort(
+        const filteredFallback = !isAuthenticated ? applyGuestFilters(fallback, filters) : fallback;
+        const sorted = [...filteredFallback].sort(
           (a, b) =>
             new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
         );
         setRecordings(sorted.slice(0, 20));
         setTotalResults(sorted.length);
+        setDataSource(sorted.length > 0 ? "archiveFallback" : "empty");
+        logExploreTelemetry(sorted.length > 0 ? "archiveFallback" : "empty", sorted.length, { fallback: true });
       } catch {
         setRecordings([]);
         setTotalResults(0);
+        setDataSource("empty");
+        logExploreTelemetry("empty", 0, { fallback: true, failed: true });
       }
     } finally {
       setLoading(false);
     }
-  }, [currentPage, filters]);
+  }, [currentPage, filters, isAuthenticated, logExploreTelemetry]);
 
   useEffect(() => {
     fetchRecordings();
@@ -196,10 +272,31 @@ export default function ExplorePage() {
               <p className="text-neutral-700 font-medium leading-relaxed mb-4">
                 {hasFilters ? `Tìm thấy ${totalResults} bản thu` : `Có ${totalResults} bản thu đã được kiểm duyệt`}
               </p>
-              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <p className="text-[11px] text-neutral-500 mb-3">
+                Nguồn dữ liệu:{" "}
+                {dataSource === "recordingGuest"
+                  ? "recordingGuest (guest)"
+                  : dataSource === "searchApi"
+                    ? "Search API"
+                    : dataSource === "recordingApi"
+                      ? "Recording API"
+                      : dataSource === "archiveFallback"
+                        ? "Archive fallback"
+                        : "Không có dữ liệu"}
+              </p>
+              <ul className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
                 {recordings.map((r) => (
                   <li key={r.id}>
-                    <RecordingCard recording={r} linkState={{ from: returnTo }} />
+                    <SingleTrackPlayer recording={r} />
+                    <div className="mt-2">
+                      <Link
+                        to={`/recordings/${r.id}`}
+                        state={{ from: returnTo }}
+                        className="inline-flex items-center rounded-lg border border-primary-200/80 bg-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
+                      >
+                        Xem chi tiết
+                      </Link>
+                    </div>
                   </li>
                 ))}
               </ul>

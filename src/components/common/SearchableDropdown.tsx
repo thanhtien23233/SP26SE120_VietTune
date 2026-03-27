@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search, X } from "lucide-react";
+import { normalizeSearchText, scoreSearchOption } from "@/utils/searchText";
 
 function isClickOnScrollbar(event: MouseEvent): boolean {
   const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
@@ -44,15 +45,79 @@ export default function SearchableDropdown({
   );
 
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [activeOptionIndex, setActiveOptionIndex] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [menuRect, setMenuRect] = useState<DOMRect | null>(null);
 
-  const filteredOptions = useMemo(() => {
-    if (!search) return options;
-    return options.filter((opt) => opt.toLowerCase().includes(search.toLowerCase()));
-  }, [options, search]);
+  const sanitizedOptions = Array.from(
+    new Set(options.map((x) => x.trim()).filter(Boolean)),
+  );
+  const normalizedQuery = normalizeSearchText(debouncedSearch);
+  const filteredOptions = normalizedQuery
+    ? sanitizedOptions
+      .map((option) => ({ option, score: scoreSearchOption(option, normalizedQuery) }))
+      .filter((x) => x.score >= 0)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.option.localeCompare(b.option, "vi");
+      })
+      .map((x) => x.option)
+    : sanitizedOptions;
+
+  const handleSearchInput = useCallback((raw: string) => {
+    setSearch(raw);
+  }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedSearch(search), 150);
+    return () => window.clearTimeout(id);
+  }, [search]);
+
+  useEffect(() => {
+    if (!menuOpen && search) {
+      setSearch("");
+    }
+    if (!menuOpen) {
+      setDebouncedSearch("");
+      setActiveOptionIndex(0);
+    }
+  }, [menuOpen, search]);
+
+  useEffect(() => {
+    setActiveOptionIndex(0);
+  }, [debouncedSearch, value, menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const node = optionRefs.current[activeOptionIndex];
+    node?.scrollIntoView({ block: "nearest" });
+  }, [activeOptionIndex, menuOpen, filteredOptions.length]);
+
+  const optionsToRender = value ? [placeholder, ...filteredOptions] : filteredOptions;
+
+  const getLabelWithHighlight = useCallback(
+    (label: string) => {
+      const keyword = search.trim();
+      if (!keyword) return <>{label}</>;
+      const idx = label.toLowerCase().indexOf(keyword.toLowerCase());
+      if (idx < 0) return <>{label}</>;
+      return (
+        <>
+          {label.slice(0, idx)}
+          <mark className="bg-amber-200 text-amber-900 rounded px-0.5">
+            {label.slice(idx, idx + keyword.length)}
+          </mark>
+          {label.slice(idx + keyword.length)}
+        </>
+      );
+    },
+    [search],
+  );
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -135,14 +200,59 @@ export default function SearchableDropdown({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" aria-hidden />
                   <input
+                    ref={inputRef}
                     type="text"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => handleSearchInput(e.target.value)}
+                    onInput={(e) => handleSearchInput((e.target as HTMLInputElement).value)}
+                    onKeyDown={(e) => {
+                      if (!optionsToRender.length) return;
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setActiveOptionIndex((prev) =>
+                          Math.min(prev + 1, optionsToRender.length - 1),
+                        );
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setActiveOptionIndex((prev) => Math.max(prev - 1, 0));
+                      } else if (e.key === "Enter") {
+                        e.preventDefault();
+                        const picked = optionsToRender[activeOptionIndex];
+                        if (picked === placeholder) onChange("");
+                        else if (picked) onChange(picked);
+                        setMenuOpen(false);
+                        setSearch("");
+                        setDebouncedSearch("");
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        setMenuOpen(false);
+                        setSearch("");
+                        setDebouncedSearch("");
+                        buttonRef.current?.focus();
+                      }
+                    }}
                     placeholder="Tìm kiếm..."
-                    className="w-full pl-9 pr-3 py-2 text-neutral-900 placeholder-neutral-500 border border-neutral-300/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-sm shadow-sm bg-white"
+                    className="w-full pl-9 pr-9 py-2 text-neutral-900 placeholder-neutral-500 border border-neutral-300/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-sm shadow-sm bg-white"
                     autoFocus
                   />
+                  {search.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch("");
+                        setDebouncedSearch("");
+                        inputRef.current?.focus();
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
+                      aria-label="Xóa từ khóa tìm kiếm"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
+                <p className="mt-1 text-[11px] text-neutral-500 px-1">
+                  {filteredOptions.length} kết quả
+                </p>
               </div>
             )}
             <div
@@ -156,35 +266,34 @@ export default function SearchableDropdown({
                 <div className="px-4 py-3 text-neutral-400 text-sm text-center">Không tìm thấy kết quả</div>
               ) : (
                 <>
-                  {!value ? null : (
+                  {optionsToRender.map((option, idx) => (
                     <button
-                      type="button"
-                      onClick={() => {
-                        onChange("");
-                        setMenuOpen(false);
-                        setSearch("");
+                      key={`${option}-${idx}`}
+                      ref={(el) => {
+                        optionRefs.current[idx] = el;
                       }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-neutral-600 hover:bg-primary-50 hover:text-primary-800 transition-colors cursor-pointer border-b border-neutral-200/80"
-                    >
-                      {placeholder}
-                    </button>
-                  )}
-                  {filteredOptions.map((option) => (
-                    <button
-                      key={option}
                       type="button"
                       onClick={() => {
-                        onChange(option);
+                        if (option === placeholder && value) onChange("");
+                        else onChange(option);
                         setMenuOpen(false);
                         setSearch("");
+                        setDebouncedSearch("");
                       }}
                       className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
+                        idx === activeOptionIndex
+                          ? "ring-1 ring-primary-300/70"
+                          : ""
+                      } ${
                         value === option
                           ? "bg-primary-600 text-white font-medium"
-                          : "text-neutral-900 hover:bg-primary-50 hover:text-primary-800"
+                          : option === placeholder
+                            ? "text-neutral-600 hover:bg-primary-50 hover:text-primary-800 border-b border-neutral-200/80"
+                            : "text-neutral-900 hover:bg-primary-50 hover:text-primary-800"
                       }`}
+                      onMouseEnter={() => setActiveOptionIndex(idx)}
                     >
-                      {option}
+                      {getLabelWithHighlight(option)}
                     </button>
                   ))}
                 </>
