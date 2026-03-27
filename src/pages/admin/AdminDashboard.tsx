@@ -47,6 +47,23 @@ const ROLE_NAMES_VI: Record<string, string> = {
   [UserRole.USER]: "Người dùng",
 };
 
+function getRoleNameVi(role: string): string {
+  const normalized = role.trim();
+  const lowerRoleAlias: Record<string, string> = {
+    administrator: "Quản trị viên",
+    researcher: "Nhà nghiên cứu",
+    contributor: "Người đóng góp",
+    expert: "Chuyên gia",
+  };
+
+  return (
+    ROLE_NAMES_VI[normalized] ??
+    ROLE_NAMES_VI[normalized.toUpperCase()] ??
+    lowerRoleAlias[normalized.toLowerCase()] ??
+    normalized
+  );
+}
+
 const DELETE_ACTION = "__DELETE__" as const;
 
 function isClickOnScrollbar(event: MouseEvent): boolean {
@@ -96,8 +113,7 @@ function RoleSelectDropdown({
 
   const label =
     ROLE_OPTIONS.find((o) => o.value === value)?.label ??
-    (USER_ROLE_NAMES as Record<string, string>)[value] ??
-    value;
+    getRoleNameVi((USER_ROLE_NAMES as Record<string, string>)[value] ?? value);
 
   return (
     <div ref={dropdownRef} className="relative min-w-[140px]">
@@ -554,7 +570,7 @@ export default function AdminDashboard() {
                             {u.fullName && <span className="text-neutral-500 text-sm">({u.fullName})</span>}
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-neutral-700">{ROLE_NAMES_VI[u.role] ?? u.role}</td>
+                        <td className="py-3 px-4 text-neutral-700">{getRoleNameVi(u.role)}</td>
                         <td className="py-3 px-4 text-neutral-700">{u.contributionCount}</td>
                         <td className="py-3 px-4 text-green-600 font-medium">{u.approvedCount}</td>
                         <td className="py-3 px-4 text-red-600 font-medium">{u.rejectedCount}</td>
