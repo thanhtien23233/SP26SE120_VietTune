@@ -491,11 +491,23 @@ function SearchableDropdown({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuRect, setMenuRect] = useState<DOMRect | null>(null);
 
+  // Helper: remove Vietnamese accents for insensitive search
+  function removeVietnameseTones(str: string) {
+    if (!str) return "";
+    return str
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D");
+  }
+
   const filteredOptions = useMemo(() => {
     if (!search) return options;
-    return options.filter((opt) =>
-      opt.toLowerCase().includes(search.toLowerCase()),
-    );
+    const searchNorm = removeVietnameseTones(search.toLowerCase());
+    return options.filter((opt) => {
+      const optNorm = removeVietnameseTones((opt || "").toLowerCase());
+      return optNorm.includes(searchNorm);
+    });
   }, [options, search]);
 
   useEffect(() => {
