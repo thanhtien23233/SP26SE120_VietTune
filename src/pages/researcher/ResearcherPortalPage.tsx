@@ -27,6 +27,7 @@ import LoadingSpinner from "@/components/common/LoadingSpinner";
 import AudioPlayer from "@/components/features/AudioPlayer";
 import VideoPlayer from "@/components/features/VideoPlayer";
 import { INTELLIGENCE_NAME, REGION_NAMES } from "@/config/constants";
+import { API_BASE_URL } from "@/config/constants";
 import {
   referenceDataService,
   type EthnicGroupItem,
@@ -44,8 +45,12 @@ import { AI_RESPONSES_REVIEW_KEY } from "@/pages/ModerationPage";
 import { isYouTubeUrl } from "@/utils/youtube";
 import { Recording, VerificationStatus } from "@/types";
 import { fetchVerifiedSubmissionsAsRecordings } from "@/services/researcherArchiveService";
+import { useAuth } from "@/contexts/AuthContext";
+import axios from "axios";
+import { normalizeSearchText } from "@/utils/searchText";
 
 type TabId = "search" | "qa" | "graph" | "compare";
+type ResearcherCatalogSource = "api-filter" | "client-fallback" | "empty";
 
 type ResearcherFilterDropdownKey = "ethnic" | "instrument" | "ceremony" | "region" | "commune";
 
@@ -58,6 +63,27 @@ interface ChatMessage {
 interface ChatCitation {
   recordingId: string;
   label: string;
+}
+
+interface QAConversationRequest {
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: string;
+}
+
+interface QAMessageRequest {
+  id: string;
+  conversationId: string;
+  role: number;
+  content: string;
+  sourceRecordingIdsJson?: string | null;
+  sourceKBEntryIdsJson?: string | null;
+  confidenceScore?: number;
+  flaggedByExpert?: boolean;
+  correctedByExpertId?: string | null;
+  expertCorrection?: string | null;
+  createdAt: string;
 }
 
 interface SearchFiltersState {
@@ -131,6 +157,48 @@ const WELCOME_CHAT =
 
 const CHAT_API_FALLBACK =
   "Hiện không kết nối được với VietTune Intelligence. Bạn vẫn có thể xem thông tin từ phần Tìm kiếm nâng cao và Biểu đồ tri thức.";
+
+const QA_DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000";
+
+const createQAConversation = async (data: QAConversationRequest) => {
+  try {
+    await axios.post(`${API_BASE_URL}/QAConversation`, data);
+  } catch (err) {
+    console.error("Lỗi khi tạo conversation:", err);
+  }
+};
+
+const createQAMessage = async (data: QAMessageRequest) => {
+  try {
+    await axios.post(`${API_BASE_URL}/QAMessage`, data);
+  } catch (err) {
+    console.error("Lỗi khi lưu tin nhắn:", err);
+  }
+};
+
+const fetchUserConversations = async (userId: string): Promise<QAConversationRequest[]> => {
+  try {
+    const res = await axios.get(`${API_BASE_URL}/QAConversation/get-by-user`, {
+      params: { userId },
+    });
+    return res.data?.data || [];
+  } catch (err) {
+    console.error("Lỗi khi lấy lịch sử hội thoại:", err);
+    return [];
+  }
+};
+
+const fetchConversationMessages = async (conversationId: string): Promise<QAMessageRequest[]> => {
+  try {
+    const res = await axios.get(`${API_BASE_URL}/QAMessage/get-by-conversation`, {
+      params: { conversationId },
+    });
+    return res.data?.data || [];
+  } catch (err) {
+    console.error("Lỗi khi lấy tin nhắn hội thoại:", err);
+    return [];
+  }
+};
 
 /** Tokenize for semantic search (NFD, no diacritics). */
 function tokenize(text: string): string[] {
@@ -302,6 +370,7 @@ function buildCitationCandidates(question: string, recordings: Recording[]): Cha
 }
 
 export default function ResearcherPortalPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const returnTo = location.pathname;
@@ -319,11 +388,14 @@ export default function ResearcherPortalPage() {
   const [searchLoading, setSearchLoading] = useState(true);
   const [playModalRecording, setPlayModalRecording] = useState<Recording | null>(null);
   const [playModalLoading, setPlayModalLoading] = useState(false);
+  const [catalogSource, setCatalogSource] = useState<ResearcherCatalogSource>("empty");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: WELCOME_CHAT },
   ]);
   const [chatInput, setChatInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [conversationId, setConversationId] = useState<string>(() => crypto.randomUUID());
+  const [isFirstQaMessage, setIsFirstQaMessage] = useState(true);
   const [compareLeftId, setCompareLeftId] = useState("");
   const [compareRightId, setCompareRightId] = useState("");
   const [filterDropdownOpen, setFilterDropdownOpen] = useState<ResearcherFilterDropdownKey | null>(null);
@@ -336,6 +408,13 @@ export default function ResearcherPortalPage() {
   const [instrumentRefData, setInstrumentRefData] = useState<InstrumentItem[]>([]);
   const [ceremonyRefData, setCeremonyRefData] = useState<CeremonyItem[]>([]);
   const [communeRefData, setCommuneRefData] = useState<CommuneItem[]>([]);
+  const activeFilterCount = useMemo(
+    () =>
+      [filters.ethnicGroup, filters.instrument, filters.region, filters.ceremony, filters.commune].filter(
+        (x) => Boolean(x?.trim()),
+      ).length,
+    [filters],
+  );
 
   const ETHNICITIES = useMemo(() => ethnicRefData.map((e) => e.name), [ethnicRefData]);
   const REGIONS = useMemo(() => Object.values(REGION_NAMES), []);
@@ -409,48 +488,101 @@ export default function ResearcherPortalPage() {
   }, [graphView]);
 
   const buildRecordingSearchQuery = useCallback((): RecordingSearchByFilterQuery => {
+    const pickByNormalizedName = <T extends { name: string; id: string }>(list: T[], selected: string): string | undefined => {
+      const normalizedSelected = normalizeSearchText(selected);
+      if (!normalizedSelected) return undefined;
+      return list.find((x) => normalizeSearchText(x.name) === normalizedSelected)?.id;
+    };
     const regionCode =
       filters.region.trim().length > 0
         ? (Object.entries(REGION_NAMES) as [string, string][]).find(([, label]) => label === filters.region)?.[0]
         : undefined;
+    const ethnicGroupId = pickByNormalizedName(ethnicRefData, filters.ethnicGroup);
+    const instrumentId = pickByNormalizedName(instrumentRefData, filters.instrument);
+    const ceremonyId = pickByNormalizedName(ceremonyRefData, filters.ceremony);
+    const communeId = pickByNormalizedName(communeRefData, filters.commune);
     return {
       page: 1,
       pageSize: 500,
       q: searchQuery.trim() || undefined,
-      ethnicGroupId: filters.ethnicGroup
-        ? ethnicRefData.find((e) => e.name === filters.ethnicGroup)?.id
-        : undefined,
-      instrumentId: filters.instrument
-        ? instrumentRefData.find((i) => i.name === filters.instrument)?.id
-        : undefined,
-      ceremonyId: filters.ceremony
-        ? ceremonyRefData.find((c) => c.name === filters.ceremony)?.id
-        : undefined,
+      ethnicGroupId,
+      instrumentId,
+      ceremonyId,
       regionCode,
-      communeId: filters.commune ? communeRefData.find((c) => c.name === filters.commune)?.id : undefined,
+      communeId,
     };
   }, [searchQuery, filters, ethnicRefData, instrumentRefData, ceremonyRefData, communeRefData]);
 
   const loadResearcherCatalog = useCallback(async () => {
     setSearchLoading(true);
+    const q = buildRecordingSearchQuery();
+    const hasServerFilters = Boolean(
+      q.q || q.ethnicGroupId || q.instrumentId || q.ceremonyId || q.regionCode || q.communeId,
+    );
+    const logTelemetry = (
+      source: ResearcherCatalogSource,
+      count: number,
+      extra?: Record<string, unknown>,
+    ) => {
+      if (!import.meta.env.DEV) return;
+      console.info("[ResearcherSearch]", {
+        source,
+        count,
+        query: q,
+        hasServerFilters,
+        ...extra,
+      });
+    };
     try {
-      const q = buildRecordingSearchQuery();
-      let items = await fetchRecordingsSearchByFilter(q);
-      if (items.length === 0) {
-        let list = await fetchVerifiedSubmissionsAsRecordings();
-        list = applySearchQueryAndFilters(list, searchQuery, filters);
-        items = list;
+      let clientList = await fetchVerifiedSubmissionsAsRecordings();
+      clientList = applySearchQueryAndFilters(clientList, searchQuery, filters);
+
+      let apiList: Recording[] = [];
+      if (hasServerFilters) {
+        try {
+          apiList = await fetchRecordingsSearchByFilter(q);
+        } catch (apiErr) {
+          console.warn("GET /Recording/search-by-filter failed; continuing with client-first fallback.", apiErr);
+          apiList = [];
+        }
       }
-      setApprovedRecordings(items);
+      if (apiList.length > 0) {
+        setApprovedRecordings(apiList);
+        setCatalogSource("api-filter");
+        logTelemetry("api-filter", apiList.length, { clientFallbackCount: clientList.length });
+      } else if (clientList.length > 0) {
+        setApprovedRecordings(clientList);
+        setCatalogSource("client-fallback");
+        logTelemetry("client-fallback", clientList.length, { apiCount: apiList.length });
+      } else {
+        setApprovedRecordings([]);
+        setCatalogSource("empty");
+        logTelemetry("empty", 0, { apiCount: apiList.length, clientFallbackCount: clientList.length });
+      }
     } catch (err) {
-      console.warn("GET /Recording/search-by-filter failed; falling back to submissions list + client filters.", err);
+      console.warn("Researcher catalog load failed; applying empty fallback.", err);
       try {
         let list = await fetchVerifiedSubmissionsAsRecordings();
         list = applySearchQueryAndFilters(list, searchQuery, filters);
-        setApprovedRecordings(list);
+        if (list.length > 0) {
+          setApprovedRecordings(list);
+          setCatalogSource("client-fallback");
+          if (import.meta.env.DEV) {
+            console.info("[ResearcherSearch]", {
+              source: "client-fallback",
+              count: list.length,
+              query: q,
+              failedAt: "outer-catch",
+            });
+          }
+        } else {
+          setApprovedRecordings([]);
+          setCatalogSource("empty");
+        }
       } catch (fallbackErr) {
         console.error("Fallback catalog load failed:", fallbackErr);
         setApprovedRecordings([]);
+        setCatalogSource("empty");
       }
     } finally {
       setSearchLoading(false);
@@ -543,6 +675,31 @@ export default function ResearcherPortalPage() {
     chatListRef.current?.scrollTo({ top: chatListRef.current.scrollHeight, behavior: "smooth" });
   }, [chatMessages, isTyping]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const userId = user?.id || QA_DEFAULT_USER_ID;
+      const conversations = await fetchUserConversations(userId);
+      if (cancelled || conversations.length === 0) return;
+      const latest = [...conversations].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )[0];
+      if (!latest?.id) return;
+      const remoteMsgs = await fetchConversationMessages(latest.id);
+      if (cancelled || remoteMsgs.length === 0) return;
+      const mapped: ChatMessage[] = remoteMsgs.map((m) => ({
+        role: m.role === 0 ? "user" : "assistant",
+        content: m.content,
+      }));
+      setConversationId(latest.id);
+      setIsFirstQaMessage(false);
+      setChatMessages(mapped);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   const pushAiResponseForExpertReview = useCallback(async (question: string, answer: string, citations?: ChatCitation[]) => {
     try {
       const raw = await getItemAsync(AI_RESPONSES_REVIEW_KEY);
@@ -564,24 +721,66 @@ export default function ResearcherPortalPage() {
     }
   }, []);
 
-  const handleSendMessage = useCallback(async () => {
-    const text = chatInput.trim();
+  const sendQaQuestion = useCallback(async (text: string) => {
     if (!text) return;
     setChatMessages((prev) => [...prev, { role: "user", content: text }]);
     setChatInput("");
     setIsTyping(true);
     try {
+      const now = new Date();
+      const userId = user?.id || QA_DEFAULT_USER_ID;
+      const currentConversationId = conversationId;
+      if (isFirstQaMessage) {
+        await createQAConversation({
+          id: currentConversationId,
+          userId,
+          title: text,
+          createdAt: now.toISOString(),
+        });
+        setIsFirstQaMessage(false);
+      }
+      await createQAMessage({
+        id: crypto.randomUUID(),
+        conversationId: currentConversationId,
+        role: 0,
+        content: text,
+        sourceRecordingIdsJson: "[]",
+        sourceKBEntryIdsJson: "[]",
+        confidenceScore: 0,
+        flaggedByExpert: false,
+        correctedByExpertId: null,
+        expertCorrection: null,
+        createdAt: now.toISOString(),
+      });
       const reply = await sendResearcherChatMessage(text);
       const content = reply ?? CHAT_API_FALLBACK;
       const citations = buildCitationCandidates(text, approvedRecordings);
       setChatMessages((prev) => [...prev, { role: "assistant", content, citations }]);
       void pushAiResponseForExpertReview(text, content, citations);
+      await createQAMessage({
+        id: crypto.randomUUID(),
+        conversationId: currentConversationId,
+        role: 1,
+        content,
+        sourceRecordingIdsJson: "[]",
+        sourceKBEntryIdsJson: "[]",
+        confidenceScore: 0,
+        flaggedByExpert: false,
+        correctedByExpertId: null,
+        expertCorrection: null,
+        createdAt: new Date().toISOString(),
+      });
     } catch {
       setChatMessages((prev) => [...prev, { role: "assistant", content: CHAT_API_FALLBACK }]);
     } finally {
       setIsTyping(false);
     }
-  }, [chatInput, approvedRecordings, pushAiResponseForExpertReview]);
+  }, [approvedRecordings, pushAiResponseForExpertReview, user?.id, conversationId, isFirstQaMessage]);
+
+  const handleSendMessage = useCallback(async () => {
+    const text = chatInput.trim();
+    await sendQaQuestion(text);
+  }, [chatInput, sendQaQuestion]);
 
   const handleQaKeyDown = async (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -599,21 +798,8 @@ export default function ResearcherPortalPage() {
   const askQuestion = useCallback(async (question: string) => {
     const text = question.trim();
     if (!text) return;
-    setChatMessages((prev) => [...prev, { role: "user", content: text }]);
-    setChatInput("");
-    setIsTyping(true);
-    try {
-      const reply = await sendResearcherChatMessage(text);
-      const content = reply ?? CHAT_API_FALLBACK;
-      const citations = buildCitationCandidates(text, approvedRecordings);
-      setChatMessages((prev) => [...prev, { role: "assistant", content, citations }]);
-      void pushAiResponseForExpertReview(text, content, citations);
-    } catch {
-      setChatMessages((prev) => [...prev, { role: "assistant", content: CHAT_API_FALLBACK }]);
-    } finally {
-      setIsTyping(false);
-    }
-  }, [approvedRecordings, pushAiResponseForExpertReview]);
+    await sendQaQuestion(text);
+  }, [sendQaQuestion]);
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
     { id: "search", label: "Tìm kiếm nâng cao", icon: Search },
@@ -630,22 +816,6 @@ export default function ResearcherPortalPage() {
             Cổng nghiên cứu
           </h1>
           <BackButton />
-        </div>
-
-        <div className="rounded-2xl border border-primary-200/80 bg-white shadow-sm p-4 sm:p-5 mb-5">
-          <h2 className="text-sm sm:text-base font-semibold text-primary-800 mb-3">Luồng nghiệp vụ chính của Researcher</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            {[
-              { title: "1) Discovery & Research", desc: "Tìm kiếm ngữ nghĩa, hỏi đáp AI, biểu đồ tri thức, so sánh và xuất dataset." },
-              { title: "2) Expert Verification", desc: "Đánh giá 3 bước, gắn cờ phản hồi AI, cập nhật tri thức cộng tác." },
-              { title: "3) Contribution", desc: "Nộp bản thu hiện trường, điền metadata có cấu trúc, theo dõi tiến trình kiểm duyệt." },
-            ].map((flow) => (
-              <div key={flow.title} className="rounded-xl border border-neutral-200/80 bg-primary-50/40 px-3 py-2.5">
-                <p className="font-semibold text-primary-800 text-sm">{flow.title}</p>
-                <p className="text-xs text-neutral-700 mt-1">{flow.desc}</p>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Tabs — VietTune UI: rounded-2xl, #FFFCF5, border-neutral-200/80 */}
@@ -717,9 +887,30 @@ export default function ResearcherPortalPage() {
 
               {/* Bộ lọc — một menu mở tại một thời điểm (controlled SearchableDropdown) */}
               <div className="rounded-2xl border border-primary-200/60 bg-gradient-to-br from-[#FFFCF5] via-white to-primary-50/30 shadow-sm p-5 sm:p-6">
-                <div className="mb-4 sm:mb-5">
-                  <h3 className="text-base font-semibold text-primary-800 tracking-tight">Bộ lọc nâng cao</h3>
-                  <p className="text-xs text-neutral-500 mt-1">Lọc nhanh theo metadata đã xác minh.</p>
+                <div className="mb-4 sm:mb-5 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold text-primary-800 tracking-tight">Bộ lọc nâng cao</h3>
+                    <p className="text-xs text-neutral-500 mt-1">Lọc nhanh theo metadata đã xác minh.</p>
+                    {activeFilterCount > 0 && (
+                      <p className="text-[11px] text-primary-700 mt-1">Đang áp dụng {activeFilterCount} bộ lọc</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFilters({
+                        ethnicGroup: "",
+                        instrument: "",
+                        region: "",
+                        ceremony: "",
+                        commune: "",
+                      })
+                    }
+                    disabled={activeFilterCount === 0}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-primary-200/80 text-primary-700 hover:bg-primary-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  >
+                    Xóa tất cả
+                  </button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4">
                   {(
@@ -812,6 +1003,11 @@ export default function ResearcherPortalPage() {
                       ? "Đang tải..."
                       : `Tìm thấy ${approvedRecordings.length} bản ghi đã kiểm duyệt`}
                   </span>
+                  {!searchLoading && (
+                    <span className="text-[11px] text-neutral-500">
+                      Nguồn: {catalogSource === "api-filter" ? "API filter" : catalogSource === "client-fallback" ? "Client fallback" : "Không có dữ liệu"}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={handleExportDataset}
