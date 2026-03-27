@@ -764,21 +764,30 @@ export default function AdminDashboard() {
                               <p className="font-medium text-neutral-900">{req.recordingTitle}</p>
                               <p className="text-sm text-neutral-600">Người đóng góp: {req.contributorName} · {new Date(req.requestedAt).toLocaleString("vi-VN")}</p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  await recordingRequestService.approveEditRequest(req.id);
-                                  setEditRecordingRequests(await recordingRequestService.getEditRecordingRequests());
-                                  notify.success("Thành công", "Đã duyệt yêu cầu chỉnh sửa bản thu. Người đóng góp có thể chỉnh sửa bản thu.");
-                                } catch (e) {
-                                  notify.error("Lỗi", "Không thể duyệt yêu cầu chỉnh sửa bản thu. Vui lòng thử lại.");
-                                }
-                              }}
-                              className="px-4 py-2 rounded-full bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium cursor-pointer"
-                            >
-                              Duyệt yêu cầu chỉnh sửa bản thu
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <Link
+                                to={`/recordings/${req.recordingId}/edit`}
+                                className="px-4 py-2 rounded-full border border-primary-200/80 text-primary-700 hover:text-primary-800 hover:border-primary-300 text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                                style={{ backgroundColor: "#FFFCF5" }}
+                              >
+                                Chỉnh sửa ngay
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await recordingRequestService.approveEditRequest(req.id);
+                                    setEditRecordingRequests(await recordingRequestService.getEditRecordingRequests());
+                                    notify.success("Thành công", "Đã duyệt yêu cầu chỉnh sửa bản thu. Người đóng góp có thể chỉnh sửa bản thu.");
+                                  } catch (e) {
+                                    notify.error("Lỗi", "Không thể duyệt yêu cầu chỉnh sửa bản thu. Vui lòng thử lại.");
+                                  }
+                                }}
+                                className="px-4 py-2 rounded-full bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium cursor-pointer"
+                              >
+                                Duyệt yêu cầu chỉnh sửa bản thu
+                              </button>
+                            </div>
                           </div>
                         ))}
                     </div>

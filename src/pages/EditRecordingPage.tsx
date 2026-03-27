@@ -36,6 +36,7 @@ export default function EditRecordingPage() {
         const r = full as LocalRecording;
         const isContributor = user?.role === UserRole.CONTRIBUTOR;
         const isExpert = user?.role === UserRole.EXPERT;
+        const isAdmin = user?.role === UserRole.ADMIN;
         const isOwner = r.uploader && (r.uploader as { id?: string }).id === user?.id;
         const status = r.moderation && typeof r.moderation === "object" && "status" in r.moderation
           ? (r.moderation as { status?: string }).status
@@ -49,7 +50,8 @@ export default function EditRecordingPage() {
         const canEdit =
           !isRejected &&
           ((isContributor && isOwner && (isApproved || isTemporarilyRejected) && !contributorEditLocked) ||
-            (isExpert && isApproved));
+            (isExpert && isApproved) ||
+            (isAdmin && (isApproved || isTemporarilyRejected)));
         if (!canEdit) {
           setForbidden(true);
           setRecording(null);
