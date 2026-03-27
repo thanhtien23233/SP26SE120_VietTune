@@ -1,11 +1,81 @@
 import { Link } from "react-router-dom";
 import { Upload, ArrowRight, Compass, TrendingUp, Clock, FileText, ShieldCheck, FileCheck, UserPlus, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Recording, UserRole } from "@/types";
+import {
+  Recording,
+  UserRole,
+  ModerationStatus,
+  VerificationStatus,
+  type LocalRecording,
+} from "@/types";
 import { recordingService } from "@/services/recordingService";
 import RecordingCard from "@/components/features/RecordingCard";
 import logo from "@/components/image/VietTune logo.png";
 import { useAuthStore } from "@/stores/authStore";
+import { fetchVerifiedSubmissionsAsRecordings } from "@/services/researcherArchiveService";
+import { getLocalRecordingFull, getLocalRecordingMetaList } from "@/services/recordingStorage";
+import { migrateVideoDataToVideoData } from "@/utils/helpers";
+import { convertLocalToRecording } from "@/utils/localRecordingToRecording";
+
+function pickRecordingRows(input: unknown): Recording[] {
+  if (!input || typeof input !== "object") return [];
+  const root = input as Record<string, unknown>;
+  if (Array.isArray(root.items)) return root.items as Recording[];
+  if (Array.isArray(root.data)) return root.data as Recording[];
+  if (Array.isArray(root.Items)) return root.Items as Recording[];
+  if (Array.isArray(root.Data)) return root.Data as Recording[];
+  const nested = root.data;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    const d = nested as Record<string, unknown>;
+    if (Array.isArray(d.items)) return d.items as Recording[];
+    if (Array.isArray(d.data)) return d.data as Recording[];
+    if (Array.isArray(d.Items)) return d.Items as Recording[];
+    if (Array.isArray(d.Data)) return d.Data as Recording[];
+  }
+  const nestedPascal = root.Data;
+  if (nestedPascal && typeof nestedPascal === "object" && !Array.isArray(nestedPascal)) {
+    const d = nestedPascal as Record<string, unknown>;
+    if (Array.isArray(d.items)) return d.items as Recording[];
+    if (Array.isArray(d.data)) return d.data as Recording[];
+    if (Array.isArray(d.Items)) return d.Items as Recording[];
+    if (Array.isArray(d.Data)) return d.Data as Recording[];
+  }
+  return [];
+}
+
+function pickVerified(rows: Recording[]): Recording[] {
+  return rows.filter((r) => {
+    const row = r as unknown as Record<string, unknown>;
+    const raw =
+      row.verificationStatus ??
+      row.VerificationStatus ??
+      row.status ??
+      row.Status ??
+      "";
+
+    // Accepted "verified" markers across mixed API shapes.
+    if (typeof raw === "number") return raw === 2;
+    const normalized = String(raw).trim().toUpperCase();
+    return normalized === VerificationStatus.VERIFIED || normalized === "APPROVED" || normalized === "2";
+  });
+}
+
+async function fetchApprovedLocalRecordings(): Promise<Recording[]> {
+  const meta = await getLocalRecordingMetaList();
+  const migrated = migrateVideoDataToVideoData(meta as LocalRecording[]);
+  const approved = migrated.filter(
+    (r) =>
+      r.moderation &&
+      typeof r.moderation === "object" &&
+      "status" in r.moderation &&
+      (r.moderation as { status?: string }).status === ModerationStatus.APPROVED,
+  );
+  const full = await Promise.all(
+    approved.map((r) => getLocalRecordingFull(r.id ?? "")),
+  );
+  const locals = full.filter((r): r is LocalRecording => r != null);
+  return Promise.all(locals.map((r) => convertLocalToRecording(r)));
+}
 
 
 // Section Header Component
@@ -97,13 +167,82 @@ export default function HomePage() {
         recordingService.getPopularRecordings(4),
         recordingService.getRecentRecordings(4),
       ]);
-      setPopularRecordings(popular.data || []);
-      setRecentRecordings(recent.data || []);
+
+      const popularRows = pickVerified(pickRecordingRows(popular));
+      const recentRows = pickVerified(pickRecordingRows(recent));
+
+      if (popularRows.length > 0 || recentRows.length > 0) {
+        setPopularRecordings(popularRows.slice(0, 4));
+        setRecentRecordings(recentRows.slice(0, 4));
+        return;
+      }
+
+      // Some environments return empty for "popular/recent"; fallback to generic recordings.
+      const generic = await recordingService.getRecordings(1, 20);
+      const genericRows = pickVerified(pickRecordingRows(generic)).sort(
+        (a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+      );
+      if (genericRows.length > 0) {
+        setRecentRecordings(genericRows.slice(0, 4));
+        setPopularRecordings(genericRows.slice(0, 4));
+        return;
+      }
+
+      // Final fallback for guest/listening UX.
+      const fallback = await fetchVerifiedSubmissionsAsRecordings();
+      const sorted = [...fallback].sort(
+        (a, b) =>
+          new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+      );
+      if (sorted.length > 0) {
+        setRecentRecordings(sorted.slice(0, 4));
+        setPopularRecordings(sorted.slice(0, 4));
+        return;
+      }
+
+      const localApproved = await fetchApprovedLocalRecordings();
+      const sortedLocal = [...localApproved].sort(
+        (a, b) =>
+          new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+      );
+      setRecentRecordings(sortedLocal.slice(0, 4));
+      setPopularRecordings(sortedLocal.slice(0, 4));
     } catch (err) {
       console.error("Error fetching recordings:", err);
-      // Removed local mock fallback as requested
-      setPopularRecordings([]);
-      setRecentRecordings([]);
+      // Guest fallback: keep listening experience available without login.
+      try {
+        const generic = await recordingService.getRecordings(1, 50);
+        const genericRows = pickVerified(pickRecordingRows(generic)).sort(
+          (a, b) =>
+            new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+        );
+        if (genericRows.length > 0) {
+          setRecentRecordings(genericRows.slice(0, 4));
+          setPopularRecordings(genericRows.slice(0, 4));
+          return;
+        }
+
+        const fallback = await fetchVerifiedSubmissionsAsRecordings();
+        const sorted = [...fallback].sort(
+          (a, b) =>
+            new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+        );
+        if (sorted.length > 0) {
+          setRecentRecordings(sorted.slice(0, 4));
+          setPopularRecordings(sorted.slice(0, 4));
+          return;
+        }
+        const localApproved = await fetchApprovedLocalRecordings();
+        const sortedLocal = [...localApproved].sort(
+          (a, b) =>
+            new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+        );
+        setRecentRecordings(sortedLocal.slice(0, 4));
+        setPopularRecordings(sortedLocal.slice(0, 4));
+      } catch {
+        setPopularRecordings([]);
+        setRecentRecordings([]);
+      }
     }
   };
 

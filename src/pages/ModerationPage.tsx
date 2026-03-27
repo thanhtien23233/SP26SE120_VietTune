@@ -266,6 +266,7 @@ interface LocalRecordingMini {
     title?: string; // Fallback for old format
     mediaType?: "audio" | "video" | "youtube";
     audioData?: string | null;
+    audioUrl?: string;
     videoData?: string | null;
     youtubeUrl?: string | null;
     basicInfo?: {
@@ -1516,7 +1517,18 @@ export default function ModerationPage() {
                                     } else if (item.mediaType === "video" && item.videoData?.trim()) {
                                         mediaSrc = item.videoData;
                                         isVideo = true;
-                                    } else if (item.mediaType === "audio" && item.audioData?.trim()) {
+                                    } else if (item.mediaType === "audio" && (item.audioData?.trim() || item.audioUrl?.trim())) {
+                                        mediaSrc = item.audioData?.trim() || item.audioUrl?.trim();
+                                    } else if (item.mediaType === "video" && item.audioUrl?.trim()) {
+                                        // Some API rows classify as "video" but only expose URL.
+                                        mediaSrc = item.audioUrl.trim();
+                                        const src = mediaSrc;
+                                        isVideo = isYouTubeUrl(src) || /\.(mp4|mov|avi|webm|mkv|mpeg|mpg|wmv|3gp|flv)(\?|$)/i.test(src) || src.startsWith("data:video/");
+                                    } else if (item.audioUrl?.trim()) {
+                                        mediaSrc = item.audioUrl.trim();
+                                        const src = mediaSrc;
+                                        isVideo = isYouTubeUrl(src) || /\.(mp4|mov|avi|webm|mkv|mpeg|mpg|wmv|3gp|flv)(\?|$)/i.test(src) || src.startsWith("data:video/");
+                                    } else if (item.audioData?.trim()) {
                                         mediaSrc = item.audioData;
                                     } else if (item.videoData?.trim()) {
                                         mediaSrc = item.videoData;
@@ -1536,7 +1548,7 @@ export default function ModerationPage() {
                                             region: Region.RED_RIVER_DELTA,
                                             recordingType: RecordingType.OTHER,
                                             duration: 0,
-                                            audioUrl: r.audioData ?? "",
+                                            audioUrl: r.audioData ?? r.audioUrl ?? "",
                                             waveformUrl: "",
                                             coverImage: "",
                                             instruments: (r.culturalContext?.instruments || []).map((name, idx) => ({ id: `li-${idx}`, name, nameVietnamese: name, category: "STRING" as import("@/types").InstrumentCategory, images: [], recordingCount: 0 })) as Instrument[],
@@ -1625,9 +1637,23 @@ export default function ModerationPage() {
                                                         }
                                                     >
                                                         {isVideo ? (
-                                                            <VideoPlayer src={mediaSrc} title={item.basicInfo?.title || item.title} artist={item.basicInfo?.artist} recording={convertedForPlayer} showContainer={true} />
+                                                            <VideoPlayer
+                                                                src={mediaSrc}
+                                                                title={item.basicInfo?.title || item.title}
+                                                                artist={item.basicInfo?.artist}
+                                                                recording={convertedForPlayer}
+                                                                showContainer={true}
+                                                                showMetadataTags={false}
+                                                            />
                                                         ) : (
-                                                            <AudioPlayer src={mediaSrc} title={item.basicInfo?.title || item.title} artist={item.basicInfo?.artist} recording={convertedForPlayer} showContainer={true} />
+                                                            <AudioPlayer
+                                                                src={mediaSrc}
+                                                                title={item.basicInfo?.title || item.title}
+                                                                artist={item.basicInfo?.artist}
+                                                                recording={convertedForPlayer}
+                                                                showContainer={true}
+                                                                showMetadataTags={false}
+                                                            />
                                                         )}
                                                     </div>
                                                 )}

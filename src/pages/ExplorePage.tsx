@@ -7,6 +7,7 @@ import RecordingCard from "@/components/features/RecordingCard";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import { Recording, SearchFilters, Region, RecordingType, VerificationStatus } from "@/types";
 import { recordingService } from "@/services/recordingService";
+import { fetchVerifiedSubmissionsAsRecordings } from "@/services/researcherArchiveService";
 
 
 function filtersFromSearchParams(searchParams: URLSearchParams): SearchFilters {
@@ -81,8 +82,19 @@ export default function ExplorePage() {
       setTotalResults(apiTotal);
     } catch (error) {
       console.error("Error fetching recordings:", error);
-      setRecordings([]);
-      setTotalResults(0);
+      // Guest fallback: still show approved archive when /Recording endpoints are restricted.
+      try {
+        const fallback = await fetchVerifiedSubmissionsAsRecordings();
+        const sorted = [...fallback].sort(
+          (a, b) =>
+            new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+        );
+        setRecordings(sorted.slice(0, 20));
+        setTotalResults(sorted.length);
+      } catch {
+        setRecordings([]);
+        setTotalResults(0);
+      }
     } finally {
       setLoading(false);
     }

@@ -6,6 +6,7 @@ import { submissionService } from "@/services/submissionService";
 import { buildSubmissionLookupMaps } from "@/services/expertModerationApi";
 import { mapSubmissionToLocalRecording } from "@/services/submissionApiMapper";
 import { convertLocalToRecording } from "@/utils/localRecordingToRecording";
+import { fetchVerifiedSubmissionsAsRecordings } from "@/services/researcherArchiveService";
 import { Heart, Download, Share2, Eye, User } from "lucide-react";
 import Badge from "@/components/common/Badge";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
@@ -144,6 +145,17 @@ export default function RecordingDetailPage() {
           const listRes = await recordingService.getRecordings(1, 500);
           const items = extractRecordingListFromApiResponse(listRes);
           const matched = items.find((x) => x.id === id);
+          if (matched && !cancelled) {
+            setRecording(matched);
+            return;
+          }
+        } catch {
+          // ignore and try verified-submission fallback below
+        }
+
+        try {
+          const fallback = await fetchVerifiedSubmissionsAsRecordings();
+          const matched = fallback.find((x) => x.id === id);
           if (matched && !cancelled) setRecording(matched);
           else if (!cancelled) setRecording(null);
         } catch {
