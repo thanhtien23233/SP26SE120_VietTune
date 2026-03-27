@@ -4,7 +4,7 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { authService } from "@/services/authService";
 import { useAuthStore } from "@/stores/authStore";
 import Input from "@/components/common/Input";
-import { LoginForm, UserRole } from "@/types";
+import { LoginForm, UserRole, ConfirmAccountForm } from "@/types";
 import { notify } from "@/stores/notificationStore";
 import logo from "@/components/image/VietTune logo.png";
 import { sessionGetItem, sessionRemoveItem } from "@/services/storageService";
@@ -26,11 +26,22 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const fromLogout = typeof window !== "undefined" && sessionGetItem("fromLogout") === "1";
 
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [isOtpLoading, setIsOtpLoading] = useState(false);
+
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<LoginForm>();
+
+  const {
+    register: registerOtp,
+    handleSubmit: handleOtpSubmit,
+    formState: { errors: otpErrors },
+    reset: resetOtpForm,
+  } = useForm<ConfirmAccountForm>();
 
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
@@ -50,9 +61,43 @@ export default function LoginPage() {
           ? (error as { response?: { data?: { message?: string } } }).response
             ?.data?.message || "Đăng nhập thất bại. Vui lòng thử lại."
           : "Đăng nhập thất bại. Vui lòng thử lại.";
-      notify.error("Lỗi đăng nhập", errorMessage);
+          
+      if (errorMessage.toLowerCase().includes("xác nhận email")) {
+        setShowOtpModal(true);
+      } else {
+        notify.error("Lỗi đăng nhập", errorMessage);
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const onOtpSubmit = async (data: ConfirmAccountForm) => {
+    setIsOtpLoading(true);
+    try {
+      const result = await authService.confirmEmail(data.otp);
+      const msg =
+        result && typeof result === "object" && "message" in result && typeof (result as { message?: unknown }).message === "string"
+          ? (result as { message: string }).message
+          : "Xác thực tài khoản thành công.";
+      notify.success("Thành công", msg);
+      setShowOtpModal(false);
+      resetOtpForm();
+      
+      // Tự động đăng nhập
+      const loginData = getValues();
+      if (loginData.email && loginData.password) {
+        await onSubmit(loginData);
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error && "response" in error
+          ? (error as { response?: { data?: { message?: string } } }).response
+            ?.data?.message || "Xác thực thất bại. Vui lòng kiểm tra lại mã OTP."
+          : "Xác thực thất bại. Vui lòng thử lại.";
+      notify.error("Lỗi", errorMessage);
+    } finally {
+      setIsOtpLoading(false);
     }
   };
 
@@ -162,6 +207,60 @@ export default function LoginPage() {
           )}
         </div>
       </div>
+
+      {/* OTP Modal */}
+      {showOtpModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200">
+          <div className="bg-[#fff2d6] w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-red-700 px-6 py-4 flex justify-between items-center text-white">
+              <h3 className="text-lg font-bold">Xác thực email</h3>
+              <button
+                onClick={() => setShowOtpModal(false)}
+                className="text-white hover:text-neutral-200 text-xl font-bold p-1 leading-none"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div className="p-6 md:p-8 flex flex-col items-center">
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-4 border border-red-200 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <p className="text-neutral-800 font-medium text-center mb-6 px-4">
+                Vui lòng nhập mã OTP đã được gửi đến email của bạn để xác thực tài khoản.
+              </p>
+              
+              <form onSubmit={handleOtpSubmit(onOtpSubmit)} className="w-full space-y-4">
+                <Input
+                  placeholder="Nhập mã OTP (6 chữ số)"
+                  className="rounded-xl border-neutral-300 py-3.5 focus:border-red-600 bg-white text-center text-lg tracking-widest shadow-none ring-0 focus:ring-2 focus:ring-red-600/20"
+                  {...registerOtp("otp", {
+                    required: "Mã OTP là bắt buộc",
+                    minLength: {
+                      value: 6,
+                      message: "Mã OTP phải có 6 ký tự",
+                    },
+                    maxLength: {
+                      value: 6,
+                      message: "Mã OTP phải có 6 ký tự",
+                    },
+                  })}
+                  error={otpErrors.otp?.message}
+                />
+                <button
+                  type="submit"
+                  disabled={isOtpLoading}
+                  className="w-full py-3.5 mt-2 bg-red-700 text-white text-lg font-bold rounded-full hover:bg-red-800 transition-all shadow-md active:scale-[0.98] disabled:bg-neutral-400"
+                >
+                  {isOtpLoading ? "Đang xác thực..." : "Xác nhận ngay"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
