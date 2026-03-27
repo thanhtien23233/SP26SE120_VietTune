@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Play, Pause, Volume2, VolumeX, RotateCcw, RotateCw, Trash2, Users, MapPin, Music, Repeat } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useMediaFocusStore } from "@/stores/mediaFocusStore";
@@ -31,6 +31,7 @@ type Props = {
   recording?: Recording;
   onDelete?: (id: string) => void;
   showContainer?: boolean;
+  showMetadataTags?: boolean;
   /** When set, passed as state.from when navigating to detail (keeps search filters on back) */
   returnTo?: string;
 };
@@ -44,6 +45,7 @@ export default function AudioPlayer({
   recording,
   onDelete,
   showContainer = false,
+  showMetadataTags = true,
   returnTo
 }: Props) {
   // All hooks and variables must be declared before any hook or return
@@ -64,6 +66,8 @@ export default function AudioPlayer({
   const [dragVolume, setDragVolume] = useState<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const volumeAnimationFrameRef = useRef<number | null>(null);
+  /** Latest volume during drag — React state in mouseup handler is stale; this commits the real value. */
+  const volumeDragValueRef = useRef<number | null>(null);
   const lastTimeUpdateRef = useRef<number>(0);
 
   const myId = useId();
@@ -71,6 +75,7 @@ export default function AudioPlayer({
   const setActiveMediaId = useMediaFocusStore((s) => s.setActiveMediaId);
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const isExpert = String(user?.role) === UserRole.EXPERT;
   const isVideo = src && typeof src === 'string' && src.startsWith('data:video/');
   const mediaRef = isVideo ? videoRef : audioRef;
@@ -83,9 +88,20 @@ export default function AudioPlayer({
     const isProgressBar = target.closest('.progress-bar-container') !== null;
     const isVolumeControl = target.closest('.volume-control-container') !== null;
 
-    if (!isButton && !isProgressBar && !isVolumeControl && recording?.id) {
-      navigate(`/recordings/${recording.id}`, returnTo ? { state: { from: returnTo } } : undefined);
-    }
+    if (isButton || isProgressBar || isVolumeControl || !recording?.id) return;
+
+    const path = `/recordings/${recording.id}`;
+    const pathNorm = location.pathname.replace(/\/$/, "") || "/";
+    if (pathNorm === path) return;
+
+    type NavState = { from?: string; preloadedRecording?: Recording };
+    const prev = (location.state as NavState | null) ?? {};
+    navigate(path, {
+      state: {
+        from: returnTo ?? prev.from,
+        preloadedRecording: recording,
+      },
+    });
   };
 
   // Stop propagation for interactive elements
@@ -402,12 +418,13 @@ export default function AudioPlayer({
                       e.stopPropagation();
                       e.preventDefault();
                       setIsDraggingVolume(true);
+                      volumeDragValueRef.current = null;
                       const rect = e.currentTarget.getBoundingClientRect();
 
                       const updateVolume = (clientX: number) => {
                         const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                        const newVolume = percent;
-                        setDragVolume(newVolume);
+                        volumeDragValueRef.current = percent;
+                        setDragVolume(percent);
 
                         // Use requestAnimationFrame for smooth visual updates
                         if (volumeAnimationFrameRef.current === null) {
@@ -425,9 +442,9 @@ export default function AudioPlayer({
                       };
 
                       const onMouseUp = () => {
-                        if (dragVolume !== null) {
-                          handleVolume(dragVolume);
-                        }
+                        const v = volumeDragValueRef.current;
+                        if (v !== null) handleVolume(v);
+                        volumeDragValueRef.current = null;
                         setIsDraggingVolume(false);
                         setDragVolume(null);
                         document.removeEventListener('mousemove', onMouseMove);
@@ -505,7 +522,8 @@ export default function AudioPlayer({
           </div>
 
           {/* Metadata Tags */}
-          <div className="flex flex-wrap items-center gap-2.5 mt-5 pt-5 border-t border-neutral-200/60">
+          {showMetadataTags && (
+            <div className="flex flex-wrap items-center gap-2.5 mt-5 pt-5 border-t border-neutral-200/60">
             {recording?.ethnicity &&
               typeof recording.ethnicity === "object" &&
               recording.ethnicity.name &&
@@ -540,7 +558,8 @@ export default function AudioPlayer({
                 {instrument.nameVietnamese || instrument.name}
               </span>
             ))}
-          </div>
+            </div>
+          )}
         </div>
       </div >
     );
@@ -735,12 +754,13 @@ export default function AudioPlayer({
                 e.stopPropagation();
                 e.preventDefault();
                 setIsDraggingVolume(true);
+                volumeDragValueRef.current = null;
                 const rect = e.currentTarget.getBoundingClientRect();
 
                 const updateVolume = (clientX: number) => {
                   const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                  const newVolume = percent;
-                  setDragVolume(newVolume);
+                  volumeDragValueRef.current = percent;
+                  setDragVolume(percent);
 
                   // Use requestAnimationFrame for smooth visual updates
                   if (volumeAnimationFrameRef.current === null) {
@@ -758,9 +778,9 @@ export default function AudioPlayer({
                 };
 
                 const onMouseUp = () => {
-                  if (dragVolume !== null) {
-                    handleVolume(dragVolume);
-                  }
+                  const v = volumeDragValueRef.current;
+                  if (v !== null) handleVolume(v);
+                  volumeDragValueRef.current = null;
                   setIsDraggingVolume(false);
                   setDragVolume(null);
                   document.removeEventListener('mousemove', onMouseMove);

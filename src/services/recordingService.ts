@@ -13,6 +13,16 @@ export const recordingService = {
     return api.get<PaginatedResponse<Recording>>(`/Recording?page=${page}&pageSize=${pageSize}`);
   },
 
+  /** Researcher: GET /api/Recording/search-by-filter — verified catalog with ID metadata filters. */
+  searchRecordingsByFilter: async (query: Record<string, string | number | undefined>) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(query)) {
+      if (v === undefined || v === "") continue;
+      params.set(k, String(v));
+    }
+    return api.get<unknown>(`/Recording/search-by-filter?${params.toString()}`);
+  },
+
   // Get recording by ID (backend: GET /api/Recording/{id})
   getRecordingById: async (id: string) => {
     return api.get<ApiResponse<Recording>>(`/Recording/${id}`);

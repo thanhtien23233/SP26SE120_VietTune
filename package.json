@@ -9,7 +9,10 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:prod": "cross-env PW_ENV=production playwright test",
+    "test:e2e:prod:headed": "cross-env PW_ENV=production playwright test --headed",
+    "test:e2e:prod:url": "cross-env PW_ENV=production PW_BASE_URL=https://viettune.vn playwright test"
   },
   "dependencies": {
     "@sentry/react": "^10.38.0",
@@ -34,6 +37,7 @@
     "@typescript-eslint/parser": "^6.19.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
+    "cross-env": "^10.1.0",
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",

@@ -41,7 +41,7 @@ export default function LoginPage() {
         void sessionRemoveItem("fromLogout");
         const defaultPath =
           response.data.user?.role === UserRole.RESEARCHER ? "/researcher" :
-            response.data.user?.role === UserRole.EXPERT ? "/moderation" : "/";
+            response.data.user?.role === UserRole.EXPERT ? "/dashboard" : "/";
         navigate(redirectTo ?? defaultPath);
       }
     } catch (error: unknown) {

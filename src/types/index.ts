@@ -243,6 +243,8 @@ export interface ConfirmAccountForm {
 /** Local recording (upload/moderation/IndexedDB) — used when backend is unavailable (demo). */
 export interface LocalRecording {
   id?: string;
+  /** When row comes from Submission API, optional submission UUID (catalog id may be `recording.id`). */
+  submissionId?: string;
   title?: string;
   titleVietnamese?: string;
   description?: string;

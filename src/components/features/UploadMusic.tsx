@@ -21,6 +21,7 @@ import { submissionService } from "@/services/submissionService";
 import { notify } from "@/stores/notificationStore";
 import { isAxiosError } from "axios";
 import { api } from "@/services/api";
+import { PROVINCE_REGION_CODE_TO_NAME as REGION_CODE_TO_NAME, macroRegionDisplayNameFromProvinceRegionCode as getRegionName } from "@/config/provinceRegionCodes";
 
 // Extended type for local recording storage (supports both legacy and new formats)
 type LocalRecordingStorage = LocalRecording & {
@@ -1707,18 +1708,6 @@ function CollapsibleSection({
     </div>
   );
 }
-
-const REGION_CODE_TO_NAME: Record<string, string> = {
-  "TN": "Tây Nguyên",
-  "DNB": "Đông Nam Bộ",
-  "DBSCL": "Đồng bằng sông Cửu Long",
-  "TB": "Tây Bắc",
-  "DBSH": "Đồng bằng sông Hồng",
-  "ĐB": "Đông Bắc",
-  "BTB": "Bắc Trung Bộ",
-  "NTB": "Nam Trung Bộ",
-};
-const getRegionName = (code: string) => REGION_CODE_TO_NAME[code] || code;
 
 // ===== MAIN COMPONENT =====
 export interface UploadMusicProps {

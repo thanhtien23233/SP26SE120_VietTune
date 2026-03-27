@@ -63,6 +63,7 @@ const router = createBrowserRouter(
         <Route path="terms" element={<TermsPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="contributions" element={<ContributionsPage />} />
+        <Route path="dashboard" element={<ModerationPage />} />
         <Route path="moderation" element={<ModerationPage />} />
         <Route path="approved-recordings" element={<ApprovedRecordingsPage />} />
         <Route path="notifications" element={<NotificationPage />} />

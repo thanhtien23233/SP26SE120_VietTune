@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useMediaFocusStore } from "@/stores/mediaFocusStore";
 import {
   Play,
@@ -41,6 +41,7 @@ type Props = {
   className?: string;
   recording?: Recording;
   showContainer?: boolean;
+  showMetadataTags?: boolean;
   /** When set, passed as state.from when navigating to detail (keeps search filters on back) */
   returnTo?: string;
 };
@@ -53,6 +54,7 @@ export default function VideoPlayer({
   className = "",
   recording,
   showContainer = false,
+  showMetadataTags = true,
   returnTo
 }: Props) {
   // All hooks and variables must be declared before any return
@@ -77,6 +79,8 @@ export default function VideoPlayer({
   const hideCursorTimeoutRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const volumeAnimationFrameRef = useRef<number | null>(null);
+  /** Latest volume during drag — state read in document mouseup is stale. */
+  const volumeDragValueRef = useRef<number | null>(null);
   const lastTimeUpdateRef = useRef<number>(0);
   const latestTimeRef = useRef<number>(0);
   const blobUrlRef = useRef<string | null>(null);
@@ -86,6 +90,7 @@ export default function VideoPlayer({
   const activeMediaId = useMediaFocusStore((s) => s.activeMediaId);
   const setActiveMediaId = useMediaFocusStore((s) => s.setActiveMediaId);
   const navigate = useNavigate();
+  const location = useLocation();
   // Check if src is a video data URL or video file
   const isVideo = src && typeof src === 'string' && (src.startsWith('data:video/') || src.match(/\.(mp4|mov|avi|webm|mkv|mpeg|mpg|wmv|3gp|flv)$/i));
 
@@ -135,9 +140,20 @@ export default function VideoPlayer({
     const isButton = target.closest('button') !== null;
     const isProgressBar = target.closest('.progress-bar-container') !== null;
     const isVolumeControl = target.closest('.volume-control-container') !== null;
-    if (!isButton && !isProgressBar && !isVolumeControl && recording?.id) {
-      navigate(`/recordings/${recording.id}`, returnTo ? { state: { from: returnTo } } : undefined);
-    }
+    if (isButton || isProgressBar || isVolumeControl || !recording?.id) return;
+
+    const path = `/recordings/${recording.id}`;
+    const pathNorm = location.pathname.replace(/\/$/, "") || "/";
+    if (pathNorm === path) return;
+
+    type NavState = { from?: string; preloadedRecording?: Recording };
+    const prev = (location.state as NavState | null) ?? {};
+    navigate(path, {
+      state: {
+        from: returnTo ?? prev.from,
+        preloadedRecording: recording,
+      },
+    });
   };
 
   const stopPropagation = (e: React.MouseEvent) => {
@@ -648,12 +664,13 @@ export default function VideoPlayer({
                       e.stopPropagation();
                       e.preventDefault();
                       setIsDraggingVolume(true);
+                      volumeDragValueRef.current = null;
                       const rect = e.currentTarget.getBoundingClientRect();
 
                       const updateVolume = (clientX: number) => {
                         const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                        const newVolume = percent;
-                        setDragVolume(newVolume);
+                        volumeDragValueRef.current = percent;
+                        setDragVolume(percent);
 
                         // Use requestAnimationFrame for smooth visual updates
                         if (volumeAnimationFrameRef.current === null) {
@@ -671,9 +688,9 @@ export default function VideoPlayer({
                       };
 
                       const onMouseUp = () => {
-                        if (dragVolume !== null) {
-                          handleVolume(dragVolume);
-                        }
+                        const v = volumeDragValueRef.current;
+                        if (v !== null) handleVolume(v);
+                        volumeDragValueRef.current = null;
                         setIsDraggingVolume(false);
                         setDragVolume(null);
                         document.removeEventListener('mousemove', onMouseMove);
@@ -769,7 +786,8 @@ export default function VideoPlayer({
           </div>
 
           {/* Metadata Tags */}
-          <div className="flex flex-wrap items-center gap-2.5 mt-5 pt-5 border-t border-neutral-200/60">
+          {showMetadataTags && (
+            <div className="flex flex-wrap items-center gap-2.5 mt-5 pt-5 border-t border-neutral-200/60">
             {recording?.ethnicity &&
               typeof recording.ethnicity === "object" &&
               recording.ethnicity.name &&
@@ -804,7 +822,8 @@ export default function VideoPlayer({
                 {instrument.nameVietnamese || instrument.name}
               </span>
             ))}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1096,12 +1115,13 @@ export default function VideoPlayer({
                 e.stopPropagation();
                 e.preventDefault();
                 setIsDraggingVolume(true);
+                volumeDragValueRef.current = null;
                 const rect = e.currentTarget.getBoundingClientRect();
 
                 const updateVolume = (clientX: number) => {
                   const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                  const newVolume = percent;
-                  setDragVolume(newVolume);
+                  volumeDragValueRef.current = percent;
+                  setDragVolume(percent);
 
                   // Use requestAnimationFrame for smooth visual updates
                   if (volumeAnimationFrameRef.current === null) {
@@ -1119,9 +1139,9 @@ export default function VideoPlayer({
                 };
 
                 const onMouseUp = () => {
-                  if (dragVolume !== null) {
-                    handleVolume(dragVolume);
-                  }
+                  const v = volumeDragValueRef.current;
+                  if (v !== null) handleVolume(v);
+                  volumeDragValueRef.current = null;
                   setIsDraggingVolume(false);
                   setDragVolume(null);
                   document.removeEventListener("mousemove", onMouseMove);

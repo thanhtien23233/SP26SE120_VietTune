@@ -12,6 +12,7 @@ import {
   UserRole,
   InstrumentCategory,
 } from "@/types";
+import { REGION_NAMES } from "@/config/constants";
 import { buildTagsFromLocal } from "@/utils/recordingTags";
 
 const getAudioDuration = (audioDataUrl: string): Promise<number> => {
@@ -24,6 +25,7 @@ const getAudioDuration = (audioDataUrl: string): Promise<number> => {
 };
 
 export async function convertLocalToRecording(local: LocalRecording): Promise<Recording> {
+  const cc = local.culturalContext;
   let duration = 0;
   const isVideo = local.mediaType === "video" || local.mediaType === "youtube";
   if (!isVideo && local.audioData) {
@@ -40,19 +42,49 @@ export async function convertLocalToRecording(local: LocalRecording): Promise<Re
     mediaSrc = local.audioData;
   }
   const isApproved = local.moderation?.status === "APPROVED";
-  return {
+  const ethnicityLabel = cc?.ethnicity?.trim();
+  const ethnicityResolved =
+    local.ethnicity ??
+    (ethnicityLabel
+      ? {
+          id: "ref",
+          name: ethnicityLabel,
+          nameVietnamese: ethnicityLabel,
+          region: Region.RED_RIVER_DELTA,
+          recordingCount: 0,
+        }
+      : {
+          id: "local",
+          name: "Không xác định",
+          nameVietnamese: "Không xác định",
+          region: Region.RED_RIVER_DELTA,
+          recordingCount: 0,
+        });
+
+  let regionResolved: Region = local.region ?? Region.RED_RIVER_DELTA;
+  let regionNameExtra = "";
+  if (cc?.region?.trim()) {
+    const label = cc.region.trim();
+    const matched = (Object.entries(REGION_NAMES) as [Region, string][]).find(([, vn]) => vn === label);
+    if (matched) {
+      regionResolved = matched[0];
+    } else {
+      regionNameExtra = label;
+    }
+  }
+
+  const tagsBase = buildTagsFromLocal(local);
+  const evt = cc?.eventType?.trim();
+  const tagsWithEvent =
+    evt && !tagsBase.some((t) => t === evt) ? [...tagsBase, evt] : tagsBase;
+
+  const base: Recording = {
     id: local.id ?? "local-" + Math.random().toString(36).slice(2),
     title: local.basicInfo?.title || local.title || "Không có tiêu đề",
     titleVietnamese: local.basicInfo?.title || local.title || "Không có tiêu đề",
     description: local.description || "Bản thu được tải lên từ thiết bị của bạn",
-    ethnicity: local.ethnicity ?? {
-      id: "local",
-      name: "Không xác định",
-      nameVietnamese: "Không xác định",
-      region: Region.RED_RIVER_DELTA,
-      recordingCount: 0,
-    },
-    region: local.region ?? Region.RED_RIVER_DELTA,
+    ethnicity: ethnicityResolved,
+    region: regionResolved,
     recordingType: (() => {
       if (local.recordingType) return local.recordingType;
       const key = (local as LocalRecording & { culturalContext?: { performanceType?: string } }).culturalContext?.performanceType;
@@ -62,7 +94,7 @@ export async function convertLocalToRecording(local: LocalRecording): Promise<Re
     })(),
     duration: local.duration ?? duration,
     audioUrl: local.audioUrl ?? mediaSrc ?? "",
-    instruments: (local.instruments?.length ? local.instruments : ((local as LocalRecording & { culturalContext?: { instruments?: string[] } }).culturalContext?.instruments ?? []).map((name, i) => ({
+    instruments: (local.instruments?.length ? local.instruments : (cc?.instruments ?? []).map((name, i) => ({
       id: `inst-${i}`,
       name,
       nameVietnamese: name,
@@ -92,15 +124,24 @@ export async function convertLocalToRecording(local: LocalRecording): Promise<Re
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
-    tags: buildTagsFromLocal(local),
+    tags: tagsWithEvent,
     metadata: {
       ...local.metadata,
       recordingQuality: local.metadata?.recordingQuality ?? RecordingQuality.FIELD_RECORDING,
       lyrics: local.metadata?.lyrics ?? "",
+      ...(evt && !local.metadata?.ritualContext ? { ritualContext: evt } : {}),
     },
     verificationStatus: local.verificationStatus ?? (isApproved ? VerificationStatus.VERIFIED : VerificationStatus.PENDING),
     viewCount: local.viewCount ?? 0,
     likeCount: local.likeCount ?? 0,
     downloadCount: local.downloadCount ?? 0,
-  } as Recording;
+  };
+
+  const communeLabel = cc?.province?.trim();
+  const extras: Record<string, string> = {};
+  if (regionNameExtra) extras.regionName = regionNameExtra;
+  if (communeLabel) extras.communeName = communeLabel;
+  if (evt) extras.ceremonyName = evt;
+
+  return { ...base, ...extras } as Recording;
 }

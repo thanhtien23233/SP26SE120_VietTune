@@ -322,6 +322,102 @@ interface LocalRecordingMini {
     resubmittedForModeration?: boolean;
 }
 
+function cleanMetadataText(value?: string | null, fallback = "—"): string {
+    const raw = String(value ?? "").trim();
+    if (!raw) return fallback;
+    if (raw.toUpperCase().startsWith("ID:")) return fallback;
+    return raw;
+}
+
+function cleanInstrumentList(values?: string[]): string {
+    const cleaned = (values ?? [])
+        .map((v) => cleanMetadataText(v, ""))
+        .filter(Boolean);
+    return cleaned.length > 0 ? cleaned.join(", ") : "—";
+}
+
+function pickNonEmptyText(...values: Array<string | null | undefined>): string | undefined {
+    for (const value of values) {
+        const raw = String(value ?? "").trim();
+        if (!raw) continue;
+        if (raw.toUpperCase().startsWith("ID:")) continue;
+        return raw;
+    }
+    return undefined;
+}
+
+function mergeDisplayItem(
+    base?: LocalRecordingMini | null,
+    detail?: LocalRecordingMini | null,
+): LocalRecordingMini | null {
+    if (!base && !detail) return null;
+    if (!base) return detail ?? null;
+    if (!detail) return base;
+
+    return {
+        ...base,
+        ...detail,
+        basicInfo: {
+            ...base.basicInfo,
+            ...detail.basicInfo,
+            title: pickNonEmptyText(detail.basicInfo?.title, base.basicInfo?.title, detail.title, base.title),
+            artist: pickNonEmptyText(detail.basicInfo?.artist, base.basicInfo?.artist),
+        },
+        uploader: {
+            ...(base.uploader ?? {}),
+            ...(detail.uploader ?? {}),
+            username: pickNonEmptyText(
+                (detail.uploader as { username?: string } | undefined)?.username,
+                (base.uploader as { username?: string } | undefined)?.username,
+            ),
+        },
+        culturalContext: {
+            ...(base.culturalContext ?? {}),
+            ...(detail.culturalContext ?? {}),
+            ethnicity: pickNonEmptyText(detail.culturalContext?.ethnicity, base.culturalContext?.ethnicity),
+            region: pickNonEmptyText(detail.culturalContext?.region, base.culturalContext?.region),
+            province: pickNonEmptyText(detail.culturalContext?.province, base.culturalContext?.province),
+            eventType: pickNonEmptyText(detail.culturalContext?.eventType, base.culturalContext?.eventType),
+            instruments: (() => {
+                const detailList = (detail.culturalContext?.instruments ?? [])
+                    .map((v) => String(v ?? "").trim())
+                    .filter((v) => v && !v.toUpperCase().startsWith("ID:"));
+                if (detailList.length > 0) return detailList;
+                const baseList = (base.culturalContext?.instruments ?? [])
+                    .map((v) => String(v ?? "").trim())
+                    .filter((v) => v && !v.toUpperCase().startsWith("ID:"));
+                return baseList;
+            })(),
+        },
+        uploadedAt: pickNonEmptyText(detail.uploadedAt, base.uploadedAt),
+    };
+}
+
+function normalizeQueueStatus(status?: ModerationStatus | string): ModerationStatus | string {
+    const raw = String(status ?? "").trim();
+    if (!raw) return ModerationStatus.PENDING_REVIEW;
+    if (/^\d+$/.test(raw)) {
+        const n = Number(raw);
+        if (n === 0) return ModerationStatus.PENDING_REVIEW;
+        if (n === 1) return ModerationStatus.IN_REVIEW;
+        if (n === 2) return ModerationStatus.APPROVED;
+        if (n === 3) return ModerationStatus.REJECTED;
+        if (n === 4) return ModerationStatus.TEMPORARILY_REJECTED;
+        return ModerationStatus.PENDING_REVIEW;
+    }
+    const normalized = raw.toLowerCase().replace(/[\s-]+/g, "_");
+    if (normalized === "pending" || normalized === "pending_review") return ModerationStatus.PENDING_REVIEW;
+    if (normalized === "in_review" || normalized === "reviewing") return ModerationStatus.IN_REVIEW;
+    if (normalized === "approved" || normalized === "accept") return ModerationStatus.APPROVED;
+    if (normalized === "rejected" || normalized === "reject" || normalized === "permanently_rejected") {
+        return ModerationStatus.REJECTED;
+    }
+    if (normalized === "temporarily_rejected" || normalized === "temp_rejected" || normalized === "revision_required") {
+        return ModerationStatus.TEMPORARILY_REJECTED;
+    }
+    return raw;
+}
+
 /** Same expert + filter + sort rules as `load()` — for optimistic list updates without refetch. */
 function projectModerationLists(
     migrated: LocalRecordingMini[],
@@ -330,14 +426,15 @@ function projectModerationLists(
     dateSort: "newest" | "oldest",
 ): { expertItems: LocalRecordingMini[]; visibleItems: LocalRecordingMini[] } {
     const expertItems = migrated.filter((r) => {
+        const status = normalizeQueueStatus(r.moderation?.status);
         if (r.moderation?.claimedBy === userId) return true;
-        if (!r.moderation?.claimedBy && r.moderation?.status === ModerationStatus.PENDING_REVIEW) return true;
+        if (!r.moderation?.claimedBy && status === ModerationStatus.PENDING_REVIEW) return true;
         if (r.moderation?.reviewerId === userId) return true;
         return false;
     });
     let filtered = expertItems;
     if (statusFilter !== "ALL") {
-        filtered = filtered.filter((r) => r.moderation?.status === statusFilter);
+        filtered = filtered.filter((r) => normalizeQueueStatus(r.moderation?.status) === statusFilter);
     }
     filtered = [...filtered].sort((a, b) => {
         const aDate = (a as LocalRecordingMini & { uploadedDate?: string }).uploadedDate || a.uploadedAt || a.moderation?.reviewedAt || "";
@@ -391,6 +488,7 @@ export default function ModerationPage() {
     /** T5: working expert notes per submission (draft); Phase 1 → localStorage; Phase 2 → same draft + audit on decision. */
     const [expertReviewNotesDraft, setExpertReviewNotesDraft] = useState<Record<string, string>>({});
     const expertNotesDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const queueLoadInFlightRef = useRef(false);
     /** Announces queue length changes (e.g. after approve/reject removes an item from the filtered list). */
     const [moderationA11yMessage, setModerationA11yMessage] = useState("");
     const prevItemsLengthRef = useRef<number | null>(null);
@@ -438,6 +536,8 @@ export default function ModerationPage() {
     }, []);
 
     const load = useCallback(async () => {
+        if (queueLoadInFlightRef.current) return;
+        queueLoadInFlightRef.current = true;
         try {
             const all = (await expertWorkflowService.getQueue()) as LocalRecordingMini[];
             const migrated = migrateVideoDataToVideoData(all);
@@ -453,6 +553,8 @@ export default function ModerationPage() {
             console.error(err);
             setItems([]);
             setAllItems([]);
+        } finally {
+            queueLoadInFlightRef.current = false;
         }
     }, [user?.id, statusFilter, dateSort]);
 
@@ -482,7 +584,7 @@ export default function ModerationPage() {
 
     useEffect(() => {
         load();
-        const interval = setInterval(load, 3000); // refresh to pick up changes in same tab
+        const interval = setInterval(load, 8000); // avoid excessive polling while keeping queue updated
         return () => clearInterval(interval);
     }, [load]);
 
@@ -1175,14 +1277,14 @@ export default function ModerationPage() {
     };
 
     return (
-        <div className="min-h-screen">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 min-w-0">
+        <div className="min-h-screen bg-gradient-to-b from-[#FFF7E8] to-[#FFFDF8]">
+            <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 min-w-0">
                 <div className="sr-only" aria-live="polite" aria-atomic="true">
                     {moderationA11yMessage}
                 </div>
                 {/* Header — responsive; wraps on small screens */}
-                <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-6 sm:mb-8">
-                    <h1 className="text-xl sm:text-3xl font-bold text-neutral-900 min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-5 sm:mb-6">
+                    <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-neutral-900 min-w-0">
                         Kiểm duyệt bản thu
                     </h1>
                     <BackButton />
@@ -1190,11 +1292,10 @@ export default function ModerationPage() {
 
                 {/* Tabs — VietTune UI */}
                 <div
-                    className="rounded-2xl overflow-hidden shadow-lg ring-1 ring-neutral-200/70 backdrop-blur-sm mb-6 sm:mb-8 transition-all duration-300 hover:shadow-xl min-w-0 overflow-x-hidden"
-                    style={{ backgroundColor: "#F8FAFC" }}
+                    className="rounded-3xl overflow-hidden shadow-lg ring-1 ring-amber-200/70 backdrop-blur-sm mb-6 sm:mb-8 transition-all duration-300 min-w-0 overflow-x-hidden bg-white/80"
                 >
                     <nav
-                        className="flex flex-wrap gap-2 p-4 sm:p-6 lg:p-8 bg-white/65"
+                        className="flex flex-wrap gap-2 p-4 sm:p-5 lg:p-6 bg-gradient-to-b from-white to-amber-50/40"
                         aria-label="Cổng chuyên gia"
                         role="tablist"
                     >
@@ -1255,11 +1356,11 @@ export default function ModerationPage() {
                             id="moderation-panel-review"
                             role="tabpanel"
                             aria-labelledby="moderation-tab-review"
-                            className="grid grid-cols-1 lg:grid-cols-[390px_1fr] gap-4 p-4 pt-3 rounded-b-2xl lg:h-[calc(100dvh-220px)]"
+                            className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-4 p-4 pt-3 rounded-b-3xl lg:h-[calc(100dvh-220px)]"
                         >
                             {/* Left: Hàng đợi */}
-                            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-neutral-200/70 flex flex-col overflow-hidden">
-                                <div className="p-4 flex-shrink-0 bg-gradient-to-b from-neutral-50 to-white">
+                            <div className="rounded-2xl bg-white/95 shadow-sm ring-1 ring-amber-200/70 flex flex-col overflow-hidden">
+                                <div className="p-4 flex-shrink-0 bg-gradient-to-b from-amber-50/40 to-white">
                                     <h2 className="text-lg font-semibold text-neutral-900 mb-1">Hàng đợi kiểm duyệt</h2>
                                     <p className="text-xs text-neutral-600 mb-3">Theo dõi bản thu theo trạng thái và ưu tiên xử lý bản mới.</p>
                                     <div className="space-y-3">
@@ -1269,7 +1370,7 @@ export default function ModerationPage() {
                                                 type="search"
                                                 placeholder="Tìm bản thu..."
                                                 aria-label="Tìm kiếm trong hàng đợi kiểm duyệt"
-                                                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-neutral-300 bg-white text-neutral-900 placeholder:text-neutral-500 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:border-primary-500"
+                                                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-amber-200 bg-white text-neutral-900 placeholder:text-neutral-500 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:border-primary-500"
                                             />
                                         </div>
                                         <div className="space-y-2">
@@ -1327,7 +1428,7 @@ export default function ModerationPage() {
                                     aria-label="Danh sách bản thu trong hàng đợi kiểm duyệt"
                                 >
                                     {items.length === 0 ? (
-                                        <div className="m-4 rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50 p-6 text-center text-neutral-600 text-sm" role="status">
+                                        <div className="m-4 rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/40 p-6 text-center text-neutral-600 text-sm" role="status">
                                             Không có bản thu nào trong hàng đợi.
                                         </div>
                                     ) : (
@@ -1360,7 +1461,7 @@ export default function ModerationPage() {
                                                             setSelectedId(it.id ?? null);
                                                         }
                                                     }}
-                                                    className={`m-2 p-4 rounded-xl border border-neutral-200 cursor-pointer transition-all duration-200 border-l-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 focus-visible:ring-offset-0 ${borderColor} ${selectedId === it.id ? "bg-primary-50/80 shadow-sm border-primary-200" : "hover:bg-neutral-50 hover:shadow-sm"
+                                                    className={`m-2 p-4 rounded-xl border border-neutral-200 cursor-pointer transition-all duration-200 border-l-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 focus-visible:ring-offset-0 ${borderColor} ${selectedId === it.id ? "bg-primary-50 shadow-sm border-primary-200" : "hover:bg-amber-50/40 hover:shadow-sm"
                                                         }`}
                                                 >
                                                     <div className="flex justify-between items-start gap-2 mb-1">
@@ -1399,9 +1500,10 @@ export default function ModerationPage() {
                             </div>
 
                             {/* Right: Chi tiết bản thu hoặc empty state */}
-                            <div className="rounded-2xl bg-gradient-to-b from-neutral-50 to-white overflow-y-auto p-4 sm:p-6 shadow-sm ring-1 ring-neutral-200/70">
+                            <div className="rounded-2xl bg-gradient-to-b from-white to-neutral-50 overflow-y-auto p-4 sm:p-6 shadow-sm ring-1 ring-amber-200/70">
                                 {selectedId && (() => {
-                                    const item = selectedItemFull ?? allItems.find((i) => i.id === selectedId);
+                                    const listItem = allItems.find((i) => i.id === selectedId);
+                                    const item = mergeDisplayItem(listItem, selectedItemFull);
                                     if (!item) return null;
                                     let mediaSrc: string | undefined;
                                     let isVideo = false;
@@ -1452,6 +1554,12 @@ export default function ModerationPage() {
                                             _originalLocalData: r,
                                         } as RecordingWithLocalData;
                                     })() : null;
+                                    const ethnicityLabel = cleanMetadataText(item.culturalContext?.ethnicity);
+                                    const regionLabel = cleanMetadataText(
+                                        item.culturalContext?.province || item.culturalContext?.region,
+                                    );
+                                    const eventTypeLabel = cleanMetadataText(item.culturalContext?.eventType);
+                                    const instrumentsLabel = cleanInstrumentList(item.culturalContext?.instruments);
                                     return (
                                         <div className="space-y-6">
                                             <div className="rounded-2xl border border-neutral-200/80 shadow-md overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900 text-white p-6">
@@ -1459,7 +1567,7 @@ export default function ModerationPage() {
                                                     <div>
                                                         <h2 className="text-xl font-semibold mb-1">{item.basicInfo?.title || item.title || "Không có tiêu đề"}</h2>
                                                         <p className="text-sm text-white/80">
-                                                            {item.culturalContext?.ethnicity || "—"} • {item.culturalContext?.province || item.culturalContext?.region || "—"} • {formatDateTime((item as LocalRecordingMini & { uploadedDate?: string }).uploadedDate || item.uploadedAt)}
+                                                            {ethnicityLabel} • {regionLabel} • {formatDateTime((item as LocalRecordingMini & { uploadedDate?: string }).uploadedDate || item.uploadedAt)}
                                                         </p>
                                                     </div>
                                                     <div className="flex flex-col gap-2">
@@ -1564,9 +1672,9 @@ export default function ModerationPage() {
                                                 <h3 className="text-base font-semibold text-neutral-900 mb-3">Thông tin bản thu</h3>
                                                 <ul className="space-y-2 text-sm">
                                                     <li className="flex items-center gap-2"><UserIcon className="h-4 w-4 text-neutral-500" /> <span>Người đóng góp: {item.uploader?.username || "Khách"}</span></li>
-                                                    <li className="flex items-center gap-2"><MapPin className="h-4 w-4 text-neutral-500" /> <span>Dân tộc / Vùng: {item.culturalContext?.ethnicity || "—"} / {item.culturalContext?.region || item.culturalContext?.province || "—"}</span></li>
-                                                    <li className="flex items-center gap-2"><Music className="h-4 w-4 text-neutral-500" /> <span>Nhạc cụ: {item.culturalContext?.instruments?.join(", ") || "—"}</span></li>
-                                                    <li>Loại sự kiện: {item.culturalContext?.eventType || "—"}</li>
+                                                    <li className="flex items-center gap-2"><MapPin className="h-4 w-4 text-neutral-500" /> <span>Dân tộc / Vùng: {ethnicityLabel} / {regionLabel}</span></li>
+                                                    <li className="flex items-center gap-2"><Music className="h-4 w-4 text-neutral-500" /> <span>Nhạc cụ: {instrumentsLabel}</span></li>
+                                                    <li>Loại sự kiện: {eventTypeLabel}</li>
                                                 </ul>
                                             </div>
                                             {(item.moderation?.rejectionNote || item.moderation?.notes) && (() => {
