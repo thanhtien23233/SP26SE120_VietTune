@@ -1,22 +1,53 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, MessageSquare, Network, GitCompare, Play, FileText, Check, Send, Bot, Lightbulb, Info, X, Download, MapPin } from "lucide-react";
+import {
+  Search,
+  MessageSquare,
+  Network,
+  GitCompare,
+  Play,
+  FileText,
+  Check,
+  Send,
+  Bot,
+  Lightbulb,
+  Info,
+  X,
+  Download,
+  MapPin,
+  Users,
+  Music2,
+  CalendarDays,
+  Map,
+} from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import SearchableDropdown from "@/components/common/SearchableDropdown";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import AudioPlayer from "@/components/features/AudioPlayer";
 import VideoPlayer from "@/components/features/VideoPlayer";
 import { INTELLIGENCE_NAME, REGION_NAMES } from "@/config/constants";
-import { referenceDataService } from "@/services/referenceDataService";
+import {
+  referenceDataService,
+  type EthnicGroupItem,
+  type InstrumentItem,
+  type CeremonyItem,
+  type CommuneItem,
+} from "@/services/referenceDataService";
+import {
+  fetchRecordingsSearchByFilter,
+  type RecordingSearchByFilterQuery,
+} from "@/services/researcherRecordingFilterSearch";
 import { sendResearcherChatMessage } from "@/services/researcherChatService";
 import { getItemAsync, setItem } from "@/services/storageService";
 import { AI_RESPONSES_REVIEW_KEY } from "@/pages/ModerationPage";
 import { isYouTubeUrl } from "@/utils/youtube";
 import { Recording, VerificationStatus } from "@/types";
-import { recordingService } from "@/services/recordingService";
+import { fetchVerifiedSubmissionsAsRecordings } from "@/services/researcherArchiveService";
 
 type TabId = "search" | "qa" | "graph" | "compare";
+
+type ResearcherFilterDropdownKey = "ethnic" | "instrument" | "ceremony" | "region" | "commune";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -37,17 +68,55 @@ interface SearchFiltersState {
   commune: string;
 }
 
-function extractRecordingListFromApiResponse(res: unknown): Recording[] {
-  if (!res || typeof res !== "object") return [];
-  const r = res as Record<string, unknown>;
-  if (Array.isArray(r.items)) return r.items as Recording[];
-  const data = r.data;
-  if (Array.isArray(data)) return data as Recording[];
-  if (data && typeof data === "object") {
-    const d = data as Record<string, unknown>;
-    if (Array.isArray(d.items)) return d.items as Recording[];
+function readExtraString(r: Recording, keys: string[]): string {
+  const row = r as unknown as Record<string, unknown>;
+  for (const key of keys) {
+    const raw = row[key];
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
   }
-  return [];
+  return "";
+}
+
+function getEthnicityLabel(r: Recording): string {
+  return (
+    r.ethnicity?.nameVietnamese ??
+    r.ethnicity?.name ??
+    readExtraString(r, ["ethnicityName", "ethnicGroupName", "ethnicName"])
+  );
+}
+
+function getRegionLabel(r: Recording): string {
+  const named = readExtraString(r, ["regionName", "regionLabel"]);
+  if (named) return named;
+  const fromEnum = r.region ? REGION_NAMES[r.region as keyof typeof REGION_NAMES] : "";
+  if (fromEnum) return fromEnum;
+  return readExtraString(r, ["region", "provinceName", "recordingLocation"]);
+}
+
+function getInstrumentLabel(r: Recording): string {
+  if ((r.instruments?.length ?? 0) > 0) {
+    return r.instruments
+      .map((i) => i.nameVietnamese ?? i.name)
+      .filter(Boolean)
+      .join(", ");
+  }
+  const row = r as unknown as Record<string, unknown>;
+  const names = row.instrumentNames;
+  if (Array.isArray(names)) {
+    const list = names
+      .map((x) => (typeof x === "string" ? x.trim() : ""))
+      .filter(Boolean);
+    if (list.length > 0) return list.join(", ");
+  }
+  return "";
+}
+
+function getCeremonyLabel(r: Recording, eventTypes: string[]): string {
+  const byTags = r.tags?.find((t) => t === eventTypes.find((e) => e === t) || eventTypes.some((e) => t.includes(e)));
+  if (byTags) return byTags;
+  const byMetadata = r.metadata?.ritualContext ?? "";
+  if (byMetadata) return byMetadata;
+  return readExtraString(r, ["ceremonyName", "eventTypeName", "ritualName"]);
 }
 
 const QUICK_QUESTIONS = [
@@ -81,7 +150,13 @@ function scoreRecording(r: Recording, tokens: string[]): number {
       ? (r.ethnicity.name || "") + " " + (r.ethnicity.nameVietnamese || "")
       : "";
   const tags = (r.tags || []).join(" ");
-  const searchable = [title, desc, ethnicityName, tags]
+  const more = [
+    getRegionLabel(r),
+    getInstrumentLabel(r),
+    getCeremonyLabel(r, []),
+    getCommuneName(r),
+  ].join(" ");
+  const searchable = [title, desc, ethnicityName, tags, more]
     .join(" ")
     .toLowerCase()
     .normalize("NFD")
@@ -93,25 +168,41 @@ function scoreRecording(r: Recording, tokens: string[]): number {
   return score;
 }
 
+function applySearchQueryAndFilters(list: Recording[], searchQuery: string, f: SearchFiltersState): Recording[] {
+  const trimmed = searchQuery.trim();
+  let next = list;
+  if (trimmed) {
+    const tokens = tokenize(trimmed);
+    next = next
+      .map((r) => ({ r, score: scoreRecording(r, tokens) }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((x) => x.r);
+  }
+  return applyFilters(next, f);
+}
+
 function applyFilters(list: Recording[], f: SearchFiltersState): Recording[] {
   return list.filter((r) => {
     if (f.ethnicGroup) {
-      const name = r.ethnicity?.nameVietnamese ?? r.ethnicity?.name ?? "";
+      const name = getEthnicityLabel(r);
       if (name !== f.ethnicGroup) return false;
     }
     if (f.region) {
-      const regionLabel = r.region ? REGION_NAMES[r.region as keyof typeof REGION_NAMES] : "";
+      const regionLabel = getRegionLabel(r);
       if (regionLabel !== f.region) return false;
     }
     if (f.instrument) {
-      const has =
-        r.instruments?.some(
-          (i) => (i.nameVietnamese ?? i.name) === f.instrument
-        ) ?? false;
+      const labels = getInstrumentLabel(r)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const has = labels.includes(f.instrument);
       if (!has) return false;
     }
     if (f.ceremony) {
-      const has = r.tags?.some((t) => t === f.ceremony || t.includes(f.ceremony)) ?? false;
+      const ceremony = getCeremonyLabel(r, [f.ceremony]);
+      const has = ceremony === f.ceremony || ceremony.includes(f.ceremony);
       if (!has) return false;
     }
     if (f.commune) {
@@ -226,7 +317,6 @@ export default function ResearcherPortalPage() {
   });
   const [approvedRecordings, setApprovedRecordings] = useState<Recording[]>([]);
   const [searchLoading, setSearchLoading] = useState(true);
-  const [isSearching, setIsSearching] = useState(false);
   const [playModalRecording, setPlayModalRecording] = useState<Recording | null>(null);
   const [playModalLoading, setPlayModalLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -236,48 +326,56 @@ export default function ResearcherPortalPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [compareLeftId, setCompareLeftId] = useState("");
   const [compareRightId, setCompareRightId] = useState("");
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState<ResearcherFilterDropdownKey | null>(null);
   const [graphView, setGraphView] = useState<"overview" | "instruments" | "ethnicity">("overview");
   const [selectedGraphNode, setSelectedGraphNode] = useState<{ type: "instrument" | "ethnicity"; name: string } | null>(null);
   const chatListRef = useRef<HTMLDivElement | null>(null);
 
-  // Reference data from API (replaces hardcoded arrays)
-  const [ETHNICITIES, setETHNICITIES] = useState<string[]>([]);
-  const [REGIONS] = useState<string[]>([
-    "Trung du và miền núi Bắc Bộ",
-    "Đồng bằng Bắc Bộ",
-    "Bắc Trung Bộ",
-    "Nam Trung Bộ",
-    "Cao nguyên Trung Bộ",
-    "Đông Nam Bộ",
-    "Tây Nam Bộ",
-  ]);
-  const [EVENT_TYPES, setEVENT_TYPES] = useState<string[]>([]);
-  const [INSTRUMENTS, setINSTRUMENTS] = useState<string[]>([]);
-  const [COMMUNES, setCOMMUNES] = useState<string[]>([]);
+  // Reference data from API (names for dropdowns + ids for GET /Recording/search-by-filter)
+  const [ethnicRefData, setEthnicRefData] = useState<EthnicGroupItem[]>([]);
+  const [instrumentRefData, setInstrumentRefData] = useState<InstrumentItem[]>([]);
+  const [ceremonyRefData, setCeremonyRefData] = useState<CeremonyItem[]>([]);
+  const [communeRefData, setCommuneRefData] = useState<CommuneItem[]>([]);
+
+  const ETHNICITIES = useMemo(() => ethnicRefData.map((e) => e.name), [ethnicRefData]);
+  const REGIONS = useMemo(() => Object.values(REGION_NAMES), []);
+  const EVENT_TYPES = useMemo(() => ceremonyRefData.map((c) => c.name), [ceremonyRefData]);
+  const INSTRUMENTS = useMemo(() => instrumentRefData.map((i) => i.name), [instrumentRefData]);
+  const COMMUNES = useMemo(() => communeRefData.map((c) => c.name), [communeRefData]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const ethnicGroups = await referenceDataService.getEthnicGroups();
-        if (!cancelled && ethnicGroups.length > 0) setETHNICITIES(ethnicGroups.map((e) => e.name));
-      } catch (err) { console.warn("Failed to load ethnic groups", err); }
+        if (!cancelled && ethnicGroups.length > 0) setEthnicRefData(ethnicGroups);
+      } catch (err) {
+        console.warn("Failed to load ethnic groups", err);
+      }
 
       try {
         const ceremonies = await referenceDataService.getCeremonies();
-        if (!cancelled && ceremonies.length > 0) setEVENT_TYPES(ceremonies.map((c) => c.name));
-      } catch (err) { console.warn("Failed to load ceremonies", err); }
+        if (!cancelled && ceremonies.length > 0) setCeremonyRefData(ceremonies);
+      } catch (err) {
+        console.warn("Failed to load ceremonies", err);
+      }
 
       try {
         const instrumentItems = await referenceDataService.getInstruments();
-        if (!cancelled && instrumentItems.length > 0) setINSTRUMENTS(instrumentItems.map((i) => i.name));
-      } catch (err) { console.warn("Failed to load instruments", err); }
+        if (!cancelled && instrumentItems.length > 0) setInstrumentRefData(instrumentItems);
+      } catch (err) {
+        console.warn("Failed to load instruments", err);
+      }
       try {
         const communes = await referenceDataService.getCommunes();
-        if (!cancelled && communes.length > 0) setCOMMUNES(communes.map((c) => c.name));
-      } catch (err) { console.warn("Failed to load communes", err); }
+        if (!cancelled && communes.length > 0) setCommuneRefData(communes);
+      } catch (err) {
+        console.warn("Failed to load communes", err);
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Knowledge graph: ethnicities, instruments, and edges from approved recordings (nhạc cụ nào của dân tộc nào)
@@ -310,27 +408,61 @@ export default function ResearcherPortalPage() {
     setSelectedGraphNode(null);
   }, [graphView]);
 
-  // Load expert-approved recordings (contributor contributions approved by expert)
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setSearchLoading(true);
-      try {
-        const res = await recordingService.getRecordings(1, 500);
-        const items = extractRecordingListFromApiResponse(res);
-        if (!cancelled) setApprovedRecordings(items);
-      } catch (err) {
-        console.error("Failed to load approved recordings:", err);
-        if (!cancelled) setApprovedRecordings([]);
-      } finally {
-        if (!cancelled) setSearchLoading(false);
+  const buildRecordingSearchQuery = useCallback((): RecordingSearchByFilterQuery => {
+    const regionCode =
+      filters.region.trim().length > 0
+        ? (Object.entries(REGION_NAMES) as [string, string][]).find(([, label]) => label === filters.region)?.[0]
+        : undefined;
+    return {
+      page: 1,
+      pageSize: 500,
+      q: searchQuery.trim() || undefined,
+      ethnicGroupId: filters.ethnicGroup
+        ? ethnicRefData.find((e) => e.name === filters.ethnicGroup)?.id
+        : undefined,
+      instrumentId: filters.instrument
+        ? instrumentRefData.find((i) => i.name === filters.instrument)?.id
+        : undefined,
+      ceremonyId: filters.ceremony
+        ? ceremonyRefData.find((c) => c.name === filters.ceremony)?.id
+        : undefined,
+      regionCode,
+      communeId: filters.commune ? communeRefData.find((c) => c.name === filters.commune)?.id : undefined,
+    };
+  }, [searchQuery, filters, ethnicRefData, instrumentRefData, ceremonyRefData, communeRefData]);
+
+  const loadResearcherCatalog = useCallback(async () => {
+    setSearchLoading(true);
+    try {
+      const q = buildRecordingSearchQuery();
+      let items = await fetchRecordingsSearchByFilter(q);
+      if (items.length === 0) {
+        let list = await fetchVerifiedSubmissionsAsRecordings();
+        list = applySearchQueryAndFilters(list, searchQuery, filters);
+        items = list;
       }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      setApprovedRecordings(items);
+    } catch (err) {
+      console.warn("GET /Recording/search-by-filter failed; falling back to submissions list + client filters.", err);
+      try {
+        let list = await fetchVerifiedSubmissionsAsRecordings();
+        list = applySearchQueryAndFilters(list, searchQuery, filters);
+        setApprovedRecordings(list);
+      } catch (fallbackErr) {
+        console.error("Fallback catalog load failed:", fallbackErr);
+        setApprovedRecordings([]);
+      }
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [buildRecordingSearchQuery, searchQuery, filters]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void loadResearcherCatalog();
+    }, 280);
+    return () => clearTimeout(t);
+  }, [loadResearcherCatalog]);
 
   // When Play modal opens, load full local recording to get media src and type
   useEffect(() => {
@@ -342,21 +474,6 @@ export default function ResearcherPortalPage() {
     // However getRecordings already returns audioUrl
     setPlayModalLoading(false);
   }, [playModalRecording?.id]);
-
-  const filteredResults = useMemo(() => {
-    let list = approvedRecordings;
-    const trimmed = searchQuery.trim();
-    if (trimmed) {
-      const tokens = tokenize(trimmed);
-      const scored = list
-        .map((r) => ({ r, score: scoreRecording(r, tokens) }))
-        .filter((x) => x.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .map((x) => x.r);
-      list = scored;
-    }
-    return applyFilters(list, filters);
-  }, [approvedRecordings, searchQuery, filters]);
 
   const graphRelatedRecordings = useMemo(() => {
     if (!selectedGraphNode) return [];
@@ -371,7 +488,7 @@ export default function ResearcherPortalPage() {
   }, [approvedRecordings, selectedGraphNode]);
 
   const handleExportDataset = useCallback(() => {
-    const payload = filteredResults.map((r) => ({
+    const payload = approvedRecordings.map((r) => ({
       id: r.id,
       title: r.title,
       titleVietnamese: r.titleVietnamese,
@@ -394,13 +511,11 @@ export default function ResearcherPortalPage() {
     a.download = `viettune-researcher-export-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [filteredResults]);
+  }, [approvedRecordings]);
 
   const handleSearchClick = useCallback(() => {
-    setIsSearching(true);
-    const minSearchDelayMs = 450;
-    setTimeout(() => setIsSearching(false), minSearchDelayMs);
-  }, []);
+    void loadResearcherCatalog();
+  }, [loadResearcherCatalog]);
 
   const handlePlay = useCallback((recording: Recording) => {
     setPlayModalRecording(recording);
@@ -411,10 +526,17 @@ export default function ResearcherPortalPage() {
   }, []);
 
   const handleDetail = useCallback(
-    (id: string) => {
-      navigate(`/recordings/${id}`, { state: { from: returnTo } });
+    (target: Recording | string) => {
+      const id = typeof target === "string" ? target : target.id;
+      const rec = typeof target === "string" ? approvedRecordings.find((x) => x.id === target) : target;
+      navigate(`/recordings/${encodeURIComponent(id)}`, {
+        state: {
+          from: returnTo,
+          ...(rec && rec.id === id ? { preloadedRecording: rec } : {}),
+        },
+      });
     },
-    [navigate, returnTo]
+    [navigate, returnTo, approvedRecordings],
   );
 
   useEffect(() => {
@@ -555,101 +677,127 @@ export default function ResearcherPortalPage() {
           {/* Tab: Tìm kiếm nâng cao */}
           {activeTab === "search" && (
             <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-              <div
-                className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6 transition-all duration-300"
-                style={{ backgroundColor: "#FFFCF5" }}
-              >
-                <h2 className="text-lg sm:text-xl font-semibold text-primary-800 mb-4 flex items-center gap-2">
-                  <Search className="w-5 h-5 text-primary-600" strokeWidth={2.5} />
-                  Tìm kiếm ngữ nghĩa
-                </h2>
+              <div className="rounded-2xl border border-primary-200/80 bg-white shadow-md p-4 sm:p-6">
+                <div className="mb-4">
+                  <h2 className="text-lg sm:text-xl font-semibold text-primary-800 flex items-center gap-2">
+                    <Search className="w-5 h-5 text-primary-600" strokeWidth={2.5} />
+                    Tìm kiếm ngữ nghĩa
+                  </h2>
+                  <p className="text-sm text-neutral-600 mt-1">
+                    Nhập từ khóa tự nhiên để hệ thống gợi ý bản ghi phù hợp.
+                  </p>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSearchClick();
-                    }}
-                    placeholder='Ví dụ: "Tìm bài hát mùa màng dùng đàn bầu ở Tây Nam Bộ"'
-                    className="flex-1 min-w-0 px-4 py-3 rounded-xl border-2 border-primary-200/80 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all text-neutral-900 placeholder-neutral-500"
-                    aria-label="Tìm kiếm ngữ nghĩa"
-                  />
+                  <div className="relative flex-1 min-w-0">
+                    <Search className="w-4 h-4 text-neutral-400 absolute left-4 top-1/2 -translate-y-1/2" strokeWidth={2.5} />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSearchClick();
+                      }}
+                      placeholder='Ví dụ: "Tìm bài hát mùa màng dùng đàn bầu ở Tây Nam Bộ"'
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-primary-200/80 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all text-neutral-900 placeholder-neutral-500 bg-white"
+                      aria-label="Tìm kiếm ngữ nghĩa"
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={handleSearchClick}
-                    disabled={isSearching}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-80 disabled:cursor-wait text-white font-semibold shadow-md hover:shadow-lg transition-all cursor-pointer min-w-[120px]"
-                    aria-busy={isSearching}
+                    disabled={searchLoading}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-80 disabled:cursor-wait text-white font-semibold shadow-md hover:shadow-lg transition-all cursor-pointer min-w-[132px]"
+                    aria-busy={searchLoading}
                   >
                     <Search className="w-5 h-5 flex-shrink-0" strokeWidth={2.5} />
-                    <span>{isSearching ? "Đang tìm..." : "Tìm kiếm"}</span>
+                    <span>{searchLoading ? "Đang tìm..." : "Tìm kiếm"}</span>
                   </button>
                 </div>
               </div>
 
-              {/* Bộ lọc */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
-                    <span className="text-secondary-600">Dân tộc</span>
-                  </label>
-                  <SearchableDropdown
-                    value={filters.ethnicGroup}
-                    onChange={(v) => setFilters((prev) => ({ ...prev, ethnicGroup: v }))}
-                    options={ETHNICITIES}
-                    placeholder="Tất cả (54 dân tộc)"
-                    searchable
-                  />
+              {/* Bộ lọc — một menu mở tại một thời điểm (controlled SearchableDropdown) */}
+              <div className="rounded-2xl border border-primary-200/60 bg-gradient-to-br from-[#FFFCF5] via-white to-primary-50/30 shadow-sm p-5 sm:p-6">
+                <div className="mb-4 sm:mb-5">
+                  <h3 className="text-base font-semibold text-primary-800 tracking-tight">Bộ lọc nâng cao</h3>
+                  <p className="text-xs text-neutral-500 mt-1">Lọc nhanh theo metadata đã xác minh.</p>
                 </div>
-                <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
-                    Nhạc cụ
-                  </label>
-                  <SearchableDropdown
-                    value={filters.instrument}
-                    onChange={(v) => setFilters((prev) => ({ ...prev, instrument: v }))}
-                    options={INSTRUMENTS}
-                    placeholder="Tất cả (200+ nhạc cụ)"
-                    searchable
-                  />
-                </div>
-                <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
-                    Nghi lễ
-                  </label>
-                  <SearchableDropdown
-                    value={filters.ceremony}
-                    onChange={(v) => setFilters((prev) => ({ ...prev, ceremony: v }))}
-                    options={EVENT_TYPES}
-                    placeholder="Tất cả nghi lễ"
-                    searchable={false}
-                  />
-                </div>
-                <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
-                    Vùng miền
-                  </label>
-                  <SearchableDropdown
-                    value={filters.region}
-                    onChange={(v) => setFilters((prev) => ({ ...prev, region: v }))}
-                    options={REGIONS}
-                    placeholder="Tất cả vùng miền"
-                    searchable={false}
-                  />
-                </div>
-                <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm hover:border-secondary-300 transition-all">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 mb-2">
-                    <MapPin className="w-4 h-4 text-secondary-600" strokeWidth={2.5} />
-                    Xã/Phường
-                  </label>
-                  <SearchableDropdown
-                    value={filters.commune}
-                    onChange={(v) => setFilters((prev) => ({ ...prev, commune: v }))}
-                    options={COMMUNES}
-                    placeholder="Tất cả xã/phường"
-                    searchable
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4">
+                  {(
+                    [
+                      {
+                        key: "ethnic" as const,
+                        label: "Dân tộc",
+                        icon: Users,
+                        placeholder: "Tất cả dân tộc",
+                        value: filters.ethnicGroup,
+                        onChange: (v: string) => setFilters((p) => ({ ...p, ethnicGroup: v })),
+                        options: ETHNICITIES,
+                        searchable: true,
+                      },
+                      {
+                        key: "instrument" as const,
+                        label: "Nhạc cụ",
+                        icon: Music2,
+                        placeholder: "Tất cả nhạc cụ",
+                        value: filters.instrument,
+                        onChange: (v: string) => setFilters((p) => ({ ...p, instrument: v })),
+                        options: INSTRUMENTS,
+                        searchable: true,
+                      },
+                      {
+                        key: "ceremony" as const,
+                        label: "Nghi lễ",
+                        icon: CalendarDays,
+                        placeholder: "Tất cả nghi lễ",
+                        value: filters.ceremony,
+                        onChange: (v: string) => setFilters((p) => ({ ...p, ceremony: v })),
+                        options: EVENT_TYPES,
+                        searchable: false,
+                      },
+                      {
+                        key: "region" as const,
+                        label: "Vùng miền",
+                        icon: Map,
+                        placeholder: "Tất cả vùng miền",
+                        value: filters.region,
+                        onChange: (v: string) => setFilters((p) => ({ ...p, region: v })),
+                        options: REGIONS,
+                        searchable: false,
+                      },
+                      {
+                        key: "commune" as const,
+                        label: "Xã / Phường",
+                        icon: MapPin,
+                        placeholder: "Tất cả xã / phường",
+                        value: filters.commune,
+                        onChange: (v: string) => setFilters((p) => ({ ...p, commune: v })),
+                        options: COMMUNES,
+                        searchable: true,
+                      },
+                    ] as const
+                  ).map((field) => {
+                    const Icon = field.icon;
+                    return (
+                      <div
+                        key={field.key}
+                        className="flex flex-col gap-2 min-h-0 rounded-xl border border-neutral-200/75 bg-white/90 p-3.5 sm:p-4 shadow-sm hover:border-primary-200/80 hover:shadow transition-all"
+                      >
+                        <label className="flex items-center gap-2 text-sm font-semibold text-primary-800 select-none">
+                          <Icon className="w-4 h-4 text-primary-600 flex-shrink-0" strokeWidth={2.25} aria-hidden />
+                          <span className="truncate">{field.label}</span>
+                        </label>
+                        <SearchableDropdown
+                          value={field.value}
+                          onChange={field.onChange}
+                          options={field.options}
+                          placeholder={field.placeholder}
+                          searchable={field.searchable}
+                          isOpen={filterDropdownOpen === field.key}
+                          onOpenChange={(open) => setFilterDropdownOpen(open ? field.key : null)}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -662,14 +810,12 @@ export default function ResearcherPortalPage() {
                   <span className="text-sm text-neutral-600 font-medium">
                     {searchLoading
                       ? "Đang tải..."
-                      : isSearching
-                        ? "Đang tìm kiếm bản thu phù hợp..."
-                        : `Tìm thấy ${filteredResults.length} bản ghi đã kiểm duyệt`}
+                      : `Tìm thấy ${approvedRecordings.length} bản ghi đã kiểm duyệt`}
                   </span>
                   <button
                     type="button"
                     onClick={handleExportDataset}
-                    disabled={searchLoading || filteredResults.length === 0}
+                    disabled={searchLoading || approvedRecordings.length === 0}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-primary-300/80 bg-primary-50/90 text-primary-700 hover:bg-primary-100/90 font-medium transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Download className="h-4 w-4" strokeWidth={2.5} />
@@ -682,111 +828,102 @@ export default function ResearcherPortalPage() {
                 <div className="flex justify-center py-12">
                   <LoadingSpinner size="lg" />
                 </div>
-              ) : isSearching ? (
-                <div
-                  className="rounded-xl border-2 border-primary-200/80 bg-white p-8 sm:p-12 shadow-md flex flex-col items-center justify-center gap-4"
-                  style={{ backgroundColor: "#FFFCF5" }}
-                  role="status"
-                  aria-live="polite"
-                  aria-label="Đang tìm kiếm bản thu"
-                >
-                  <LoadingSpinner size="lg" />
-                  <p className="text-primary-700 font-medium text-center">
-                    Đang tìm kiếm bản thu phù hợp với tiêu chí của bạn...
-                  </p>
-                </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredResults.length === 0 ? (
+                  {approvedRecordings.length === 0 ? (
                     <p className="text-neutral-600 py-8 text-center">
                       Không có bản thu nào khớp với bộ lọc hoặc từ khóa. Chỉ hiển thị bản thu đã được chuyên gia kiểm duyệt.
                     </p>
                   ) : (
-                    filteredResults.map((result) => (
-                      <div
-                        key={result.id}
-                        className="rounded-xl border-2 border-primary-200/80 bg-white p-4 sm:p-5 shadow-md hover:shadow-lg transition-all"
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2 mb-3">
-                              <h3 className="text-lg font-semibold text-primary-800">
-                                {result.title}
-                              </h3>
-                              {result.verificationStatus === VerificationStatus.VERIFIED && (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                  <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                  Đã xác minh
-                                </span>
-                              )}
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
-                              <div>
-                                <strong className="block text-primary-700 font-semibold mb-0.5">
-                                  Dân tộc
-                                </strong>
-                                <span className="text-neutral-600">
-                                  {result.ethnicity?.nameVietnamese ?? result.ethnicity?.name ?? "—"}
-                                </span>
+                    approvedRecordings.map((result, resultIdx) => (
+                      (() => {
+                        const ethnicValue = getEthnicityLabel(result);
+                        const regionValue = getRegionLabel(result);
+                        const instrumentValue = getInstrumentLabel(result);
+                        const ceremonyValue = getCeremonyLabel(result, EVENT_TYPES);
+                        const communeValue = getCommuneName(result);
+
+                        const metadataPairs = [
+                          { label: "Dân tộc", value: ethnicValue },
+                          { label: "Vùng miền", value: regionValue },
+                          { label: "Nhạc cụ", value: instrumentValue },
+                          { label: "Nghi lễ", value: ceremonyValue },
+                          { label: "Xã/Phường", value: communeValue },
+                        ].filter((x) => Boolean(x.value));
+
+                        const missingMetadataCount = 5 - metadataPairs.length;
+
+                        return (
+                          <div
+                            key={result.id ?? `${result.title ?? "recording"}-${resultIdx}`}
+                            className="rounded-xl border-2 border-primary-200/80 bg-white p-4 sm:p-5 shadow-md hover:shadow-lg transition-all"
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 mb-3">
+                                  <h3 className="text-lg font-semibold text-primary-800">
+                                    {result.title}
+                                  </h3>
+                                  {result.verificationStatus === VerificationStatus.VERIFIED && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                      <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                      Đã xác minh
+                                    </span>
+                                  )}
+                                  {missingMetadataCount > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                                      Thiếu metadata
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-wrap gap-2">
+                                  {(metadataPairs.length > 0
+                                    ? metadataPairs
+                                    : [
+                                        { label: "Dân tộc", value: "Chưa cập nhật" },
+                                        { label: "Vùng miền", value: "Chưa cập nhật" },
+                                        { label: "Nhạc cụ", value: "Chưa cập nhật" },
+                                        { label: "Nghi lễ", value: "Chưa cập nhật" },
+                                        { label: "Xã/Phường", value: "Chưa cập nhật" },
+                                      ]).map((item) => (
+                                    <span
+                                      key={`${result.id}-${item.label}`}
+                                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs ${
+                                        item.value === "Chưa cập nhật"
+                                          ? "border-neutral-200 bg-neutral-50 text-neutral-500"
+                                          : "border-primary-200/80 bg-primary-50/60 text-primary-800"
+                                      }`}
+                                      title={`${item.label}: ${item.value}`}
+                                    >
+                                      <strong className="font-semibold">{item.label}:</strong>
+                                      <span className="max-w-[280px] truncate">{item.value}</span>
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
-                              <div>
-                                <strong className="block text-primary-700 font-semibold mb-0.5">
-                                  Vùng miền
-                                </strong>
-                                <span className="text-neutral-600">
-                                  {result.region
-                                    ? REGION_NAMES[result.region as keyof typeof REGION_NAMES]
-                                    : "—"}
-                                </span>
-                              </div>
-                              <div>
-                                <strong className="block text-primary-700 font-semibold mb-0.5">
-                                  Nhạc cụ
-                                </strong>
-                                <span className="text-neutral-600">
-                                  {result.instruments?.length
-                                    ? result.instruments
-                                      .map((i) => i.nameVietnamese ?? i.name)
-                                      .join(", ")
-                                    : "—"}
-                                </span>
-                              </div>
-                              <div>
-                                <strong className="block text-primary-700 font-semibold mb-0.5">
-                                  Nghi lễ
-                                </strong>
-                                <span className="text-neutral-600">
-                                  {result.tags?.find((t) => EVENT_TYPES.includes(t)) ?? result.metadata?.ritualContext ?? "—"}
-                                </span>
-                              </div>
-                              <div>
-                                <strong className="block text-primary-700 font-semibold mb-0.5">
-                                  Xã/Phường
-                                </strong>
-                                <span className="text-neutral-600">{getCommuneName(result) || "—"}</span>
+                              <div className="flex flex-col gap-2 sm:flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handlePlay(result)}
+                                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
+                                >
+                                  <Play className="w-4 h-4" strokeWidth={2.5} />
+                                  Phát
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDetail(result)}
+                                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-secondary-500 hover:bg-secondary-600 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
+                                >
+                                  <FileText className="w-4 h-4" strokeWidth={2.5} />
+                                  Chi tiết
+                                </button>
                               </div>
                             </div>
                           </div>
-                          <div className="flex flex-col gap-2 sm:flex-shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handlePlay(result)}
-                              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
-                            >
-                              <Play className="w-4 h-4" strokeWidth={2.5} />
-                              Phát
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDetail(result.id)}
-                              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-secondary-500 hover:bg-secondary-600 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
-                            >
-                              <FileText className="w-4 h-4" strokeWidth={2.5} />
-                              Chi tiết
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      })()
                     ))
                   )}
                 </div>
@@ -930,7 +1067,12 @@ export default function ResearcherPortalPage() {
                                   <li key={`${idx}-cite-${cidx}`}>
                                     <button
                                       type="button"
-                                      onClick={() => handleDetail(c.recordingId)}
+                                      onClick={() =>
+                                        handleDetail(
+                                          approvedRecordings.find((x) => x.id === c.recordingId) ??
+                                            c.recordingId,
+                                        )
+                                      }
                                       className="text-[11px] text-left text-primary-700 hover:text-primary-900 underline underline-offset-2 cursor-pointer"
                                     >
                                       [{cidx + 1}] {c.label}
@@ -1258,11 +1400,11 @@ export default function ResearcherPortalPage() {
                     <p className="text-sm text-neutral-600">Chưa có bản thu phù hợp với nút đã chọn.</p>
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      {graphRelatedRecordings.slice(0, 8).map((r) => (
+                      {graphRelatedRecordings.slice(0, 8).map((r, idx) => (
                         <button
-                          key={r.id}
+                          key={r.id ?? `${r.title ?? "recording"}-${idx}`}
                           type="button"
-                          onClick={() => handleDetail(r.id)}
+                          onClick={() => handleDetail(r)}
                           className="text-left rounded-xl border border-primary-200/80 bg-primary-50/50 px-4 py-3 hover:bg-primary-100/70 transition-colors cursor-pointer"
                         >
                           <p className="font-semibold text-primary-800 truncate">{r.title}</p>

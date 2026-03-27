@@ -1,8 +1,12 @@
 import { useParams, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Recording } from "@/types";
 import { recordingService } from "@/services/recordingService";
-import { Heart, Download, Share2, Eye, User, Users, MapPin, Music } from "lucide-react";
+import { submissionService } from "@/services/submissionService";
+import { buildSubmissionLookupMaps } from "@/services/expertModerationApi";
+import { mapSubmissionToLocalRecording } from "@/services/submissionApiMapper";
+import { convertLocalToRecording } from "@/utils/localRecordingToRecording";
+import { Heart, Download, Share2, Eye, User } from "lucide-react";
 import Badge from "@/components/common/Badge";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import Button from "@/components/common/Button";
@@ -16,32 +20,149 @@ import VideoPlayer from "@/components/features/VideoPlayer";
 import { isYouTubeUrl } from "@/utils/youtube";
 import { getRegionDisplayName } from "@/utils/recordingTags";
 
-type LocationState = { from?: string };
+type LocationState = { from?: string; preloadedRecording?: Recording };
+
+function pickRecordingFromApiBody(body: unknown): Recording | null {
+  if (!body || typeof body !== "object") return null;
+  const b = body as Record<string, unknown>;
+  const nested = b.data ?? b.Data;
+  if (nested && typeof nested === "object" && !Array.isArray(nested) && "id" in nested && "title" in nested) {
+    return nested as unknown as Recording;
+  }
+  if ("id" in b && "title" in b) return b as unknown as Recording;
+  return null;
+}
+
+function pickSubmissionDetailRow(res: unknown): Record<string, unknown> | null {
+  if (!res || typeof res !== "object") return null;
+  const r = res as Record<string, unknown>;
+  const failed = r.isSuccess === false || r.IsSuccess === false;
+  if (failed) return null;
+  const d = r.data ?? r.Data;
+  if (d && typeof d === "object" && !Array.isArray(d)) return d as Record<string, unknown>;
+  return null;
+}
+
+function extractRecordingListFromApiResponse(res: unknown): Recording[] {
+  if (!res || typeof res !== "object") return [];
+  const r = res as Record<string, unknown>;
+  if (Array.isArray(r.items)) return r.items as Recording[];
+  if (Array.isArray(r.data)) return r.data as Recording[];
+  const data = r.data as Record<string, unknown> | undefined;
+  if (data && Array.isArray(data.items)) return data.items as Recording[];
+  return [];
+}
+
+const SURFACE_CARD =
+  "rounded-xl border border-neutral-200/80 bg-[#FFFCF5] p-4 sm:p-5 shadow-sm transition-shadow duration-200 hover:shadow-md";
+
+type TopicChip = { key: string; label: string; variant: "primary" | "secondary" };
+
+/** Single canonical chip row: ethnicity, region, type, freeform tags (instruments stay in sidebar only). */
+function buildTopicChips(recording: Recording): TopicChip[] {
+  const seen = new Set<string>();
+  const out: TopicChip[] = [];
+  const add = (key: string, raw: string | undefined, variant: TopicChip["variant"] = "secondary") => {
+    const t = raw?.trim();
+    if (!t || t === "Không xác định" || t.toLowerCase() === "unknown") return;
+    const k = t.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push({ key, label: t, variant });
+  };
+
+  if (recording.ethnicity && typeof recording.ethnicity === "object") {
+    add("ethnicity", recording.ethnicity.nameVietnamese || recording.ethnicity.name);
+  }
+  add("region", getRegionDisplayName(recording.region, undefined));
+  const rt = RECORDING_TYPE_NAMES[recording.recordingType];
+  if (rt && rt !== "Khác") add("type", rt, "primary");
+  recording.tags?.forEach((tag, idx) => add(`tag-${idx}`, tag));
+  return out;
+}
+
+function isRecordingVideoUrl(url: string): boolean {
+  return (
+    isYouTubeUrl(url) ||
+    /\.(mp4|mov|avi|webm|mkv|mpeg|mpg|wmv|3gp|flv)(\?|$)/i.test(url) ||
+    url.startsWith("data:video/")
+  );
+}
 
 export default function RecordingDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id: idParam } = useParams<{ id: string }>();
+  const id = idParam ? decodeURIComponent(idParam) : undefined;
   const location = useLocation();
-  const returnTo = (location.state as LocationState | undefined)?.from;
+  const state = (location.state as LocationState | undefined) ?? {};
+  const returnTo = state.from;
+  const preloadedRecording = state.preloadedRecording;
   const [recording, setRecording] = useState<Recording | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (id) {
-      fetchRecording(id);
-    }
-  }, [id]);
-
-  const fetchRecording = async (recordingId: string) => {
-    try {
-      const response = await recordingService.getRecordingById(recordingId);
-      setRecording(response.data);
-    } catch (error) {
-      console.error("Error fetching recording:", error);
-    } finally {
+    if (!id) {
+      setRecording(null);
       setLoading(false);
+      return;
     }
-  };
+    if (preloadedRecording?.id === id) {
+      setRecording(preloadedRecording);
+      setLoading(false);
+      return;
+    }
 
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        try {
+          const response = await recordingService.getRecordingById(id);
+          const rec = pickRecordingFromApiBody(response);
+          if (rec && !cancelled) {
+            setRecording(rec);
+            return;
+          }
+        } catch (err) {
+          console.warn("GET /Recording/{id} failed, trying submission / list fallbacks", err);
+        }
+
+        try {
+          const subRes = await submissionService.getSubmissionById(id);
+          const row = pickSubmissionDetailRow(subRes);
+          if (row && !cancelled) {
+            const lookups = await buildSubmissionLookupMaps();
+            const local = mapSubmissionToLocalRecording(row, lookups);
+            const rec = await convertLocalToRecording(local);
+            if (!cancelled) setRecording(rec);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+
+        try {
+          const listRes = await recordingService.getRecordings(1, 500);
+          const items = extractRecordingListFromApiResponse(listRes);
+          const matched = items.find((x) => x.id === id);
+          if (matched && !cancelled) setRecording(matched);
+          else if (!cancelled) setRecording(null);
+        } catch {
+          if (!cancelled) setRecording(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, preloadedRecording]);
+
+  const topicChips = useMemo(
+    () => (recording ? buildTopicChips(recording) : []),
+    [recording]
+  );
 
   if (loading) {
     return (
@@ -68,90 +189,106 @@ export default function RecordingDetailPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header — responsive; title truncates on very small screens */}
-        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-8">
-          <h1 className="text-xl sm:text-3xl font-bold text-neutral-900 min-w-0 truncate">
-            Chi tiết bản thu
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <header className="mb-6 sm:mb-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary-800">
+              Chi tiết bản ghi
+            </p>
+            <BackButton to={returnTo} />
+          </div>
+          <h1
+            className="mt-2 text-2xl sm:text-3xl font-bold text-neutral-900 leading-tight"
+            title={recording.title}
+          >
+            {recording.title}
           </h1>
-          <BackButton to={returnTo} />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        </header>
+
+        <div className="grid grid-cols-1 gap-6 lg:gap-8 lg:grid-cols-12">
           {/* Main Content */}
-          <div className="lg:col-span-2">
-            {/* Media Player */}
-            <div className="mb-6">
-              <div>
-                {(() => {
-                  if (recording.audioUrl) {
-                    const isVideo = isYouTubeUrl(recording.audioUrl) || recording.audioUrl.match(/\.(mp4|mov|avi|webm|mkv|mpeg|mpg|wmv|3gp|flv)$/i) || recording.audioUrl.startsWith('data:video/') || recording.audioUrl.includes('supabase.co');
-                    if (isVideo) {
-                      return (
-                        <VideoPlayer
-                          src={recording.audioUrl}
-                          title={recording.title}
-                          artist={recording.performers?.[0]?.name}
-                          recording={recording}
-                          showContainer={true}
-                        />
-                      );
-                    } else {
-                      return (
-                        <AudioPlayer
-                          src={recording.audioUrl}
-                          title={recording.title}
-                          artist={recording.performers?.[0]?.name}
-                          recording={recording}
-                          showContainer={true}
-                        />
-                      );
-                    }
-                  }
+          <div className="space-y-5 lg:col-span-8">
+            {/* Media — audio URLs on Supabase etc. must not use the video shell */}
+            <div className={`${SURFACE_CARD} overflow-hidden p-0 sm:p-0`}>
+              {recording.audioUrl ? (
+                isRecordingVideoUrl(recording.audioUrl) ? (
+                  <VideoPlayer
+                    src={recording.audioUrl}
+                    title={recording.title}
+                    artist={recording.performers?.[0]?.name}
+                    recording={recording}
+                    showContainer={true}
+                    showMetadataTags={false}
+                  />
+                ) : (
+                  <AudioPlayer
+                    src={recording.audioUrl}
+                    title={recording.title}
+                    artist={recording.performers?.[0]?.name}
+                    recording={recording}
+                    showContainer={true}
+                    showMetadataTags={false}
+                  />
+                )
+              ) : (
+                <div className="flex min-h-[200px] items-center justify-center bg-neutral-100 px-4 text-center text-sm text-neutral-500">
+                  Không có tệp phát lại cho bản ghi này.
+                </div>
+              )}
+            </div>
 
-                  return null;
-                })()}
+            {topicChips.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {topicChips.map((c) => (
+                  <Badge key={c.key} variant={c.variant} size="sm" className="cursor-default">
+                    {c.label}
+                  </Badge>
+                ))}
               </div>
-            </div>
+            )}
 
-            {/* Thích, Tải xuống, Chia sẻ */}
-            <div className="flex flex-wrap gap-3 mb-6">
-              <Button variant="outline">
-                <Heart className="h-5 w-5 mr-2" />
-                Thích
-              </Button>
-              <Button variant="outline">
-                <Download className="h-5 w-5 mr-2" />
-                Tải xuống
-              </Button>
-              <Button variant="outline">
-                <Share2 className="h-5 w-5 mr-2" />
-                Chia sẻ
-              </Button>
-            </div>
-
-            {/* Stats */}
-            <div className="rounded-2xl border border-neutral-200/80 p-6 mb-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-              <div className="flex items-center space-x-8 text-neutral-700 font-medium">
-                <div className="flex items-center">
-                  <Eye className="h-5 w-5 mr-2 text-primary-600" strokeWidth={2.5} />
-                  <span>{recording.viewCount} lượt xem</span>
-                </div>
-                <div className="flex items-center">
-                  <Heart className="h-5 w-5 mr-2 text-primary-600" strokeWidth={2.5} />
-                  <span>{recording.likeCount} lượt thích</span>
-                </div>
-                <div className="flex items-center">
-                  <Share2 className="h-5 w-5 mr-2 text-primary-600" strokeWidth={2.5} />
-                  <span>{recording.downloadCount} lượt chia sẻ</span>
-                </div>
+            {/* Actions + compact stats — one visual band */}
+            <div
+              className={`${SURFACE_CARD} flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between`}
+            >
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" className="cursor-pointer">
+                  <Heart className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  Thích
+                </Button>
+                <Button variant="outline" className="cursor-pointer">
+                  <Download className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  Tải xuống
+                </Button>
+                <Button variant="outline" className="cursor-pointer">
+                  <Share2 className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  Chia sẻ
+                </Button>
+              </div>
+              <div
+                className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-neutral-200/80 pt-3 text-sm text-neutral-600 sm:border-t-0 sm:pt-0"
+                aria-label="Thống kê tương tác"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Eye className="h-4 w-4 shrink-0 text-primary-600" strokeWidth={2.25} />
+                  {recording.viewCount} xem
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Heart className="h-4 w-4 shrink-0 text-primary-600" strokeWidth={2.25} />
+                  {recording.likeCount} thích
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Download className="h-4 w-4 shrink-0 text-primary-600" strokeWidth={2.25} />
+                  {recording.downloadCount} tải
+                </span>
               </div>
             </div>
 
             {/* Description */}
             {recording.description && (
-              <div className="rounded-2xl border border-neutral-200/80 p-6 mb-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-                <h2 className="text-xl font-semibold mb-4 text-neutral-900">Mô tả</h2>
-                <p className="text-neutral-700 font-medium whitespace-pre-wrap">
+              <div className={SURFACE_CARD}>
+                <h2 className="text-base font-semibold mb-3 text-neutral-900">Mô tả</h2>
+                <p className="text-neutral-700 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
                   {recording.description}
                 </p>
               </div>
@@ -164,8 +301,8 @@ export default function RecordingDetailPage() {
               recording.metadata.ritualContext ||
               recording.metadata.culturalSignificance
             ) && (
-                <div className="rounded-2xl border border-neutral-200/80 p-6 mb-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-                  <h2 className="text-xl font-semibold mb-4 text-neutral-900">
+                <div className={SURFACE_CARD}>
+                  <h2 className="text-base font-semibold mb-3 text-neutral-900">
                     Thông tin chuyên môn
                   </h2>
                   <dl className="space-y-3">
@@ -215,17 +352,17 @@ export default function RecordingDetailPage() {
 
             {/* Lyrics */}
             {recording.metadata?.lyrics && (
-              <div className="rounded-2xl border border-neutral-200/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-                <h2 className="text-xl font-semibold mb-4 text-neutral-900">
+              <div className={SURFACE_CARD}>
+                <h2 className="text-base font-semibold mb-3 text-neutral-900">
                   Lời bài hát
                 </h2>
-                <p className="text-neutral-700 font-medium whitespace-pre-wrap mb-4">
+                <p className="text-neutral-700 text-sm sm:text-base leading-relaxed whitespace-pre-wrap mb-4">
                   {recording.metadata.lyrics}
                 </p>
                 {recording.metadata.lyricsTranslation && (
                   <>
-                    <h3 className="font-medium text-neutral-900 mb-2">Dịch nghĩa</h3>
-                    <p className="text-neutral-700 font-medium whitespace-pre-wrap">
+                    <h3 className="text-sm font-semibold text-neutral-900 mb-2">Dịch nghĩa</h3>
+                    <p className="text-neutral-700 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
                       {recording.metadata.lyricsTranslation}
                     </p>
                   </>
@@ -235,17 +372,17 @@ export default function RecordingDetailPage() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <aside className="space-y-4 lg:col-span-4">
             {/* Basic Info */}
-            <div className="rounded-2xl border border-neutral-200/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-              <h3 className="font-semibold text-lg mb-4 text-neutral-900">
+            <div className={SURFACE_CARD}>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-800 mb-4">
                 Thông tin
               </h3>
               <dl className="space-y-3">
                 <div>
                   <dt className="text-sm text-neutral-500">Dân tộc</dt>
                   <dd className="font-medium text-neutral-900">
-                    {recording.ethnicity.nameVietnamese}
+                    {recording.ethnicity?.nameVietnamese ?? recording.ethnicity?.name ?? "—"}
                   </dd>
                 </div>
                 <div>
@@ -285,14 +422,14 @@ export default function RecordingDetailPage() {
 
             {/* Instruments */}
             {recording.instruments.length > 0 && (
-              <div className="rounded-2xl border border-neutral-200/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-                <h3 className="font-semibold text-lg mb-4 text-neutral-900">
+              <div className={SURFACE_CARD}>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-800 mb-4">
                   Nhạc cụ
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {recording.instruments.map((instrument) => (
-                    <Badge key={instrument.id} variant="primary">
-                      {instrument.nameVietnamese}
+                    <Badge key={instrument.id} variant="primary" size="sm">
+                      {instrument.nameVietnamese ?? instrument.name}
                     </Badge>
                   ))}
                 </div>
@@ -301,8 +438,8 @@ export default function RecordingDetailPage() {
 
             {/* Performers */}
             {recording.performers.length > 0 && (
-              <div className="rounded-2xl border border-neutral-200/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-                <h3 className="font-semibold text-lg mb-4 text-neutral-900">
+              <div className={SURFACE_CARD}>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-800 mb-4">
                   Nghệ nhân
                 </h3>
                 <ul className="space-y-2">
@@ -324,84 +461,9 @@ export default function RecordingDetailPage() {
               </div>
             )}
 
-            {/* Tags */}
-            {(() => {
-              // Collect all tags from AudioPlayer and VideoPlayer
-              const allTags: JSX.Element[] = [];
-
-              // Ethnicity tag (from AudioPlayer and VideoPlayer)
-              if (recording.ethnicity &&
-                typeof recording.ethnicity === "object" &&
-                recording.ethnicity.name &&
-                recording.ethnicity.name !== "Không xác định" &&
-                recording.ethnicity.name.toLowerCase() !== "unknown" &&
-                recording.ethnicity.name.trim() !== "") {
-                allTags.push(
-                  <Badge key="ethnicity" variant="secondary" className="inline-flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    {recording.ethnicity.nameVietnamese || recording.ethnicity.name}
-                  </Badge>
-                );
-              }
-
-              // Region tag: "Không xác định" when contributor did not select region in UploadMusic
-              const regionName = getRegionDisplayName(recording.region, undefined);
-
-              allTags.push(
-                <Badge key="region" variant="secondary" className="inline-flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  {regionName}
-                </Badge>
-              );
-
-              // Recording Type tag (from AudioPlayer) — bỏ "Khác"
-              if (recording.recordingType && RECORDING_TYPE_NAMES[recording.recordingType] && RECORDING_TYPE_NAMES[recording.recordingType] !== "Khác") {
-                allTags.push(
-                  <Badge key="recordingType" variant="primary" className="inline-flex items-center gap-1">
-                    <Music className="h-3 w-3" />
-                    {RECORDING_TYPE_NAMES[recording.recordingType]}
-                  </Badge>
-                );
-              }
-
-              // Tags from recording.tags (from AudioPlayer) — icon cho "Dân ca"
-              if (recording.tags && recording.tags.length > 0) {
-                recording.tags.forEach((tag, idx) => {
-                  if (tag && tag.trim() !== "") {
-                    allTags.push(
-                      <Badge key={`tag-${idx}`} variant="secondary" className="inline-flex items-center gap-1">
-                        {tag.toLowerCase().includes("dân ca") && <Music className="h-3 w-3" />}
-                        {tag}
-                      </Badge>
-                    );
-                  }
-                });
-              }
-
-              // Instruments tags (from AudioPlayer)
-              if (recording.instruments && recording.instruments.length > 0) {
-                recording.instruments.forEach((instrument) => {
-                  allTags.push(
-                    <Badge key={`instrument-${instrument.id}`} variant="secondary">
-                      {instrument.nameVietnamese || instrument.name}
-                    </Badge>
-                  );
-                });
-              }
-
-              return allTags.length > 0 ? (
-                <div className="rounded-2xl border border-neutral-200/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-                  <h3 className="font-semibold text-lg mb-4 text-neutral-900">Thẻ</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {allTags}
-                  </div>
-                </div>
-              ) : null;
-            })()}
-
             {/* Uploader */}
-            <div className="rounded-2xl border border-neutral-200/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
-              <h3 className="font-semibold text-lg mb-4 text-neutral-900">
+            <div className={SURFACE_CARD}>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-800 mb-4">
                 Người đóng góp
               </h3>
               <div className="flex items-center">
@@ -418,7 +480,7 @@ export default function RecordingDetailPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </div>

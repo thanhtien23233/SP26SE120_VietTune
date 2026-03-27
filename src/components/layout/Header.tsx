@@ -138,6 +138,14 @@ export default function Header() {
               >
                 Nhạc cụ truyền thống
               </Link>
+              {user?.role === UserRole.EXPERT && user?.isActive ? (
+                <Link
+                  to="/dashboard"
+                  className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
+                >
+                  Dashboard
+                </Link>
+              ) : null}
               <Link
                 to="/ethnicities"
                 className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
@@ -370,6 +378,15 @@ export default function Header() {
               >
                 Nhạc cụ truyền thống
               </Link>
+              {user?.role === UserRole.EXPERT && user?.isActive && (
+                <Link
+                  to="/dashboard"
+                  className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Dashboard
+                </Link>
+              )}
               <Link
                 to="/ethnicities"
                 className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
