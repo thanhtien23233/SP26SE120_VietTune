@@ -116,7 +116,9 @@ export default function LoginPage() {
             />
           </div>
           <h1 className="text-4xl lg:text-7xl font-black text-white leading-tight tracking-tight mb-6">
-            VietTune giúp bạn kết nối và sẻ chia âm hưởng nghìn năm.
+            <span className="block">VietTune giúp bạn</span>
+            <span className="block">kết nối và sẻ chia</span>
+            <span className="block">âm hưởng nghìn năm.</span>
           </h1>
           <div className="h-1.5 w-24 bg-primary-600 mb-8 rounded-full hidden md:block"></div>
           <p className="text-xl lg:text-2xl text-white/90 font-medium leading-relaxed max-w-2xl opacity-80">
@@ -137,7 +139,7 @@ export default function LoginPage() {
               <Input
                 placeholder="Email hoặc số điện thoại"
                 type="email"
-                className="rounded-xl border-neutral-200 py-3.5 focus:border-primary-500 bg-white"
+                className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
                 {...register("email", {
                   required: "Email là bắt buộc",
                   pattern: {
@@ -151,7 +153,7 @@ export default function LoginPage() {
               <Input
                 placeholder="Mật khẩu"
                 type="password"
-                className="rounded-xl border-neutral-200 py-3.5 focus:border-primary-500 bg-white"
+                className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
                 {...register("password", {
                   required: "Mật khẩu là bắt buộc",
                 })}
@@ -162,7 +164,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-primary-600 text-white text-lg font-bold rounded-xl hover:bg-primary-700 transition-all disabled:bg-neutral-400 disabled:cursor-not-allowed shadow-none active:scale-[0.98] mt-2"
+              className="w-full py-3 bg-primary-600 text-white text-lg font-bold rounded-full hover:bg-primary-700 transition-all disabled:bg-neutral-400 disabled:cursor-not-allowed shadow-none active:scale-[0.98] mt-2"
             >
               {isLoading ? "Đang xử lý..." : "Đăng nhập"}
             </button>
@@ -235,7 +237,7 @@ export default function LoginPage() {
               <form onSubmit={handleOtpSubmit(onOtpSubmit)} className="w-full space-y-4">
                 <Input
                   placeholder="Nhập mã OTP (6 chữ số)"
-                  className="rounded-xl border-neutral-300 py-3.5 focus:border-red-600 bg-white text-center text-lg tracking-widest shadow-none ring-0 focus:ring-2 focus:ring-red-600/20"
+                  className="border-neutral-300 py-3.5 focus:border-red-600 text-center text-lg tracking-widest shadow-none ring-0 focus:ring-2 focus:ring-red-600/20"
                   {...registerOtp("otp", {
                     required: "Mã OTP là bắt buộc",
                     minLength: {

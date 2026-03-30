@@ -22,15 +22,15 @@ export default function Button({
 
   const variants = {
     primary:
-      "bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-xl shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer transition-all duration-300",
+      "bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer transition-all duration-300",
     secondary:
-      "bg-gradient-to-br from-secondary-500 to-secondary-600 hover:from-secondary-400 hover:to-secondary-500 text-white rounded-xl shadow-xl hover:shadow-2xl shadow-secondary-500/40 hover:scale-110 active:scale-95 cursor-pointer transition-all duration-300",
+      "bg-gradient-to-br from-secondary-500 to-secondary-600 hover:from-secondary-400 hover:to-secondary-500 text-white rounded-full shadow-xl hover:shadow-2xl shadow-secondary-500/40 hover:scale-110 active:scale-95 cursor-pointer transition-all duration-300",
     outline:
-      "border-2 border-primary-600 text-primary-600 hover:bg-primary-50 rounded-xl shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer transition-all duration-200",
+      "border-2 border-primary-600 text-primary-600 hover:bg-primary-50 rounded-full shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer transition-all duration-200",
     ghost:
-      "text-neutral-700 hover:bg-neutral-100 rounded-lg hover:scale-105 active:scale-95 cursor-pointer transition-all duration-200",
+      "text-neutral-700 hover:bg-neutral-100 rounded-full hover:scale-105 active:scale-95 cursor-pointer transition-all duration-200",
     danger:
-      "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl shadow-xl hover:shadow-2xl shadow-red-600/40 hover:scale-110 active:scale-95 cursor-pointer transition-all duration-300",
+      "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-full shadow-xl hover:shadow-2xl shadow-red-600/40 hover:scale-110 active:scale-95 cursor-pointer transition-all duration-300",
   };
 
   const sizes = {

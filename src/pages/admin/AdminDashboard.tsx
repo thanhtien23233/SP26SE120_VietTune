@@ -16,17 +16,22 @@ import { getItem, setItem } from "@/services/storageService";
 import { getLocalRecordingMetaList, removeLocalRecording } from "@/services/recordingStorage";
 import { accountDeletionService } from "@/services/accountDeletionService";
 import { recordingRequestService } from "@/services/recordingRequestService";
+import { adminApi } from "@/services/adminApi";
+import { analyticsApi } from "@/services/analyticsApi";
+import { knowledgeBaseApi } from "@/services/knowledgeBaseApi";
+import { api } from "@/services/api";
 import type { ExpertAccountDeletionRequest, DeleteRecordingRequest, EditRecordingRequest } from "@/types";
 
 type StepId = "users" | "analytics" | "aiMonitoring" | "moderation";
 
 type LegacyAdminPanelId = "expertDeletion" | "recordRequests";
 
+
 interface AggregatedUser {
   id: string;
   username: string;
-  email?: string;
-  fullName?: string;
+  email: string | undefined;
+  fullName: string | undefined;
   role: string;
   contributionCount: number;
   approvedCount: number;
@@ -125,10 +130,10 @@ function RoleSelectDropdown({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`w-full px-5 py-3 pr-10 text-neutral-900 border border-neutral-400/80 rounded-full focus:outline-none focus:border-primary-500 transition-all duration-200 text-left flex items-center justify-between shadow-sm hover:shadow-md ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+        className={`w-full h-11 px-6 py-0 pr-10 text-neutral-900 border border-neutral-400/80 rounded-full focus:outline-none focus:border-primary-500 transition-all duration-300 text-left inline-flex items-center justify-between gap-2 shadow-xl hover:shadow-2xl hover:scale-110 active:scale-95 whitespace-nowrap ${disabled ? "opacity-50 cursor-not-allowed hover:scale-100" : "cursor-pointer"}`}
         style={{ backgroundColor: "#FFFCF5" }}
       >
-        <span className={value ? "text-neutral-900 font-medium" : "text-neutral-400"}>{label}</span>
+        <span className={`min-w-0 truncate whitespace-nowrap ${value ? "text-neutral-900 font-medium" : "text-neutral-400"}`}>{label}</span>
         <ChevronDown
           className={`h-5 w-5 text-neutral-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
           strokeWidth={2.5}
@@ -306,6 +311,16 @@ export default function AdminDashboard() {
   const [showAdminGuide, setShowAdminGuide] = useState(false);
   const [legacyPanel, setLegacyPanel] = useState<LegacyAdminPanelId | null>(null);
   const [recordings, setRecordings] = useState<LocalRecording[]>([]);
+  const [remoteUsers, setRemoteUsers] = useState<AggregatedUser[] | null>(null);
+  const [remoteKbCount, setRemoteKbCount] = useState<number | null>(null);
+  const [remoteMonthlyCounts, setRemoteMonthlyCounts] = useState<Record<string, number> | null>(null);
+  const [remoteTotalRecordings, setRemoteTotalRecordings] = useState<number | null>(null);
+  const [remoteInstrumentCount, setRemoteInstrumentCount] = useState<number | null>(null);
+  const [remoteInstruments, setRemoteInstruments] = useState<{ id: string; name: string; category: string | undefined }[] | null>(null);
+  const [remoteUsersLoadState, setRemoteUsersLoadState] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [showUsersLoadingHint, setShowUsersLoadingHint] = useState(false);
+  const [remoteEthnicGroups, setRemoteEthnicGroups] = useState<{ id: string; name: string }[] | null>(null);
+  const [remoteEthnicGroupsLoadState, setRemoteEthnicGroupsLoadState] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [usersOverrides, setUsersOverrides] = useState<Record<string, { role?: string; username?: string; fullName?: string }>>({});
   const [removeTarget, setRemoveTarget] = useState<{ id: string; title?: string } | null>(null);
   const [deleteUserTarget, setDeleteUserTarget] = useState<{ id: string; username: string } | null>(null);
@@ -327,7 +342,203 @@ export default function AdminDashboard() {
     setStep(next);
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { showUserLoadingHint?: boolean }) => {
+    const shouldShowUserLoading = !!opts?.showUserLoadingHint;
+    // --- Admin backend data (best-effort) ---
+    // Avoid UI flicker: keep showing last good list during background refresh.
+    // Only enter "loading" when we have no data yet AND user explicitly wants a hint.
+    if (shouldShowUserLoading && remoteUsersLoadState !== "ok" && !remoteUsers) {
+      setRemoteUsersLoadState("loading");
+    }
+    const [
+      usersRes,
+      contributorsRes,
+      trendRes,
+      kbCountRes,
+      overviewRes,
+      instrumentsRes,
+      recordingsRes,
+      ethnicGroupsRes,
+    ] = await Promise.allSettled([
+      adminApi.getUsers(), // MUST drive user list
+      analyticsApi.getContributors(),
+      analyticsApi.getSubmissionsTrend(),
+      knowledgeBaseApi.countKnowledgeBaseItems(),
+      analyticsApi.getOverview(),
+      api.get<unknown>("/Instrument"),
+      api.get<unknown>("/Recording"),
+      // Ethnic groups (prefer /EthnicGroup, fallback handled below)
+      api.get<unknown>("/EthnicGroup"),
+    ]);
+
+    // ---- Users (primary) ----
+    if (usersRes.status === "fulfilled") {
+      const users = usersRes.value;
+      const contributors = contributorsRes.status === "fulfilled" ? contributorsRes.value : [];
+
+      const contribById = new Map<string, { total: number; approved: number; rejected: number }>();
+      contributors.forEach((c) => {
+        const anyC = c as unknown as Record<string, unknown>;
+        const id = String(anyC.userId ?? anyC.id ?? anyC.UserId ?? anyC.Id ?? "");
+        const email =
+          (typeof anyC.email === "string" ? anyC.email : undefined) ??
+          (typeof anyC.Email === "string" ? (anyC.Email as string) : undefined);
+        const username =
+          (typeof anyC.username === "string" ? anyC.username : undefined) ??
+          (typeof anyC.userName === "string" ? (anyC.userName as string) : undefined) ??
+          (typeof anyC.UserName === "string" ? (anyC.UserName as string) : undefined);
+
+        const total = Number(anyC.contributionCount ?? anyC.submissions ?? anyC.total ?? 0) || 0;
+        const approved = Number(anyC.approvedCount ?? anyC.approved ?? 0) || 0;
+        const rejected = Number(anyC.rejectedCount ?? anyC.rejected ?? 0) || 0;
+
+        const keys = [id, email, username].filter((k): k is string => typeof k === "string" && k.trim().length > 0);
+        if (keys.length === 0) return;
+        keys.forEach((k) => contribById.set(k, { total, approved, rejected }));
+      });
+
+      const normalizedUsers: AggregatedUser[] = users
+        .map((u) => {
+          const anyU = u as unknown as Record<string, unknown>;
+          const email =
+            (typeof anyU.email === "string" ? anyU.email : undefined) ??
+            (typeof anyU.Email === "string" ? (anyU.Email as string) : undefined) ??
+            (typeof anyU.mail === "string" ? (anyU.mail as string) : undefined);
+          const rawId = (anyU.id ?? anyU.userId ?? anyU.Id ?? anyU.UserId) as unknown;
+          const id = String(rawId ?? email ?? "");
+          if (!id) return null;
+          const counts =
+            contribById.get(id) ??
+            (email ? contribById.get(email) : undefined) ??
+            { total: 0, approved: 0, rejected: 0 };
+          const roleRaw =
+            (typeof anyU.role === "string" ? anyU.role : undefined) ??
+            (typeof anyU.Role === "string" ? (anyU.Role as string) : undefined);
+          const fullNameRaw =
+            (typeof anyU.fullName === "string" ? anyU.fullName : undefined) ??
+            (typeof anyU.FullName === "string" ? (anyU.FullName as string) : undefined) ??
+            (typeof anyU.name === "string" ? (anyU.name as string) : undefined);
+          const usernameRaw =
+            (typeof anyU.username === "string" ? anyU.username : undefined) ??
+            (typeof anyU.userName === "string" ? (anyU.userName as string) : undefined) ??
+            (typeof anyU.UserName === "string" ? (anyU.UserName as string) : undefined);
+          return {
+            id,
+            username: String(usernameRaw ?? email ?? id),
+            email: email,
+            fullName: fullNameRaw,
+            role: String(roleRaw ?? UserRole.USER),
+            contributionCount: counts.total,
+            approvedCount: counts.approved,
+            rejectedCount: counts.rejected,
+          };
+        })
+        .filter((x): x is AggregatedUser => !!x);
+
+      setRemoteUsers(normalizedUsers);
+      setRemoteUsersLoadState("ok");
+    } else {
+      // Do NOT clear existing list on background failures to avoid flicker.
+      if (!remoteUsers) setRemoteUsersLoadState("error");
+    }
+
+    // ---- Trend ----
+    if (trendRes.status === "fulfilled") {
+      setRemoteMonthlyCounts(Object.keys(trendRes.value).length ? trendRes.value : null);
+    } else {
+      setRemoteMonthlyCounts(null);
+    }
+
+    // ---- Knowledge base count ----
+    if (kbCountRes.status === "fulfilled") setRemoteKbCount(Number.isFinite(kbCountRes.value) ? kbCountRes.value : null);
+    else setRemoteKbCount(null);
+
+    // ---- Instruments ----
+    if (instrumentsRes.status === "fulfilled") {
+      const instrumentsRaw = instrumentsRes.value;
+      const instrumentArr = Array.isArray(instrumentsRaw)
+        ? (instrumentsRaw as unknown[])
+        : (instrumentsRaw && typeof instrumentsRaw === "object" && "data" in (instrumentsRaw as Record<string, unknown>) && Array.isArray((instrumentsRaw as Record<string, unknown>).data)
+          ? ((instrumentsRaw as Record<string, unknown>).data as unknown[])
+          : (instrumentsRaw && typeof instrumentsRaw === "object" && "items" in (instrumentsRaw as Record<string, unknown>) && Array.isArray((instrumentsRaw as Record<string, unknown>).items)
+            ? ((instrumentsRaw as Record<string, unknown>).items as unknown[])
+            : []));
+      const instruments = instrumentArr
+        .map((it) => {
+          const o = (it && typeof it === "object") ? (it as Record<string, unknown>) : null;
+          if (!o) return null;
+          const id = String(o.id ?? o.instrumentId ?? o._id ?? o.name ?? "");
+          const name = String(o.name ?? o.instrumentName ?? o.title ?? "");
+          if (!id || !name) return null;
+          const category = typeof o.category === "string" ? o.category : undefined;
+          return { id, name, category };
+        })
+        .filter((x): x is { id: string; name: string; category: string | undefined } => !!x);
+      setRemoteInstruments(instruments.length ? instruments : []);
+      setRemoteInstrumentCount(instruments.length);
+    } else {
+      setRemoteInstruments(null);
+      setRemoteInstrumentCount(null);
+    }
+
+    // ---- Total recordings ----
+    const overview = overviewRes.status === "fulfilled" ? overviewRes.value : null;
+    if (recordingsRes.status === "fulfilled") {
+      const recordingsRaw = recordingsRes.value;
+      const recordingArr = Array.isArray(recordingsRaw)
+        ? (recordingsRaw as unknown[])
+        : (recordingsRaw && typeof recordingsRaw === "object" && "data" in (recordingsRaw as Record<string, unknown>) && Array.isArray((recordingsRaw as Record<string, unknown>).data)
+          ? ((recordingsRaw as Record<string, unknown>).data as unknown[])
+          : (recordingsRaw && typeof recordingsRaw === "object" && "items" in (recordingsRaw as Record<string, unknown>) && Array.isArray((recordingsRaw as Record<string, unknown>).items)
+            ? ((recordingsRaw as Record<string, unknown>).items as unknown[])
+            : []));
+      const totalFromList = recordingArr.length;
+      setRemoteTotalRecordings(typeof overview?.totalRecordings === "number" ? overview.totalRecordings : (totalFromList || null));
+    } else {
+      setRemoteTotalRecordings(typeof overview?.totalRecordings === "number" ? overview.totalRecordings : null);
+    }
+
+    // ---- Ethnic groups (from API) ----
+    setRemoteEthnicGroupsLoadState("loading");
+    const normalizeEthnicGroups = (raw: unknown): { id: string; name: string }[] => {
+      const arr = Array.isArray(raw)
+        ? (raw as unknown[])
+        : (raw && typeof raw === "object"
+          ? (
+            (("data" in (raw as Record<string, unknown>) && Array.isArray((raw as Record<string, unknown>).data)) ? ((raw as Record<string, unknown>).data as unknown[]) :
+              ("items" in (raw as Record<string, unknown>) && Array.isArray((raw as Record<string, unknown>).items)) ? ((raw as Record<string, unknown>).items as unknown[]) :
+                [])
+          )
+          : []);
+      return arr
+        .map((it) => {
+          const o = it && typeof it === "object" ? (it as Record<string, unknown>) : null;
+          if (!o) return null;
+          const id = String(o.id ?? o.ethnicGroupId ?? o._id ?? o.name ?? o.ethnicity ?? "");
+          const name = String(o.name ?? o.ethnicGroupName ?? o.ethnicity ?? o.label ?? "");
+          if (!id || !name) return null;
+          return { id, name };
+        })
+        .filter((x): x is { id: string; name: string } => !!x);
+    };
+
+    if (ethnicGroupsRes.status === "fulfilled") {
+      const list = normalizeEthnicGroups(ethnicGroupsRes.value);
+      setRemoteEthnicGroups(list);
+      setRemoteEthnicGroupsLoadState("ok");
+    } else {
+      // Fallback to /ReferenceData/ethnic-groups if /EthnicGroup fails
+      try {
+        const fallbackRaw = await api.get<unknown>("/ReferenceData/ethnic-groups");
+        const list = normalizeEthnicGroups(fallbackRaw);
+        setRemoteEthnicGroups(list);
+        setRemoteEthnicGroupsLoadState("ok");
+      } catch {
+        setRemoteEthnicGroups(null);
+        setRemoteEthnicGroupsLoadState("error");
+      }
+    }
+
     try {
       const metaList = await getLocalRecordingMetaList();
       const migrated = migrateVideoDataToVideoData(metaList as LocalRecording[]);
@@ -352,20 +563,23 @@ export default function AdminDashboard() {
     setPendingExpertDeletions(accountDeletionService.getPendingExpertDeletionRequests());
     recordingRequestService.getDeleteRecordingRequests().then(setDeleteRecordingRequests);
     recordingRequestService.getEditRecordingRequests().then(setEditRecordingRequests);
-  }, []);
+  }, [remoteUsers, remoteUsersLoadState]);
 
   useEffect(() => {
-    load();
-    const t = setInterval(load, 4000);
+    void load();
+    // Background refresh: keep UI stable (no loading state)
+    const t = setInterval(() => {
+      void load();
+    }, 4000);
     return () => clearInterval(t);
   }, [load]);
 
   const demoUsers: AggregatedUser[] = [
-    { id: "contrib_demo", username: "contributor_demo", role: UserRole.CONTRIBUTOR, contributionCount: 0, approvedCount: 0, rejectedCount: 0 },
-    { id: "expert_a", username: "expertA", role: UserRole.EXPERT, contributionCount: 0, approvedCount: 0, rejectedCount: 0 },
-    { id: "expert_b", username: "expertB", role: UserRole.EXPERT, contributionCount: 0, approvedCount: 0, rejectedCount: 0 },
-    { id: "expert_c", username: "expertC", role: UserRole.EXPERT, contributionCount: 0, approvedCount: 0, rejectedCount: 0 },
-    { id: "admin_demo", username: "admin_demo", role: UserRole.ADMIN, contributionCount: 0, approvedCount: 0, rejectedCount: 0 },
+    { id: "contrib_demo", username: "contributor_demo", email: undefined, fullName: undefined, role: UserRole.CONTRIBUTOR, contributionCount: 0, approvedCount: 0, rejectedCount: 0 },
+    { id: "expert_a", username: "expertA", email: undefined, fullName: undefined, role: UserRole.EXPERT, contributionCount: 0, approvedCount: 0, rejectedCount: 0 },
+    { id: "expert_b", username: "expertB", email: undefined, fullName: undefined, role: UserRole.EXPERT, contributionCount: 0, approvedCount: 0, rejectedCount: 0 },
+    { id: "expert_c", username: "expertC", email: undefined, fullName: undefined, role: UserRole.EXPERT, contributionCount: 0, approvedCount: 0, rejectedCount: 0 },
+    { id: "admin_demo", username: "admin_demo", email: undefined, fullName: undefined, role: UserRole.ADMIN, contributionCount: 0, approvedCount: 0, rejectedCount: 0 },
   ];
 
   const uploaderCounts: Record<string, { total: number; approved: number; rejected: number }> = {};
@@ -418,8 +632,19 @@ export default function AdminDashboard() {
       });
     }
   });
-  const allUsers = [...aggregated.filter((u) => u.role !== UserRole.ADMIN), ...extraUsers].filter(
+  const localUsers = [...aggregated.filter((u) => u.role !== UserRole.ADMIN), ...extraUsers].filter(
     (u) => !deletedUserIds.has(u.id)
+  );
+
+  // Critical requirement: User Management MUST NOT show demo/fake users.
+  // It must render ONLY the list from `/api/Admin/users`.
+  const usersForTable = (remoteUsers ?? []).filter(
+    (u) => u.role !== UserRole.ADMIN && !deletedUserIds.has(u.id)
+  );
+
+  // Other parts can still use local fallback when backend is unavailable.
+  const allUsers = ((remoteUsersLoadState === "ok") ? (remoteUsers ?? []) : localUsers).filter(
+    (u) => u.role !== UserRole.ADMIN && !deletedUserIds.has(u.id)
   );
 
   const ethnicityCounts: Record<string, number> = {};
@@ -437,6 +662,8 @@ export default function AdminDashboard() {
       monthlyCounts[key] = (monthlyCounts[key] ?? 0) + 1;
     }
   });
+
+  const monthlyCountsFinal = remoteMonthlyCounts ?? monthlyCounts;
 
   const byUploaderNewestFirst = [...recordings]
     .filter((r) => (r.uploader as { id?: string })?.id)
@@ -458,11 +685,17 @@ export default function AdminDashboard() {
     .filter((u) => u.role === UserRole.CONTRIBUTOR || u.role === UserRole.USER)
     .sort((a, b) => b.contributionCount - a.contributionCount)
     .slice(0, 10);
-  const gapEthnicities = ["Kinh", "Tày", "Thái", "Mường", "Khmer", "H'Mông", "Nùng", "Dao", "Gia Rai", "Ê Đê", "Ba Na", "Chăm", "Khác"];
-  const gapData = gapEthnicities.map((e) => ({ name: e, count: ethnicityCounts[e] ?? 0 }));
+  const ethnicGroupsFromApi = remoteEthnicGroups ?? [];
+  const gapData = ethnicGroupsFromApi.map((e) => ({ name: e.name, count: ethnicityCounts[e.name] ?? 0 }));
 
-  const handleAssignRole = (userId: string, newRole: string) => {
+  const handleAssignRole = async (userId: string, newRole: string) => {
     try {
+      // Prefer backend, fallback to local overrides
+      try {
+        await adminApi.updateUserRole(userId, newRole);
+      } catch {
+        // ignore and fallback
+      }
       const oRaw = getItem("users_overrides");
       const o = oRaw ? (JSON.parse(oRaw) as Record<string, Record<string, unknown>>) : {};
       if (!o[userId]) o[userId] = {};
@@ -475,14 +708,20 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
     try {
+      // Prefer deactivating on backend; keep UI removal locally as well
+      try {
+        await adminApi.updateUserStatus(userId, false);
+      } catch {
+        // ignore and fallback
+      }
       const next = new Set(deletedUserIds);
       next.add(userId);
       setDeletedUserIds(next);
       void setItem("admin_deleted_user_ids", JSON.stringify([...next]));
       setDeleteUserTarget(null);
-      notify.success("Thành công", "Đã xóa người dùng khỏi hệ thống.");
+      notify.success("Thành công", "Đã vô hiệu hóa người dùng.");
     } catch (e) {
       notify.error("Lỗi", "Không thể xóa người dùng.");
     }
@@ -523,7 +762,7 @@ export default function AdminDashboard() {
   ];
 
   const guideButtonClass =
-    "inline-flex items-center justify-center gap-2 h-11 px-6 py-0 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none";
+    "inline-flex items-center justify-center gap-2 h-11 px-6 py-0 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none";
 
   return (
     <div className="min-h-screen">
@@ -545,7 +784,10 @@ export default function AdminDashboard() {
         </div>
 
         {/* Wizard stepper — aligned with UploadMusic.tsx */}
-        <div className="border border-primary-200/80 rounded-2xl p-4 sm:p-6 bg-white shadow-md mb-6 sm:mb-8" style={{ backgroundColor: "#FFFCF5" }}>
+        <div
+          className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-4 sm:p-6 mb-6 sm:mb-8 transition-all duration-300 hover:shadow-xl"
+          style={{ backgroundColor: "#FFFCF5" }}
+        >
           <p className="text-sm font-semibold text-primary-800 mb-3">Điều hướng quản trị</p>
           <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             {steps.map(({ id, label, icon: Icon }) => {
@@ -559,14 +801,14 @@ export default function AdminDashboard() {
                     setStep(id);
                     window.scrollTo({ top: 0, behavior: "auto" });
                   }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${isActive
-                    ? "bg-primary-600 text-white border-primary-600 shadow-md"
-                    : "bg-white border-neutral-200/80 text-neutral-700 hover:border-primary-300 hover:bg-primary-50/50 cursor-pointer"
+                  className={`inline-flex items-center justify-center gap-2 h-11 px-5 py-0 rounded-full text-sm font-semibold border transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 whitespace-nowrap ${isActive
+                    ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white border-primary-600 shadow-primary-600/30"
+                    : "border-neutral-300/80 text-neutral-800 hover:border-primary-300 cursor-pointer"
                     }`}
+                  style={!isActive ? { backgroundColor: "#FFFCF5" } : undefined}
                 >
                   <Icon className="w-4 h-4" strokeWidth={2.5} />
                   <span>{label}</span>
-                  <ChevronRight className={`h-4 w-4 ${isActive ? "opacity-80" : "opacity-50"}`} />
                 </button>
               );
             })}
@@ -585,6 +827,15 @@ export default function AdminDashboard() {
               <p className="text-neutral-700 font-medium leading-relaxed mb-6">
                 Phân công vai trò (dựa trên bằng cấp/thành tích) và theo dõi chất lượng đóng góp (số bản thu, đã duyệt, từ chối).
               </p>
+
+              {remoteUsersLoadState === "error" && (
+                <div className="mb-6 flex items-center gap-3 p-4 bg-red-50/90 border border-red-300/80 rounded-2xl shadow-sm backdrop-blur-sm">
+                  <FileWarning className="h-5 w-5 text-red-600 flex-shrink-0" strokeWidth={2.5} />
+                  <p className="text-red-800 font-medium">
+                    Không thể lấy danh sách người dùng từ API <span className="font-semibold">/api/User/GetAll</span>. Vui lòng kiểm tra mock/backend.
+                  </p>
+                </div>
+              )}
 
               <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-4 sm:p-6 lg:p-8 mb-6 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: "#FFFCF5" }}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -606,9 +857,14 @@ export default function AdminDashboard() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        void load();
-                        notify.success("Đã làm mới", "Dữ liệu quản trị đã được cập nhật.");
+                      onClick={async () => {
+                        try {
+                          setShowUsersLoadingHint(true);
+                          await load({ showUserLoadingHint: true });
+                          notify.success("Đã làm mới", "Dữ liệu quản trị đã được cập nhật.");
+                        } finally {
+                          setShowUsersLoadingHint(false);
+                        }
                       }}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-200/80 text-neutral-800 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
                       style={{ backgroundColor: "#FFFCF5" }}
@@ -634,13 +890,19 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {allUsers.map((u) => (
+                    {usersForTable.map((u) => (
                       <tr key={u.id} className="border-b border-neutral-100">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             <UserIcon className="h-4 w-4 text-neutral-400" />
-                            <span className="font-medium text-neutral-900">{u.username}</span>
-                            {u.fullName && <span className="text-neutral-500 text-sm">({u.fullName})</span>}
+                            <div className="min-w-0">
+                              <div className="font-medium text-neutral-900 truncate">
+                                {u.fullName ?? u.username}
+                              </div>
+                              <div className="text-neutral-500 text-sm font-medium break-all">
+                                {u.email ?? u.username}
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td className="py-3 px-4 text-neutral-700">{getRoleNameVi(u.role)}</td>
@@ -663,6 +925,21 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+
+              {showUsersLoadingHint && remoteUsersLoadState !== "ok" && (
+                <div className="mt-4 text-sm text-neutral-600 font-medium">
+                  Đang tải danh sách người dùng từ API…
+                </div>
+              )}
+
+              {remoteUsersLoadState === "ok" && usersForTable.length === 0 && (
+                <div className="mt-4 rounded-2xl border border-neutral-200/80 shadow-sm p-6 text-center" style={{ backgroundColor: "#FFFCF5" }}>
+                  <p className="text-neutral-700 font-semibold">Không có người dùng để hiển thị.</p>
+                  <p className="text-neutral-600 font-medium text-sm mt-1">
+                    (Danh sách này lấy trực tiếp từ <span className="font-semibold">/api/Admin/users</span>.)
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -683,34 +960,88 @@ export default function AdminDashboard() {
                     <Music className="h-6 w-6 text-primary-600" strokeWidth={2.5} />
                   </div>
                   <div className="text-neutral-600 font-medium mb-2">Tổng bản ghi</div>
-                  <p className="text-3xl font-bold text-primary-600">{recordings.length}</p>
+                  <p className="text-3xl font-bold text-primary-600">{remoteTotalRecordings ?? recordings.length}</p>
                 </div>
                 <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: "#FFFCF5" }}>
                   <div className="bg-secondary-100/90 rounded-full w-12 h-12 flex items-center justify-center mb-4 shadow-sm">
                     <MapPin className="h-6 w-6 text-secondary-600" strokeWidth={2.5} />
                   </div>
-                  <div className="text-neutral-600 font-medium mb-2">Dân tộc có dữ liệu</div>
-                  <p className="text-3xl font-bold text-primary-600">{Object.keys(ethnicityCounts).length}</p>
+                  <div className="text-neutral-600 font-medium mb-2">Dân tộc</div>
+                  <p className="text-3xl font-bold text-primary-600">
+                    {remoteEthnicGroupsLoadState === "ok" ? ethnicGroupsFromApi.length : "—"}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: "#FFFCF5" }}>
                   <div className="bg-primary-100/90 rounded-full w-12 h-12 flex items-center justify-center mb-4 shadow-sm">
                     <Users className="h-6 w-6 text-primary-600" strokeWidth={2.5} />
                   </div>
-                  <div className="text-neutral-600 font-medium mb-2">Người đóng góp</div>
+                  <div className="text-neutral-600 font-medium mb-2">Người dùng</div>
                   <p className="text-3xl font-bold text-primary-600">{allUsers.length}</p>
                 </div>
               </div>
+
               <div className="space-y-6">
                 <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: "#FFFCF5" }}>
-                  <h3 className="text-xl font-semibold text-neutral-900 mb-4">Khoảng trống theo dân tộc (mẫu)</h3>
+                  <h3 className="text-xl font-semibold text-neutral-900 mb-4 flex items-center justify-between gap-3">
+                    <span>Nhạc cụ</span>
+                    <span className="text-primary-600 font-bold">{remoteInstrumentCount ?? "—"}</span>
+                  </h3>
                   <div className="flex flex-wrap gap-2">
-                    {gapData.map(({ name, count }) => (
+                    {!remoteInstruments && (
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-neutral-100 text-neutral-700 text-sm font-semibold">
+                        Đang tải…
+                      </span>
+                    )}
+                    {remoteInstruments && remoteInstruments.length === 0 && (
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-neutral-100 text-neutral-700 text-sm font-semibold">
+                        Chưa có dữ liệu.
+                      </span>
+                    )}
+                    {remoteInstruments && remoteInstruments.length > 0 && (
+                      <>
+                        {remoteInstruments.slice(0, 24).map((ins) => (
+                          <span
+                            key={ins.id}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium bg-primary-100 text-primary-800"
+                            title={ins.category ? `Nhóm: ${ins.category}` : undefined}
+                          >
+                            {ins.name}
+                          </span>
+                        ))}
+                        {remoteInstruments.length > 24 && (
+                          <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-neutral-100 text-neutral-700 text-sm font-semibold">
+                            +{remoteInstruments.length - 24}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: "#FFFCF5" }}>
+                  <h3 className="text-xl font-semibold text-neutral-900 mb-4 flex items-center justify-between gap-3">
+                    <span>Dân tộc</span>
+                    <span className="text-primary-600 font-bold">
+                      {remoteEthnicGroupsLoadState === "ok" ? ethnicGroupsFromApi.length : "—"}
+                    </span>
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {remoteEthnicGroupsLoadState === "loading" && (
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-neutral-100 text-neutral-700 text-sm font-semibold">
+                        Đang tải…
+                      </span>
+                    )}
+                    {remoteEthnicGroupsLoadState === "error" && (
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-red-100 text-red-800 text-sm font-semibold">
+                        Không thể tải danh sách dân tộc từ API.
+                      </span>
+                    )}
+                    {remoteEthnicGroupsLoadState === "ok" && gapData.map(({ name }) => (
                       <span
                         key={name}
-                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${count === 0 ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"
-                          }`}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium bg-primary-100 text-primary-800"
                       >
-                        {name}: {count}
+                        {name}
                       </span>
                     ))}
                   </div>
@@ -718,7 +1049,7 @@ export default function AdminDashboard() {
                 <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: "#FFFCF5" }}>
                   <h3 className="text-xl font-semibold text-neutral-900 mb-4">Đóng góp theo tháng</h3>
                   <div className="flex flex-wrap gap-2">
-                    {Object.entries(monthlyCounts)
+                    {Object.entries(monthlyCountsFinal)
                       .sort(([a], [b]) => b.localeCompare(a))
                       .slice(0, 12)
                       .map(([k, v]) => (
@@ -732,12 +1063,23 @@ export default function AdminDashboard() {
                   <h3 className="text-xl font-semibold text-neutral-900 mb-4">Người đóng góp tích cực</h3>
                   <ul className="space-y-3">
                     {prolific.map((u, i) => {
-                      const displayUsername = usersOverrides[u.id]?.username ?? latestUsernameByUploader[u.id] ?? u.username;
+                      const displayName =
+                        usersOverrides[u.id]?.fullName ??
+                        u.fullName ??
+                        usersOverrides[u.id]?.username ??
+                        latestUsernameByUploader[u.id] ??
+                        u.username;
+                      const displayEmail = u.email ?? usersOverrides[u.id]?.username ?? u.username;
                       return (
                         <li key={u.id} className="flex items-center justify-between py-2 px-3 rounded-lg border border-neutral-200/80" style={{ backgroundColor: "#FFFCF5" }}>
-                          <span className="font-medium text-neutral-900">
-                            #{i + 1} {displayUsername}
-                          </span>
+                          <div className="min-w-0">
+                            <div className="font-medium text-neutral-900 truncate">
+                              #{i + 1} {displayName}
+                            </div>
+                            <div className="text-neutral-500 text-sm font-medium break-all">
+                              {displayEmail}
+                            </div>
+                          </div>
                           <span className="text-neutral-700 font-medium">{u.contributionCount} bản thu</span>
                         </li>
                       );
@@ -794,17 +1136,9 @@ export default function AdminDashboard() {
                   <div className="bg-secondary-100/90 rounded-full w-12 h-12 flex items-center justify-center mb-4 shadow-sm">
                     <Database className="h-6 w-6 text-secondary-600" strokeWidth={2.5} />
                   </div>
-                  <div className="text-neutral-600 font-medium mb-2">Cập nhật cơ sở tri thức (mẫu)</div>
+                  <div className="text-neutral-600 font-medium mb-2">Cơ sở tri thức</div>
                   <p className="text-3xl font-bold text-primary-600">
-                    {(() => {
-                      try {
-                        const raw = getItem("ai_kb_updates");
-                        const arr = raw ? (JSON.parse(raw) as unknown[]) : [];
-                        return Array.isArray(arr) ? arr.length : 0;
-                      } catch {
-                        return 0;
-                      }
-                    })()}
+                    {remoteKbCount ?? "—"}
                   </p>
                 </div>
               </div>
@@ -1111,6 +1445,7 @@ export default function AdminDashboard() {
                     })
                 )}
               </div>
+
             </div>
           )}
         </Card>
@@ -1121,7 +1456,7 @@ export default function AdminDashboard() {
             type="button"
             onClick={() => setStepByIndex(stepIndex - 1)}
             disabled={stepIndex === 0}
-            className="px-6 py-2.5 rounded-full border-2 border-neutral-300/90 text-neutral-900 font-semibold shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-90 disabled:text-neutral-700 disabled:border-neutral-200/80"
+            className="inline-flex items-center justify-center gap-2 h-11 px-6 py-0 rounded-full border-2 border-neutral-300/90 text-neutral-900 font-semibold transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-110 active:scale-95 cursor-pointer focus:outline-none disabled:cursor-not-allowed disabled:opacity-90 disabled:text-neutral-700 disabled:border-neutral-200/80 disabled:hover:scale-100"
             style={{ backgroundColor: "#FFFCF5" }}
           >
             Quay lại
@@ -1134,7 +1469,7 @@ export default function AdminDashboard() {
               window.scrollTo({ top: 0, behavior: "auto" });
             }}
             disabled={stepIndex >= steps.length - 1}
-            className="px-8 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 h-11 px-6 py-0 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             Tiếp theo
             <ChevronRight className="h-5 w-5" strokeWidth={2.5} />

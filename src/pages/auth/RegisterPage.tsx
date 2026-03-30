@@ -98,7 +98,7 @@ export default function RegisterPage() {
               labelColor="light"
               label="Họ và tên"
               placeholder="Nhập họ và tên đầy đủ"
-              className="rounded-xl border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
               {...register("fullName", {
                 required: "Họ và tên là bắt buộc",
               })}
@@ -109,7 +109,7 @@ export default function RegisterPage() {
               labelColor="light"
               label="Số điện thoại"
               placeholder="Nhập số điện thoại"
-              className="rounded-xl border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
               {...register("phoneNumber", {
                 required: "Số điện thoại là bắt buộc",
                 pattern: {
@@ -125,7 +125,7 @@ export default function RegisterPage() {
               label="Địa chỉ Email"
               type="email"
               placeholder="Nhập địa chỉ email"
-              className="rounded-xl border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
               {...register("email", {
                 required: "Email là bắt buộc",
                 pattern: {
@@ -141,7 +141,7 @@ export default function RegisterPage() {
               label="Mật khẩu"
               type="password"
               placeholder="Tạo mật khẩu mạnh"
-              className="rounded-xl border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
               {...register("password", {
                 required: "Mật khẩu là bắt buộc",
                 minLength: {
@@ -157,7 +157,7 @@ export default function RegisterPage() {
               label="Xác nhận mật khẩu"
               type="password"
               placeholder="Nhập lại mật khẩu"
-              className="rounded-xl border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
               {...register("confirmPassword", {
                 required: "Vui lòng xác nhận mật khẩu",
                 validate: (value) => value === password || "Mật khẩu không khớp",
@@ -186,7 +186,7 @@ export default function RegisterPage() {
             disabled={isLoading}
             className="w-full py-3.5 bg-primary-600 text-white text-lg font-bold rounded-full hover:bg-primary-700 transition-all shadow-md active:scale-[0.98] disabled:bg-neutral-400"
           >
-            {isLoading ? "Đang xử lý..." : "Đăng ký ngay"}
+            {isLoading ? "Đang xử lý..." : "Đăng ký"}
           </button>
 
           <div className="text-center pt-2">

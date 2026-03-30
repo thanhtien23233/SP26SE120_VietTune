@@ -82,7 +82,7 @@ export default function Header() {
   }, [isMenuOpen]);
   return (
     <header className="fixed top-0 left-0 right-0 z-[60] pt-4 px-4">
-      <nav className="bg-gradient-to-br from-primary-700 to-primary-800 rounded-2xl shadow-lg backdrop-blur-sm">
+      <nav className="bg-gradient-to-br from-primary-700 to-primary-800 rounded-full shadow-lg backdrop-blur-sm border border-white/10">
         <div className="px-6 py-2.5">
           <div className="flex items-center justify-between">
             {/* Logo */}
@@ -109,12 +109,7 @@ export default function Header() {
                   Quản trị hệ thống
                 </Link>
               ) : (user?.role === UserRole.CONTRIBUTOR && user?.isActive) ? (
-                <Link
-                  to="/upload"
-                  className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-                >
-                  Đóng góp bản thu
-                </Link>
+                null
               ) : null}
               {user?.role === UserRole.CONTRIBUTOR && user?.isActive ? (
                 <Link
@@ -254,10 +249,12 @@ export default function Header() {
                       onClick={() => setIsMenuOpen((s) => !s)}
                       aria-expanded={isMenuOpen}
                       aria-haspopup="menu"
-                      className="flex items-center gap-1.5 text-sm px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-colors duration-200 shadow-md hover:shadow-lg cursor-pointer min-w-[140px] justify-center"
+                      className="flex items-center gap-2 text-sm px-3 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-full transition-colors duration-200 shadow-md hover:shadow-lg cursor-pointer min-w-[180px] justify-center"
                     >
                       <User className="h-4 w-4" strokeWidth={2.5} />
-                      <span className="text-xs font-medium">{user?.username || user?.fullName || "Người dùng"}</span>
+                      <span className="text-xs font-semibold whitespace-nowrap">
+                        {user?.email || user?.username || user?.fullName || "Người dùng"}
+                      </span>
                     </button>
 
                     {/* Menu anchored to header (non-portal so it moves with header and never shifts) */}

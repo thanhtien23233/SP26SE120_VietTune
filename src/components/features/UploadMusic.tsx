@@ -3336,7 +3336,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
         {/* Submission wizard stepper (chỉ khi đóng góp mới, không chỉnh sửa) */}
         {showWizard && (
-          <div className="border border-primary-200/80 rounded-2xl p-4 sm:p-6 bg-white shadow-md" style={{ backgroundColor: "#FFFCF5" }}>
+          <div
+            className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-4 sm:p-6 transition-all duration-300 hover:shadow-xl"
+            style={{ backgroundColor: "#FFFCF5" }}
+          >
             <p className="text-sm font-semibold text-primary-800 mb-3">Luồng đóng góp</p>
             <div className="flex flex-wrap items-center gap-2 sm:gap-4">
               {[
@@ -3351,12 +3354,13 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     type="button"
                     onClick={() => isNavigable && setUploadWizardStep(step)}
                     disabled={!isNavigable}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${uploadWizardStep === step
-                      ? "bg-primary-600 text-white border-primary-600 shadow-md"
+                    className={`inline-flex items-center justify-center gap-2 h-11 px-5 py-0 rounded-full text-sm font-semibold border transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 whitespace-nowrap ${uploadWizardStep === step
+                      ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white border-primary-600 shadow-primary-600/30"
                       : isNavigable
-                        ? "bg-white border-neutral-200/80 text-neutral-700 hover:border-primary-300 hover:bg-primary-50/50 cursor-pointer"
-                        : "bg-neutral-50 border-neutral-200 text-neutral-400 cursor-not-allowed opacity-60"
+                        ? "border-neutral-300/80 text-neutral-800 hover:border-primary-300 cursor-pointer"
+                        : "bg-neutral-50 border-neutral-200 text-neutral-400 cursor-not-allowed opacity-60 hover:scale-100"
                       }`}
+                    style={uploadWizardStep !== step && isNavigable ? { backgroundColor: "#FFFCF5" } : undefined}
                   >
                     <Icon className="w-4 h-4" strokeWidth={2.5} />
                     <span>Bước {step}:</span>
@@ -4407,7 +4411,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                 type="button"
                 onClick={handlePrevStep}
                 disabled={uploadWizardStep === 1}
-                className="px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 h-11 px-6 py-0 rounded-full border-2 border-neutral-300/90 text-neutral-900 font-semibold transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-110 active:scale-95 cursor-pointer focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:text-neutral-600 disabled:border-neutral-200/80 disabled:hover:scale-100"
+                style={{ backgroundColor: "#FFFCF5" }}
               >
                 Quay lại
               </button>
@@ -4417,7 +4422,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     type="button"
                     onClick={handleSaveDraft}
                     disabled={isAnalyzing || isSubmitting || isFormDisabled}
-                    className="px-6 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl font-medium transition-all duration-200 border border-neutral-300 shadow-sm hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                    className="inline-flex items-center justify-center gap-2 h-11 px-6 py-0 rounded-full border border-neutral-300 text-neutral-800 font-semibold transition-all duration-200 shadow-sm hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    style={{ backgroundColor: "#FFFCF5" }}
                   >
                     <Shield className="h-4 w-4" />
                     Lưu
@@ -4428,7 +4434,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     type="button"
                     onClick={handleNextStep}
                     disabled={!canNavigateToStep(uploadWizardStep + 1)}
-                    className="px-6 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium cursor-pointer disabled:opacity-60 flex items-center gap-2 transition-all"
+                    className="inline-flex items-center justify-center gap-2 h-11 px-6 py-0 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
                     Tiếp theo
                   </button>
