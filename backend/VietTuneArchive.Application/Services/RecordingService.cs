@@ -19,7 +19,6 @@ namespace VietTuneArchive.Application.Services
         private readonly IMusicalScaleRepository _musicalScaleRepository;
         private readonly IInstrumentRepository _instrumentRepository;
         private readonly IVocalStyleRepository _vocalStyleRepository;
-        private readonly IVocalStyleRepository _vocalStyleRepository;
         private readonly ISubmissionRepository _submissionRepository;
         private readonly INotificationService _notificationService;
         private readonly IUserRepository _userRepository;

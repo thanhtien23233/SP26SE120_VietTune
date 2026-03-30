@@ -16,7 +16,8 @@ namespace VietTuneArchive.Application.Services
         private readonly IMapper _mapper;
         private readonly IUserRepository _userRepository;
         private readonly IRecordingRepository _recordingRepository;
-        public SubmissionService2(IGenericRepository<Submission> repository, ISubmissionRepository submissionRepo, IMapper mapper, IUserRepository userRepository, IRecordingRepository recordingRepository)
+        private readonly INotificationService _notificationService;
+        public SubmissionService2(IGenericRepository<Submission> repository, ISubmissionRepository submissionRepo, IMapper mapper, IUserRepository userRepository, IRecordingRepository recordingRepository, INotificationService notificationService)
             : base(repository, mapper)
         {
             _submissionRepository = repository ?? throw new ArgumentNullException(nameof(repository));
@@ -24,6 +25,7 @@ namespace VietTuneArchive.Application.Services
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _recordingRepository = recordingRepository ?? throw new ArgumentNullException(nameof(recordingRepository));
+            _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
         }
         public async Task<Result<SubmissionResponseDto>> CreateAsync(SubmissionDto dto)
         {
@@ -188,6 +190,16 @@ namespace VietTuneArchive.Application.Services
                 recording.UpdatedAt = DateTime.UtcNow;
                 await _recordingRepository.UpdateAsync(recording);
 
+                // Gửi thông báo cho người đóng góp
+                await _notificationService.SendNotificationAsync(
+                    submission.ContributorId,
+                    "Bản ghi bị từ chối",
+                    $"Rất tiếc, bản ghi '{recording.Title}' của bạn đã bị từ chối.",
+                    "SubmissionRejected",
+                    "Submission",
+                    submission.Id
+                );
+
                 return Result<bool>.Success(true, "Submission rejected successfully");
             }
             catch (Exception ex)
@@ -219,6 +231,16 @@ namespace VietTuneArchive.Application.Services
                 recording.Status = SubmissionStatus.Approved;
                 recording.UpdatedAt = DateTime.UtcNow;
                 await _recordingRepository.UpdateAsync(recording);
+
+                // Gửi thông báo cho người đóng góp
+                await _notificationService.SendNotificationAsync(
+                    submission.ContributorId,
+                    "Bản ghi đã được duyệt",
+                    $"Chúc mừng! Bản ghi '{recording.Title}' của bạn đã được duyệt và đăng tải.",
+                    "SubmissionApproved",
+                    "Submission",
+                    submission.Id
+                );
 
                 return Result<bool>.Success(true, "Submission approved successfully");
             }

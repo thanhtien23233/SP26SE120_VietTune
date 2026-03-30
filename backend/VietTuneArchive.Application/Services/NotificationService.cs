@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using VietTuneArchive.Application.Common;
+using VietTuneArchive.Application.Hubs;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Domain.Context;
 using VietTuneArchive.Domain.Entities;
-using VietTuneArchive.Hubs;
 
 namespace VietTuneArchive.Application.Services
 {
