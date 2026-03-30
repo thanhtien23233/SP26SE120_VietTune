@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Bot, History, ChevronLeft, Menu, Plus } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import { INTELLIGENCE_NAME, API_BASE_URL } from "@/config/constants";
@@ -117,19 +117,19 @@ export default function ChatbotPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (user?.id) {
-      void loadHistory();
-    }
-  }, [user?.id]);
-
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     if (!user?.id) return;
     setIsLoadingHistory(true);
     const data = await fetchUserConversations(user.id);
     setHistory(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     setIsLoadingHistory(false);
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) {
+      void loadHistory();
+    }
+  }, [loadHistory, user?.id]);
 
   const handleSelectConversation = async (conv: QAConversationRequest) => {
     setConversationId(conv.id);

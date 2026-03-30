@@ -22,6 +22,7 @@ import { notify } from "@/stores/notificationStore";
 import { isAxiosError } from "axios";
 import { api } from "@/services/api";
 import { PROVINCE_REGION_CODE_TO_NAME as REGION_CODE_TO_NAME, macroRegionDisplayNameFromProvinceRegionCode as getRegionName } from "@/config/provinceRegionCodes";
+import { cn } from "@/utils/helpers";
 
 // Extended type for local recording storage (supports both legacy and new formats)
 type LocalRecordingStorage = LocalRecording & {
@@ -491,23 +492,11 @@ function SearchableDropdown({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuRect, setMenuRect] = useState<DOMRect | null>(null);
 
-  // Helper: remove Vietnamese accents for insensitive search
-  function removeVietnameseTones(str: string) {
-    if (!str) return "";
-    return str
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")
-      .replace(/đ/g, "d")
-      .replace(/Đ/g, "D");
-  }
-
   const filteredOptions = useMemo(() => {
     if (!search) return options;
-    const searchNorm = removeVietnameseTones(search.toLowerCase());
-    return options.filter((opt) => {
-      const optNorm = removeVietnameseTones((opt || "").toLowerCase());
-      return optNorm.includes(searchNorm);
-    });
+    return options.filter((opt) =>
+      opt.toLowerCase().includes(search.toLowerCase()),
+    );
   }, [options, search]);
 
   useEffect(() => {
@@ -1613,7 +1602,7 @@ function FormField({
         {required && <span className="text-red-400 ml-1">*</span>}
       </label>
       {children}
-      {hint && <p className="text-xs text-neutral-600 font-medium">{hint}</p>}
+      {hint && <p className="text-xs font-medium text-neutral-700">{hint}</p>}
     </div>
   );
 }
@@ -1633,8 +1622,8 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-start gap-3 mb-6">
-      <div className="p-2 bg-primary-600/20 rounded-lg">
-        <Icon className="h-5 w-5 text-primary-600" />
+      <div className="flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-100/95 to-secondary-100/90 p-2 shadow-sm ring-1 ring-secondary-200/50">
+        <Icon className="h-5 w-5 text-primary-600" strokeWidth={2.5} />
       </div>
       <div>
         <h3 className="text-xl font-semibold text-neutral-900 flex items-center gap-2">
@@ -1649,7 +1638,7 @@ function SectionHeader({
           )}
         </h3>
         {subtitle && (
-          <p className="text-sm text-neutral-600 font-medium mt-1">{subtitle}</p>
+          <p className="mt-1 text-sm font-medium text-neutral-700">{subtitle}</p>
         )}
       </div>
     </div>
@@ -1674,24 +1663,14 @@ function CollapsibleSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div
-      className="border border-neutral-200/80 rounded-2xl overflow-hidden shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
-      style={{ backgroundColor: "#FFFCF5" }}
-    >
+    <div className="overflow-hidden rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/85 to-secondary-50/45 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-4 sm:p-6 flex items-center justify-between gap-2 transition-all duration-200 cursor-pointer min-h-[44px] sm:min-h-0"
-        style={{ backgroundColor: "#FFFCF5" }}
-        onMouseEnter={(e) =>
-          (e.currentTarget.style.backgroundColor = "#F5F0E8")
-        }
-        onMouseLeave={(e) =>
-          (e.currentTarget.style.backgroundColor = "#FFFCF5")
-        }
+        className="flex min-h-[44px] w-full cursor-pointer items-center justify-between gap-2 bg-gradient-to-r from-[#FFFCF5]/95 to-secondary-50/30 p-4 transition-all duration-200 hover:from-secondary-50/40 hover:to-secondary-100/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFFCF5] sm:min-h-0 sm:p-6"
       >
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          <div className="p-2 bg-primary-100/90 rounded-lg shadow-sm flex-shrink-0">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-100/95 to-secondary-100/90 p-2 shadow-sm ring-1 ring-secondary-200/50">
             <Icon className="h-5 w-5 text-primary-600" strokeWidth={2.5} />
           </div>
           <div className="text-left min-w-0">
@@ -1706,7 +1685,7 @@ function CollapsibleSection({
               )}
             </h3>
             {subtitle && (
-              <p className="text-sm text-neutral-600 font-medium">{subtitle}</p>
+              <p className="text-sm font-medium text-neutral-700">{subtitle}</p>
             )}
           </div>
         </div>
@@ -2407,7 +2386,23 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
     try {
       let publicUrl = "";
-      let aiRes: any = null;
+      type AiInstrument = { name?: string };
+      type AiAnalysisResult = {
+        title?: string;
+        composer?: string;
+        language?: string;
+        recordingLocation?: string;
+        lyricsOriginal?: string;
+        lyricsVietnamese?: string;
+        instruments?: AiInstrument[];
+        ethnicGroup?: { name?: string };
+        vocalStyle?: { name?: string };
+        genre?: string;
+        musicalScale?: { name?: string };
+        ceremony?: { name?: string };
+        performanceContext?: string;
+      };
+      let aiRes: AiAnalysisResult | null = null;
 
       if (useAiAnalysis) {
         const formData = new FormData();
@@ -2428,7 +2423,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         }
 
         if (aiResult.status === "fulfilled" && aiResult.value) {
-          aiRes = (aiResult.value as any).data || aiResult.value;
+          const payload = aiResult.value as { data?: unknown };
+          aiRes = (payload.data ?? aiResult.value) as AiAnalysisResult;
         } else {
           console.warn("AI Analysis failed:", aiResult.status === "rejected" ? aiResult.reason : "No value");
           notify.error("Phân tích AI thất bại", "Vẫn tiếp tục tải lên bình thường.");
@@ -2468,19 +2464,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         notify.success("Phân tích AI thành công", "Đã tự động điền các thông tin gợi ý.");
         if (aiRes.title) setTitle(aiRes.title);
         if (aiRes.composer) {
-          const lowerComposer = aiRes.composer.toLowerCase();
-          if (
-            lowerComposer.includes("dân gian") ||
-            lowerComposer.includes("không rõ") ||
-            lowerComposer.includes("khuyết danh") ||
-            lowerComposer === "unknown"
-          ) {
-            setComposerUnknown(true);
-            setComposer("");
-          } else {
-            setComposer(aiRes.composer);
-            setComposerUnknown(false);
-          }
+          setComposer(aiRes.composer);
+          setComposerUnknown(false);
         }
         let isInstrumental = false;
         if (aiRes.language) {
@@ -2506,29 +2491,33 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         }
         
         if (aiRes.instruments && Array.isArray(aiRes.instruments)) {
-          const names = aiRes.instruments.map((i: any) => i.name).filter(Boolean);
+          const names = aiRes.instruments
+            .map((i) => i.name)
+            .filter((name): name is string => Boolean(name));
           if (names.length > 0) setInstruments(names);
         }
         if (aiRes.ethnicGroup?.name) {
-          if (ethnicGroupsData.find(e => e.name === aiRes.ethnicGroup.name)) {
-             setEthnicity(aiRes.ethnicGroup.name);
+          const egName = aiRes.ethnicGroup.name;
+          if (ethnicGroupsData.find((e) => e.name === egName)) {
+            setEthnicity(egName);
           } else {
-             setEthnicity("Khác");
-             setCustomEthnicity(aiRes.ethnicGroup.name);
+            setEthnicity("Khác");
+            setCustomEthnicity(egName);
           }
         }
         if (aiRes.vocalStyle?.name || aiRes.genre) {
-          setVocalStyle(aiRes.vocalStyle?.name || aiRes.genre);
+          setVocalStyle(aiRes.vocalStyle?.name ?? aiRes.genre ?? "");
         }
         if (aiRes.musicalScale?.name) {
           setMusicalScale(aiRes.musicalScale.name);
         }
         if (aiRes.ceremony?.name) {
-          if (ceremoniesData.find(c => c.name === aiRes.ceremony.name)) {
-             setEventType(aiRes.ceremony.name);
+          const cName = aiRes.ceremony.name;
+          if (ceremoniesData.find((c) => c.name === cName)) {
+            setEventType(cName);
           } else {
-             setEventType("Khác");
-             setCustomEventType(aiRes.ceremony.name);
+            setEventType("Khác");
+            setCustomEventType(cName);
           }
         }
         if (isInstrumental) {
@@ -2616,13 +2605,21 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       return remainingErrors;
     });
 
-    // Scroll to top when moving to next step
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Scroll to top when moving to next step (respect reduced motion)
+    const scrollBehavior =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth";
+    window.scrollTo({ top: 0, behavior: scrollBehavior });
     setUploadWizardStep((s) => Math.min(3, s + 1));
   };
 
   const handlePrevStep = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const scrollBehavior =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth";
+    window.scrollTo({ top: 0, behavior: scrollBehavior });
     setUploadWizardStep((s) => Math.max(1, s - 1));
   };
 
@@ -3334,38 +3331,108 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           <span>Trường bắt buộc</span>
         </div>
 
-        {/* Submission wizard stepper (chỉ khi đóng góp mới, không chỉnh sửa) */}
+        {/* Submission wizard — sequential stepper + connector line (Explore tokens) */}
         {showWizard && (
-          <div
-            className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-4 sm:p-6 transition-all duration-300 hover:shadow-xl"
-            style={{ backgroundColor: "#FFFCF5" }}
-          >
-            <p className="text-sm font-semibold text-primary-800 mb-3">Luồng đóng góp</p>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+          <div className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 p-4 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl sm:p-6">
+            <div className="mb-3 flex items-center gap-2 sm:mb-4 sm:gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-100/95 to-secondary-100/90 shadow-sm ring-1 ring-secondary-200/50 sm:h-10 sm:w-10">
+                <Upload className="h-4 w-4 text-primary-600 sm:h-5 sm:w-5" strokeWidth={2.5} aria-hidden />
+              </span>
+              <p className="text-sm font-semibold text-neutral-900 sm:text-base">Luồng đóng góp</p>
+            </div>
+
+            {/* Mobile: dots + current step label — min-height ~44px touch corridor */}
+            <div
+              className="flex min-h-[44px] items-center gap-3 py-1 sm:hidden"
+              aria-live="polite"
+              aria-label={`Tiến độ: bước ${uploadWizardStep} trên 3`}
+            >
+              <div className="flex items-center gap-1.5" aria-hidden>
+                {[1, 2, 3].map((s) => (
+                  <span
+                    key={s}
+                    className={cn(
+                      "h-2.5 w-2.5 shrink-0 rounded-full transition-colors",
+                      uploadWizardStep === s
+                        ? "bg-primary-600 ring-2 ring-secondary-300/70 ring-offset-2 ring-offset-[#FFFCF5]"
+                        : uploadWizardStep > s
+                          ? "bg-primary-500"
+                          : "bg-neutral-400/90",
+                    )}
+                  />
+                ))}
+              </div>
+              <p className="min-w-0 flex-1 text-xs font-semibold leading-snug text-neutral-900">
+                Bước {uploadWizardStep}/3:{" "}
+                {uploadWizardStep === 1 ? "Tải lên" : uploadWizardStep === 2 ? "Metadata & AI" : "Xem lại & Gửi"}
+              </p>
+            </div>
+
+            {/* sm+: horizontal connector stepper */}
+            <div className="hidden w-full items-start sm:flex sm:gap-0" aria-label="Tiến độ ba bước đóng góp">
               {[
-                { step: 1, label: "Tải lên", icon: Upload },
-                { step: 2, label: "Metadata & AI", icon: Info },
-                { step: 3, label: "Xem lại & Gửi", icon: Check },
-              ].map(({ step, label, icon: Icon }) => {
+                { step: 1 as const, label: "Tải lên", icon: Upload },
+                { step: 2 as const, label: "Metadata & AI", icon: Info },
+                { step: 3 as const, label: "Xem lại & Gửi", icon: Check },
+              ].map(({ step, label, icon: Icon }, index) => {
                 const isNavigable = canNavigateToStep(step);
+                const isActive = uploadWizardStep === step;
+                const isDone = uploadWizardStep > step;
+                const showCheck = isDone && !isActive;
                 return (
-                  <button
-                    key={step}
-                    type="button"
-                    onClick={() => isNavigable && setUploadWizardStep(step)}
-                    disabled={!isNavigable}
-                    className={`inline-flex items-center justify-center gap-2 h-11 px-5 py-0 rounded-full text-sm font-semibold border transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 whitespace-nowrap ${uploadWizardStep === step
-                      ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white border-primary-600 shadow-primary-600/30"
-                      : isNavigable
-                        ? "border-neutral-300/80 text-neutral-800 hover:border-primary-300 cursor-pointer"
-                        : "bg-neutral-50 border-neutral-200 text-neutral-400 cursor-not-allowed opacity-60 hover:scale-100"
-                      }`}
-                    style={uploadWizardStep !== step && isNavigable ? { backgroundColor: "#FFFCF5" } : undefined}
-                  >
-                    <Icon className="w-4 h-4" strokeWidth={2.5} />
-                    <span>Bước {step}:</span>
-                    <span>{label}</span>
-                  </button>
+                  <React.Fragment key={step}>
+                    {index > 0 ? (
+                      <div
+                        className={cn(
+                          "mx-1 mt-[1.3rem] h-0.5 min-h-[2px] min-w-[0.75rem] flex-1 rounded-full self-start",
+                          uploadWizardStep > index
+                            ? "bg-gradient-to-r from-primary-500 to-primary-600"
+                            : "bg-neutral-200/90",
+                        )}
+                        aria-hidden
+                      />
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => isNavigable && setUploadWizardStep(step)}
+                      disabled={!isNavigable}
+                      aria-current={isActive ? "step" : undefined}
+                      aria-label={
+                        isActive
+                          ? `Bước ${step}: ${label} (đang làm)`
+                          : isNavigable
+                            ? `Chuyển tới bước ${step}: ${label}`
+                            : `Bước ${step}: ${label}, chưa thể chuyển tới`
+                      }
+                      className={cn(
+                        "flex min-h-[44px] min-w-0 max-w-[10.5rem] flex-1 flex-col items-center justify-center gap-1.5 px-1 pt-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFFCF5] sm:max-w-none",
+                        isNavigable ? "cursor-pointer" : "cursor-not-allowed",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex h-11 w-11 items-center justify-center rounded-full border-2 text-white shadow-sm transition-all",
+                          isActive
+                            ? "border-primary-600 bg-gradient-to-br from-primary-600 to-primary-700 ring-2 ring-secondary-300/70 ring-offset-2 ring-offset-[#FFFCF5]"
+                            : isDone
+                              ? "border-primary-500 bg-primary-100 text-primary-700"
+                              : isNavigable
+                                ? "border-secondary-300/80 bg-white text-neutral-700 hover:border-primary-400"
+                                : "border-neutral-200 bg-neutral-50 text-neutral-500 opacity-80",
+                        )}
+                      >
+                        {showCheck ? (
+                          <Check className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+                        ) : (
+                          <Icon className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+                        )}
+                      </span>
+                      <span className="text-center text-[11px] font-semibold leading-tight text-neutral-800 sm:text-xs">
+                        <span className="block font-medium text-neutral-600">Bước {step}</span>
+                        {label}
+                      </span>
+                    </button>
+                  </React.Fragment>
                 );
               })}
             </div>
@@ -3383,8 +3450,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
         {(uploadWizardStep === 1 || !showWizard) && (
           <div
-            className="border border-neutral-200/80 rounded-2xl p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
-            style={{ backgroundColor: "#FFFCF5" }}
+            className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/45 p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl"
             aria-disabled={isFormDisabled}
           >
             {/* Header - Hidden in edit mode if media exists to prioritize player */}
@@ -3412,9 +3478,9 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                       setAudioInfo(null);
                       if (fileInputRef.current) fileInputRef.current.value = "";
                     }}
-                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 border border-neutral-200/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 ${mediaType === "audio"
+                    className={`flex min-h-[44px] items-center justify-center rounded-full border border-secondary-200/60 px-4 py-2 text-sm shadow-md transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95 ${mediaType === "audio"
                       ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white"
-                      : "text-neutral-800 bg-neutral-100/90"
+                      : "text-neutral-800 bg-secondary-50/90"
                       } ${(isFormDisabled || (file != null && mediaType === "video")) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                     style={
                       mediaType !== "audio"
@@ -3450,9 +3516,9 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                       setAudioInfo(null);
                       if (fileInputRef.current) fileInputRef.current.value = "";
                     }}
-                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 border border-neutral-200/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 ${mediaType === "video"
+                    className={`flex min-h-[44px] items-center justify-center rounded-full border border-secondary-200/60 px-4 py-2 text-sm shadow-md transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95 ${mediaType === "video"
                       ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white"
-                      : "text-neutral-800 bg-neutral-100/90"
+                      : "text-neutral-800 bg-secondary-50/90"
                       } ${(isFormDisabled || (file != null && mediaType === "audio")) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                     style={
                       mediaType !== "video"
@@ -3483,10 +3549,13 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
             {/* Edit Mode: Media Player at TOP */}
             {isEditMode && existingMediaSrc && !file && (
-              <div className="mb-8 p-6 bg-white rounded-2xl border border-primary-200/50 shadow-sm" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-primary-100 rounded-lg">
-                    <Music className="w-5 h-5 text-primary-600" />
+              <div
+                className="mb-8 rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-white/90 to-secondary-50/40 p-6 shadow-md backdrop-blur-sm"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex items-center justify-center rounded-lg bg-gradient-to-br from-primary-100/95 to-secondary-100/90 p-2 shadow-sm ring-1 ring-secondary-200/50">
+                    <Music className="h-5 w-5 text-primary-600" strokeWidth={2.5} />
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-neutral-800">Tệp tin hiện tại</h3>
@@ -3529,11 +3598,11 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     if (isFormDisabled || isAnalyzing || file) return;
                     fileInputRef.current?.click();
                   }}
-                  className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all ${errors.file
+                  className={`relative rounded-xl border-2 border-dashed p-8 text-center transition-all ${errors.file
                     ? "border-red-500/50 bg-red-500/5"
                     : file
                       ? "border-primary-500/50 bg-primary-600/5"
-                      : "border-neutral-200 hover:border-primary-400"
+                      : "border-secondary-300/70 hover:border-primary-400 bg-secondary-50/20"
                     } ${isAnalyzing ? "opacity-60 cursor-wait" : (isFormDisabled ? "cursor-not-allowed" : (file ? "cursor-default" : "cursor-pointer"))}`}
                 >
                   <input
@@ -3679,7 +3748,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
         {/* Media Player for NEW Uploads (once uploaded to server) - Only show in Step 2 as requested */}
         {!isEditMode && newUploadedUrl && uploadWizardStep === 2 && (
-          <div className="border border-primary-200/80 rounded-2xl p-6 bg-white shadow-md mb-6" style={{ backgroundColor: "#FFFCF5" }} onClick={(e) => e.stopPropagation()}>
+          <div
+            className="mb-6 rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/85 to-secondary-50/45 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-primary-100 rounded-lg">
                 <Music className="w-5 h-5 text-primary-600" />
@@ -3709,10 +3781,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
         {(uploadWizardStep === 2 || !showWizard) && (
           <>
-            <div
-              className="border border-neutral-200/80 rounded-2xl p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
-              style={{ backgroundColor: "#FFFCF5" }}
-            >
+            <div className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/45 p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl">
               <SectionHeader
                 icon={Music}
                 title="Thông tin mô tả cơ bản"
@@ -4188,7 +4257,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
             </CollapsibleSection>
 
             {/* GPS & Gợi ý metadata từ AI merged into Step 2 */}
-            <div className="border border-neutral-200/80 rounded-2xl p-6 sm:p-8 bg-primary-50/30 shadow-sm mt-6 mb-2 border-dashed">
+            <div className="mt-6 mb-2 rounded-2xl border border-dashed border-secondary-200/60 bg-gradient-to-br from-secondary-50/70 via-primary-50/25 to-cream-50/60 p-6 shadow-sm sm:p-8">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <SectionHeader
@@ -4357,16 +4426,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     type="button"
                     onClick={resetForm}
                     disabled={isSubmitting || isFormDisabled}
-                    className="px-6 py-2.5 text-neutral-800 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md border-2 border-primary-600"
-                    style={{ backgroundColor: "#FFFCF5" }}
-                    onMouseEnter={(e) =>
-                      !isSubmitting && !isFormDisabled &&
-                      (e.currentTarget.style.backgroundColor = "#F5F0E8")
-                    }
-                    onMouseLeave={(e) =>
-                      !isSubmitting && !isFormDisabled &&
-                      (e.currentTarget.style.backgroundColor = "#FFFCF5")
-                    }
+                    className="rounded-full border-2 border-primary-600 bg-gradient-to-br from-[#FFFCF5] to-secondary-50/50 px-6 py-2.5 text-neutral-800 shadow-sm transition-colors hover:border-primary-500 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Đặt lại
                   </button>
@@ -4374,7 +4434,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     type="button"
                     onClick={handleSaveDraft}
                     disabled={isAnalyzing || isSubmitting || isFormDisabled}
-                    className="px-6 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-full font-medium transition-all duration-200 border border-neutral-300 shadow-sm hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                    className="flex cursor-pointer items-center gap-2 rounded-full border border-secondary-300/80 bg-secondary-100/90 px-6 py-2.5 font-medium text-neutral-800 shadow-sm transition-all duration-200 hover:bg-secondary-200/80 hover:shadow-md active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Shield className="h-4 w-4" />
                     Lưu
@@ -4383,7 +4443,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     type="submit"
                     disabled={isAnalyzing || isSubmitting || isFormDisabled}
                     title={isFormDisabled ? (isApprovedEdit ? "Bạn cần có tài khoản Người đóng góp hoặc Chuyên gia để chỉnh sửa bản thu" : "Bạn cần có tài khoản Người đóng góp để đóng góp bản thu") : (!isFormComplete ? "Vui lòng hoàn thành các trường bắt buộc" : undefined)}
-                    className="px-8 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2 cursor-pointer"
+                    className="flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-br from-primary-600 to-primary-700 px-8 py-2.5 font-medium text-white shadow-xl shadow-primary-600/40 transition-all duration-300 hover:scale-110 hover:from-primary-500 hover:to-primary-600 hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
                   >
                     {isSubmitting ? (
                       <>
@@ -4406,24 +4466,22 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         {/* Wizard navigation (chỉ khi đóng góp mới) */}
         {
           showWizard && (
-            <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-neutral-200/80">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-secondary-200/50 pt-4">
               <button
                 type="button"
                 onClick={handlePrevStep}
                 disabled={uploadWizardStep === 1}
-                className="inline-flex items-center justify-center gap-2 h-11 px-6 py-0 rounded-full border-2 border-neutral-300/90 text-neutral-900 font-semibold transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-110 active:scale-95 cursor-pointer focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:text-neutral-600 disabled:border-neutral-200/80 disabled:hover:scale-100"
-                style={{ backgroundColor: "#FFFCF5" }}
+                className="flex min-h-[44px] cursor-pointer items-center justify-center rounded-xl border border-secondary-300/80 bg-gradient-to-br from-[#FFFCF5] to-secondary-50/50 px-4 py-2 font-medium text-neutral-800 shadow-sm transition-all hover:border-secondary-400 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Quay lại
               </button>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 {uploadWizardStep >= 2 && uploadWizardStep < 3 && (
                   <button
                     type="button"
                     onClick={handleSaveDraft}
                     disabled={isAnalyzing || isSubmitting || isFormDisabled}
-                    className="inline-flex items-center justify-center gap-2 h-11 px-6 py-0 rounded-full border border-neutral-300 text-neutral-800 font-semibold transition-all duration-200 shadow-sm hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    style={{ backgroundColor: "#FFFCF5" }}
+                    className="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-secondary-300/80 bg-secondary-100/90 px-6 py-2 font-medium text-neutral-800 shadow-sm transition-all duration-200 hover:bg-secondary-200/80 hover:shadow-md active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Shield className="h-4 w-4" />
                     Lưu
@@ -4434,7 +4492,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
                     type="button"
                     onClick={handleNextStep}
                     disabled={!canNavigateToStep(uploadWizardStep + 1)}
-                    className="inline-flex items-center justify-center gap-2 h-11 px-6 py-0 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    className="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 px-6 py-2 font-medium text-white shadow-lg shadow-primary-600/30 transition-all hover:from-primary-500 hover:to-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Tiếp theo
                   </button>
@@ -4487,9 +4545,9 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
               {/* Content */}
               <div className="overflow-y-auto p-6">
-                <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
+                <div className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/85 to-secondary-50/45 p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl">
                   <div className="flex flex-col items-center gap-4 mb-2">
-                    <div className="p-3 bg-primary-100/90 rounded-full flex-shrink-0 shadow-sm">
+                    <div className="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-100/95 to-secondary-100/90 p-3 shadow-sm ring-1 ring-secondary-200/50">
                       <AlertCircle className="h-8 w-8 text-primary-600" strokeWidth={2.5} />
                     </div>
                     <h3 className="text-xl font-semibold text-neutral-900 text-center">
@@ -4559,10 +4617,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
 
               {/* Content */}
               <div className="overflow-y-auto p-6">
-                <div className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFFCF5' }}>
+                <div className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/85 to-secondary-50/45 p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl">
                   <div className="flex flex-col items-center gap-4 mb-2">
-                    <div className="p-3 bg-green-100/90 rounded-full flex-shrink-0 shadow-sm">
-                      <Check className="h-8 w-8 text-green-600" strokeWidth={2.5} />
+                    <div className="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100/95 to-secondary-100/80 p-3 shadow-sm ring-1 ring-secondary-200/50">
+                      <Check className="h-8 w-8 text-emerald-600" strokeWidth={2.5} />
                     </div>
                     <div className="text-xl font-semibold text-neutral-900 text-center space-y-1">
                       {submitMessage ? (

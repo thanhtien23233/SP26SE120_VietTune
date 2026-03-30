@@ -1,29 +1,49 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
-import { UserRole } from "@/types";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
 import Card from "@/components/common/Card";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import Button from "@/components/common/Button";
+import {
+  ADMIN_ROUTE_POLICY,
+  evaluateGuardAccess,
+  logGuardDecision,
+} from "@/utils/routeAccess";
 export default function AdminGuard() {
-  const { user } = useAuthStore();
+  const { user, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const isAdmin = user?.role === UserRole.ADMIN && user?.isActive;
+  const decision = useMemo(
+    () =>
+      evaluateGuardAccess(user, location.pathname, ADMIN_ROUTE_POLICY, {
+        isAuthLoading: isLoading,
+      }),
+    [isLoading, location.pathname, user]
+  );
+  const isAdmin = decision.status === "allow";
+  const decisionStatus = decision.status;
+  const decisionReason = decision.status === "redirect" ? decision.reason : null;
+  const redirectTo = decision.status === "redirect" ? decision.redirectTo : null;
 
   useEffect(() => {
-    if (!user) {
-      const redirect = encodeURIComponent(location.pathname);
-      navigate(`/login?redirect=${redirect}`, { replace: true });
-      return;
+    logGuardDecision("AdminGuard", location.pathname, decision);
+    if (redirectTo) {
+      navigate(redirectTo, { replace: true });
     }
-    if (!isAdmin) {
-      navigate("/", { replace: true });
-    }
-  }, [user, isAdmin, navigate, location.pathname]);
+  }, [
+    decision,
+    decisionReason,
+    decisionStatus,
+    location.pathname,
+    navigate,
+    redirectTo,
+  ]);
 
-  if (!user) {
+  if (
+    decision.status === "defer" ||
+    (decision.status === "redirect" && decision.reason === "unauthenticated")
+  ) {
     return (
       <div className="min-h-[calc(100vh-4.5rem)] flex items-center justify-center px-4">
         <Card variant="bordered" className="w-full max-w-md text-center">
@@ -41,15 +61,34 @@ export default function AdminGuard() {
     );
   }
 
-  if (!isAdmin) {
+  if (decision.status === "redirect" && decision.reason === "unauthorized") {
     return (
       <div className="min-h-[calc(100vh-4.5rem)] flex items-center justify-center px-4">
         <Card variant="bordered" className="w-full max-w-md text-center">
           <div className="flex flex-col items-center gap-4">
+            <LoadingSpinner size="lg" />
             <div>
-              <p className="text-lg font-semibold text-neutral-900">Không đủ quyền truy cập</p>
+              <p className="text-lg font-semibold text-neutral-900">Đang chuyển trang…</p>
               <p className="text-sm text-neutral-600 font-medium mt-1">
-                Tài khoản của bạn không có quyền truy cập khu vực quản trị.
+                Bạn không có quyền truy cập khu vực quản trị.
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (decision.status === "redirect" && decision.reason === "inactive") {
+    return (
+      <div className="min-h-[calc(100vh-4.5rem)] flex items-center justify-center px-4">
+        <Card variant="bordered" className="w-full max-w-md text-center">
+          <div className="flex flex-col items-center gap-4">
+            <LoadingSpinner size="lg" />
+            <div>
+              <p className="text-lg font-semibold text-neutral-900">Tài khoản chưa khả dụng</p>
+              <p className="text-sm text-neutral-600 font-medium mt-1">
+                Tài khoản của bạn hiện chưa thể truy cập khu vực quản trị.
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-3">
@@ -65,6 +104,8 @@ export default function AdminGuard() {
       </div>
     );
   }
+
+  if (!isAdmin) return null;
 
   return (
     <ErrorBoundary region="admin">

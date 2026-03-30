@@ -25,12 +25,16 @@ function verifiedStatusCodes(): number[] {
 /**
  * Approved/verified submission rows → `Recording` for researcher UI (IDs resolved to display names).
  */
-export async function fetchVerifiedSubmissionsAsRecordings(): Promise<Recording[]> {
+export async function fetchVerifiedSubmissionsAsRecordings(opts?: {
+  signal?: AbortSignal;
+}): Promise<Recording[]> {
   const statuses = verifiedStatusCodes();
+  const signal = opts?.signal;
   const lookupPromise = buildSubmissionLookupMaps();
   const submissionPromises = statuses.map((status) =>
     api.get<unknown>("/Submission/get-by-status", {
       params: { status, page: 1, pageSize: 500 },
+      signal,
     }),
   );
   const [lookups, ...responses] = await Promise.all([lookupPromise, ...submissionPromises]);

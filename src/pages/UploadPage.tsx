@@ -1,13 +1,15 @@
 import UploadMusic from "@/components/features/UploadMusic";
-import { BookOpen, LogIn, FileText, Upload, CheckCircle, Lightbulb, X } from "lucide-react";
+import { BookOpen, LogIn, FileText, Upload, CheckCircle, Lightbulb, X, Music } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import BackButton from "@/components/common/BackButton";
 import { UserRole } from "@/types";
+import { buildLoginRedirectPath } from "@/utils/routeAccess";
+import { cn } from "@/utils/helpers";
 
 const guideButtonClass =
-  "inline-flex items-center justify-center gap-2 h-11 px-6 py-0 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none";
+  "inline-flex items-center justify-center gap-2 h-11 px-6 py-0 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50";
 
 export default function UploadPage() {
   const { user } = useAuthStore();
@@ -25,14 +27,14 @@ export default function UploadPage() {
   const isNotContributor = !user || user.role !== UserRole.CONTRIBUTOR;
 
   return (
-    <div className="min-h-screen min-w-0">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Header — responsive; wraps on small screens */}
-        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-6 sm:mb-8">
+    <div className="min-h-screen min-w-0 bg-gradient-to-b from-cream-50 via-[#F9F5EF] to-secondary-50/35">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header — same rhythm as ExplorePage */}
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-6 lg:mb-8">
           <h1 className="text-xl sm:text-3xl font-bold text-neutral-900 min-w-0">
             {isEditMode ? "Chỉnh sửa bản thu" : "Đóng góp bản thu"}
           </h1>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
             <button
               type="button"
               onClick={() => setShowGuidePopup(true)}
@@ -48,14 +50,18 @@ export default function UploadPage() {
 
         {/* Notice for non-Contributor users (not dimmed, always visible) */}
         {isNotContributor && (
-          <div className="mb-6 sm:mb-8 border border-primary-200/80 rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg backdrop-blur-sm text-center transition-all duration-300 hover:shadow-xl" style={{ backgroundColor: '#FFF1F3' }}>
-            <h2 className="text-lg sm:text-2xl font-semibold mb-3 sm:mb-4 text-primary-700">Bạn cần có tài khoản Người đóng góp để đóng góp bản thu</h2>
-            <div className="text-primary-700 text-base mb-4 font-medium">Vui lòng đăng nhập bằng tài khoản Người đóng góp để sử dụng chức năng này.</div>
+          <div
+            className={cn(
+              "mb-6 lg:mb-8 rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/90 to-secondary-50/50 p-4 sm:p-6 lg:p-8 shadow-lg backdrop-blur-sm text-center transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl ring-1 ring-primary-100/40",
+            )}
+          >
+            <h2 className="text-lg sm:text-2xl font-semibold mb-3 sm:mb-4 text-primary-800">Bạn cần có tài khoản Người đóng góp để đóng góp bản thu</h2>
+            <div className="text-neutral-700 text-base mb-4 font-medium">Vui lòng đăng nhập bằng tài khoản Người đóng góp để sử dụng chức năng này.</div>
             <button
-              className="inline-flex items-center justify-center gap-2 h-11 px-6 py-0 rounded-full bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none mx-auto"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFFCF5] mx-auto"
               onClick={() => {
                 window.scrollTo({ top: 0, behavior: "auto" });
-                navigate("/login?redirect=/upload");
+                navigate(buildLoginRedirectPath("/upload"));
               }}
               type="button"
             >
@@ -65,12 +71,43 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* Main Upload Form (dimmed and disabled for non-Contributor) — responsive padding */}
-        <div
-          className={`rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 transition-all duration-300 hover:shadow-xl min-w-0 overflow-x-hidden ${isNotContributor ? "opacity-50 pointer-events-none select-none" : ""}`}
-          style={{ backgroundColor: '#FFFCF5' }}
-        >
-          <UploadMusic />
+        {/* Desktop: sidebar + main (Explore grid); mobile: stack — context aside first, then form */}
+        <div className="lg:grid lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] lg:gap-8 xl:gap-10 lg:items-start">
+          <aside
+            className={cn(
+              "mb-6 flex flex-col rounded-2xl border border-secondary-200/50 bg-gradient-to-b from-[#FFFCF5] to-secondary-50/55 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl sm:p-8 lg:mb-0",
+              /* Cùng hệ với MainLayout pt-32 / lg:pt-40 — tránh sidebar dính dưới header cố định */
+              "lg:sticky lg:top-32 lg:self-start lg:max-h-[min(100vh-10rem,56rem)] lg:overflow-y-auto xl:top-40 xl:max-h-[min(100vh-12rem,56rem)]",
+            )}
+            aria-label="Gợi ý luồng đóng góp"
+          >
+            <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold text-neutral-900 sm:gap-3 sm:text-xl">
+              <span className="flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-100/95 to-secondary-100/90 p-2 shadow-sm ring-1 ring-secondary-200/50">
+                <Music className="h-5 w-5 text-primary-600" strokeWidth={2.5} aria-hidden />
+              </span>
+              <span className="leading-tight">Luồng 3 bước</span>
+            </h2>
+            <p className="mt-3 text-sm font-medium leading-relaxed text-neutral-700 sm:text-base">
+              Hoàn tất theo thứ tự: tải file → điền metadata và gợi ý AI → xem lại và gửi. Bạn có thể mở{" "}
+              <strong className="font-semibold text-neutral-800">Hướng dẫn đóng góp</strong> phía trên bất cứ lúc nào.
+            </p>
+            <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm font-medium text-neutral-700 sm:text-base">
+              <li>Tải lên âm thanh hoặc video (định dạng được hỗ trợ).</li>
+              <li>Điền thông tin nguồn gốc, dân tộc, bối cảnh; dùng gợi ý khi có.</li>
+              <li>Kiểm tra lần cuối rồi gửi để chuyên gia xét duyệt.</li>
+            </ol>
+          </aside>
+
+          <main className="min-w-0">
+            <div
+              className={cn(
+                "rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 shadow-lg backdrop-blur-sm p-4 sm:p-6 lg:p-8 transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl min-w-0 overflow-x-hidden",
+                isNotContributor ? "opacity-50 pointer-events-none select-none" : "",
+              )}
+            >
+              <UploadMusic />
+            </div>
+          </main>
         </div>
       </div>
 
@@ -94,21 +131,21 @@ export default function UploadPage() {
           onClick={() => setShowGuidePopup(false)}
         >
           <div
-            className="rounded-2xl border border-neutral-300/80 shadow-2xl backdrop-blur-sm max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col transition-all duration-300 pointer-events-auto transform bg-white"
-            style={{ animation: "slideUp 0.3s ease-out", backgroundColor: "#FFFCF5" }}
+            className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/90 to-secondary-50/50 shadow-2xl backdrop-blur-sm max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col transition-all duration-300 pointer-events-auto transform hover:border-secondary-300/50"
+            style={{ animation: "slideUp 0.3s ease-out" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-neutral-200/80 flex-shrink-0">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-secondary-200/50 flex-shrink-0 bg-gradient-to-r from-[#FFFCF5]/80 to-secondary-50/30">
               <h2 id="guide-popup-title" className="text-xl sm:text-2xl font-semibold text-neutral-900 flex items-center gap-3">
-                <div className="p-2 bg-secondary-100/90 rounded-lg shadow-sm">
-                  <BookOpen className="h-5 w-5 text-secondary-600" strokeWidth={2.5} />
+                <div className="flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-100/95 to-secondary-100/90 p-2 shadow-sm ring-1 ring-secondary-200/50">
+                  <BookOpen className="h-5 w-5 text-primary-600" strokeWidth={2.5} />
                 </div>
                 Hướng dẫn đóng góp
               </h2>
               <button
                 type="button"
                 onClick={() => setShowGuidePopup(false)}
-                className="p-2 rounded-lg hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900 transition-colors cursor-pointer"
+                className="p-2 rounded-lg hover:bg-secondary-100/80 text-neutral-600 hover:text-neutral-900 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                 aria-label="Đóng"
               >
                 <X className="w-5 h-5" strokeWidth={2.5} />
@@ -116,7 +153,7 @@ export default function UploadPage() {
             </div>
             <div className="overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5 flex-1 min-h-0">
               {/* Card 1: Chuẩn bị tài liệu */}
-              <div className="flex rounded-xl border border-neutral-200/80 bg-white shadow-md overflow-hidden">
+              <div className="flex rounded-xl border border-secondary-200/50 bg-white/90 shadow-md overflow-hidden backdrop-blur-sm">
                 <div className="w-1.5 sm:w-2 flex-shrink-0 bg-primary-200/90" aria-hidden />
                 <div className="flex-1 p-4 sm:p-5">
                   <div className="flex items-center gap-3 mb-3">
@@ -147,7 +184,7 @@ export default function UploadPage() {
               </div>
 
               {/* Card 2: Tải lên & Điền thông tin */}
-              <div className="flex rounded-xl border border-neutral-200/80 bg-white shadow-md overflow-hidden">
+              <div className="flex rounded-xl border border-secondary-200/50 bg-white/90 shadow-md overflow-hidden backdrop-blur-sm">
                 <div className="w-1.5 sm:w-2 flex-shrink-0 bg-sky-200/90" aria-hidden />
                 <div className="flex-1 p-4 sm:p-5">
                   <div className="flex items-center gap-3 mb-3">
@@ -178,7 +215,7 @@ export default function UploadPage() {
               </div>
 
               {/* Card 3: Xét duyệt bởi chuyên gia */}
-              <div className="flex rounded-xl border border-neutral-200/80 bg-white shadow-md overflow-hidden">
+              <div className="flex rounded-xl border border-secondary-200/50 bg-white/90 shadow-md overflow-hidden backdrop-blur-sm">
                 <div className="w-1.5 sm:w-2 flex-shrink-0 bg-emerald-200/90" aria-hidden />
                 <div className="flex-1 p-4 sm:p-5">
                   <div className="flex items-center gap-3 mb-3">
@@ -209,7 +246,7 @@ export default function UploadPage() {
               </div>
 
               {/* Card 4: Lời khuyên hữu ích */}
-              <div className="flex rounded-xl border border-neutral-200/80 bg-white shadow-md overflow-hidden">
+              <div className="flex rounded-xl border border-secondary-200/50 bg-white/90 shadow-md overflow-hidden backdrop-blur-sm">
                 <div className="w-1.5 sm:w-2 flex-shrink-0 bg-secondary-200/90" aria-hidden />
                 <div className="flex-1 p-4 sm:p-5">
                   <div className="flex items-center gap-3 mb-3">

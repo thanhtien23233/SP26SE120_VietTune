@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, createRoutesFromElements, Route, Outlet } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, createRoutesFromElements, Route, Outlet, Navigate } from "react-router-dom";
 import MainLayout from "./components/layout/MainLayout";
 import HomePage from "./pages/HomePage";
 import ExplorePage from "./pages/ExplorePage";
@@ -51,7 +51,9 @@ const router = createBrowserRouter(
         <Route index element={<HomePage />} />
         <Route path="explore" element={<ExplorePage />} />
         <Route path="recordings/:id" element={<RecordingDetailPage />} />
+        {/* TODO(route-policy): candidate protected route review in Sprint 3.2+ */}
         <Route path="recordings/:id/edit" element={<EditRecordingPage />} />
+        {/* TODO(route-policy): candidate protected route review in Sprint 3.2+ */}
         <Route path="upload" element={<UploadPage />} />
         <Route path="search" element={<SearchPage />} />
         <Route path="semantic-search" element={<SemanticSearchPage />} />
@@ -61,11 +63,16 @@ const router = createBrowserRouter(
         <Route path="masters" element={<MastersPage />} />
         <Route path="about" element={<AboutPage />} />
         <Route path="terms" element={<TermsPage />} />
+        {/* TODO(route-policy): auth-only route candidate in Sprint 3.2+ */}
         <Route path="profile" element={<ProfilePage />} />
+        {/* TODO(route-policy): auth-only route candidate in Sprint 3.2+ */}
         <Route path="contributions" element={<ContributionsPage />} />
-        <Route path="dashboard" element={<ModerationPage />} />
+        <Route path="dashboard" element={<Navigate to="/moderation" replace />} />
+        {/* TODO(route-policy): role/auth review in Sprint 3.2+ */}
         <Route path="moderation" element={<ModerationPage />} />
+        {/* TODO(route-policy): role/auth review in Sprint 3.2+ */}
         <Route path="approved-recordings" element={<ApprovedRecordingsPage />} />
+        {/* TODO(route-policy): auth-only route candidate in Sprint 3.2+ */}
         <Route path="notifications" element={<NotificationPage />} />
         <Route path="researcher" element={<ResearcherGuard />}>
           <Route index element={<ResearcherPortalPage />} />
@@ -77,6 +84,7 @@ const router = createBrowserRouter(
       </Route>
       <Route path="/login" element={<ErrorBoundary region="auth"><LoginPage /></ErrorBoundary>} />
       <Route path="/register" element={<ErrorBoundary region="auth"><RegisterPage /></ErrorBoundary>} />
+      <Route path="/auth/register-researcher" element={<ErrorBoundary region="auth"><RegisterPage /></ErrorBoundary>} />
       <Route path="/confirm-account" element={<ErrorBoundary region="auth"><ConfirmAccountPage /></ErrorBoundary>} />
       <Route path="/403" element={<ForbiddenPage />} />
       <Route path="*" element={<NotFoundPage />} />

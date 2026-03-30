@@ -1,21 +1,26 @@
 import { Link } from "react-router-dom";
-import { Upload, ArrowRight, Compass, TrendingUp, Clock, FileText, ShieldCheck, FileCheck, UserPlus, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowRight, TrendingUp, Clock, FileText, X } from "lucide-react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   Recording,
-  UserRole,
   ModerationStatus,
   VerificationStatus,
   type LocalRecording,
 } from "@/types";
 import { recordingService } from "@/services/recordingService";
-import RecordingCard from "@/components/features/RecordingCard";
+import RecordingCardCompact from "@/components/features/RecordingCardCompact";
 import logo from "@/components/image/VietTune logo.png";
-import { useAuthStore } from "@/stores/authStore";
 import { fetchVerifiedSubmissionsAsRecordings } from "@/services/researcherArchiveService";
 import { getLocalRecordingFull, getLocalRecordingMetaList } from "@/services/recordingStorage";
 import { migrateVideoDataToVideoData } from "@/utils/helpers";
 import { convertLocalToRecording } from "@/utils/localRecordingToRecording";
+import ExploreSearchHeader from "@/components/features/ExploreSearchHeader";
+
+const MemoRecordingCardCompact = memo(RecordingCardCompact);
+
+/** Khối nội dung cùng họ với Explore (PLAN-homepage-explore Phase 1). */
+const exploreLikePanel =
+  "rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl";
 
 function pickRecordingRows(input: unknown): Recording[] {
   if (!input || typeof input !== "object") return [];
@@ -93,8 +98,8 @@ function SectionHeader({
   return (
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-primary-100 rounded-lg">
-          <Icon className="h-5 w-5 text-primary-600" />
+        <div className="rounded-lg bg-gradient-to-br from-primary-100/90 to-secondary-100/90 p-2 shadow-sm ring-1 ring-secondary-200/40">
+          <Icon className="h-5 w-5 text-primary-600" strokeWidth={2.5} />
         </div>
         <div>
           <h2 className="text-2xl font-semibold text-neutral-800">{title}</h2>
@@ -106,7 +111,7 @@ function SectionHeader({
       {action && (
         <Link
           to={action.to}
-          className="text-sm text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1"
+          className="flex items-center gap-1 text-sm font-semibold text-secondary-800 transition-colors hover:text-secondary-900"
         >
           {action.label}
           <ArrowRight className="h-4 w-4" />
@@ -116,64 +121,65 @@ function SectionHeader({
   );
 }
 
-// Feature Card Component
-function FeatureCard({
-  icon: Icon,
-  title,
-  description,
-  to,
-}: {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  to: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="group p-8 rounded-xl border border-neutral-200/80 hover:border-primary-300/80 shadow-lg backdrop-blur-sm hover:shadow-xl transition-all duration-300 h-full flex flex-col items-center text-center cursor-pointer"
-      style={{ backgroundColor: "#FFFCF5" }}
-      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#FFF7E6")}
-      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFCF5")}
-    >
-      <div className="p-3 bg-primary-100/90 rounded-xl w-fit mb-4 group-hover:bg-primary-200/90 transition-all duration-300 shadow-sm group-hover:shadow-md">
-        <Icon className="h-6 w-6 text-primary-600" strokeWidth={2.5} />
-      </div>
-      <h3 className={`text-xl font-semibold text-neutral-900 mb-3 group-hover:text-primary-600 transition-colors duration-300 ${title === "Quản lý bản thu đã được kiểm duyệt" ? "whitespace-nowrap" : ""}`}>
-        {title}
-      </h3>
-      <p className="text-neutral-600 font-medium leading-relaxed flex-grow line-clamp-2 text-sm">{description}</p>
-    </Link>
-  );
-}
-
-
-
 export default function HomePage() {
   const [popularRecordings, setPopularRecordings] = useState<Recording[]>([]);
   const [recentRecordings, setRecentRecordings] = useState<Recording[]>([]);
-  const { user } = useAuthStore();
-  const isExpert = user?.role === UserRole.EXPERT;
-  // Admin sees same HomePage as guest (khách vãng lai)
-  const useGuestFeatures = !user || user?.role === UserRole.ADMIN || !isExpert;
-
+  const [semanticInput, setSemanticInput] = useState("");
+  const [isSimulatingSearch, setIsSimulatingSearch] = useState(false);
+  const [isGatewayModalOpen, setIsGatewayModalOpen] = useState(false);
+  const simulateTimerRef = useRef<number | null>(null);
+  const loginCtaRef = useRef<HTMLAnchorElement | null>(null);
   useEffect(() => {
     fetchRecordings();
+    return () => {
+      if (simulateTimerRef.current) {
+        window.clearTimeout(simulateTimerRef.current);
+      }
+    };
   }, []);
+
+  useEffect(() => {
+    if (!isGatewayModalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    loginCtaRef.current?.focus();
+    const onEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsGatewayModalOpen(false);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onEsc);
+    };
+  }, [isGatewayModalOpen]);
+
+  /** Giữ luồng marketing: không gọi API; mở modal đăng nhập sau delay. */
+  const handleHomeSemanticSubmit = useCallback(() => {
+    if (isSimulatingSearch) return;
+    if (!semanticInput.trim()) return;
+    setIsSimulatingSearch(true);
+    if (simulateTimerRef.current) {
+      window.clearTimeout(simulateTimerRef.current);
+    }
+    simulateTimerRef.current = window.setTimeout(() => {
+      setIsSimulatingSearch(false);
+      setIsGatewayModalOpen(true);
+    }, 1500);
+  }, [isSimulatingSearch, semanticInput]);
 
   const fetchRecordings = async () => {
     try {
       const [popular, recent] = await Promise.all([
-        recordingService.getPopularRecordings(4),
-        recordingService.getRecentRecordings(4),
+        recordingService.getPopularRecordings(6),
+        recordingService.getRecentRecordings(6),
       ]);
 
       const popularRows = pickVerified(pickRecordingRows(popular));
       const recentRows = pickVerified(pickRecordingRows(recent));
 
       if (popularRows.length > 0 || recentRows.length > 0) {
-        setPopularRecordings(popularRows.slice(0, 4));
-        setRecentRecordings(recentRows.slice(0, 4));
+        setPopularRecordings(popularRows.slice(0, 6));
+        setRecentRecordings(recentRows.slice(0, 6));
         return;
       }
 
@@ -183,8 +189,8 @@ export default function HomePage() {
         (a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
       );
       if (genericRows.length > 0) {
-        setRecentRecordings(genericRows.slice(0, 4));
-        setPopularRecordings(genericRows.slice(0, 4));
+        setRecentRecordings(genericRows.slice(0, 6));
+        setPopularRecordings(genericRows.slice(0, 6));
         return;
       }
 
@@ -195,8 +201,8 @@ export default function HomePage() {
           new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
       );
       if (sorted.length > 0) {
-        setRecentRecordings(sorted.slice(0, 4));
-        setPopularRecordings(sorted.slice(0, 4));
+        setRecentRecordings(sorted.slice(0, 6));
+        setPopularRecordings(sorted.slice(0, 6));
         return;
       }
 
@@ -205,8 +211,8 @@ export default function HomePage() {
         (a, b) =>
           new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
       );
-      setRecentRecordings(sortedLocal.slice(0, 4));
-      setPopularRecordings(sortedLocal.slice(0, 4));
+      setRecentRecordings(sortedLocal.slice(0, 6));
+      setPopularRecordings(sortedLocal.slice(0, 6));
     } catch (err) {
       console.error("Error fetching recordings:", err);
       // Guest fallback: keep listening experience available without login.
@@ -217,8 +223,8 @@ export default function HomePage() {
             new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
         );
         if (genericRows.length > 0) {
-          setRecentRecordings(genericRows.slice(0, 4));
-          setPopularRecordings(genericRows.slice(0, 4));
+          setRecentRecordings(genericRows.slice(0, 6));
+          setPopularRecordings(genericRows.slice(0, 6));
           return;
         }
 
@@ -228,8 +234,8 @@ export default function HomePage() {
             new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
         );
         if (sorted.length > 0) {
-          setRecentRecordings(sorted.slice(0, 4));
-          setPopularRecordings(sorted.slice(0, 4));
+          setRecentRecordings(sorted.slice(0, 6));
+          setPopularRecordings(sorted.slice(0, 6));
           return;
         }
         const localApproved = await fetchApprovedLocalRecordings();
@@ -237,8 +243,8 @@ export default function HomePage() {
           (a, b) =>
             new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
         );
-        setRecentRecordings(sortedLocal.slice(0, 4));
-        setPopularRecordings(sortedLocal.slice(0, 4));
+        setRecentRecordings(sortedLocal.slice(0, 6));
+        setPopularRecordings(sortedLocal.slice(0, 6));
       } catch {
         setPopularRecordings([]);
         setRecentRecordings([]);
@@ -246,137 +252,65 @@ export default function HomePage() {
     }
   };
 
-  // Features data: Expert → expert set; Guest / Admin (and others) → guest set
-  const isAdmin = user?.role === UserRole.ADMIN;
-  const features = useGuestFeatures
-    ? [
-      {
-        icon: Compass,
-        title: "Khám phá âm nhạc dân tộc",
-        description:
-          "Duyệt qua kho tàng âm nhạc truyền thống phong phú từ khắp mọi miền đất nước",
-        to: "/explore",
-      },
-      ...(isAdmin
-        ? [
-          {
-            icon: UserPlus,
-            title: "Cấp tài khoản Chuyên gia",
-            description:
-              "Tạo tài khoản Chuyên gia mới để kiểm duyệt và xác minh bản thu âm nhạc truyền thống",
-            to: "/admin/create-expert",
-          },
-        ]
-        : [
-          {
-            icon: Sparkles,
-            title: "Tìm theo ý nghĩa",
-            description:
-              "Mô tả bằng ngôn ngữ tự nhiên để tìm bản thu phù hợp theo nghĩa",
-            to: "/semantic-search",
-          },
-        ]),
-      ...(isAdmin
-        ? [
-          {
-            icon: ShieldCheck,
-            title: "Quản trị hệ thống",
-            description:
-              "Quản lý người dùng, phân tích bộ sưu tập và kiểm duyệt nội dung",
-            to: "/admin",
-          },
-        ]
-        : [
-          {
-            icon: Upload,
-            title: "Đóng góp bản thu",
-            description:
-              "Chia sẻ bản thu âm nhạc truyền thống của bạn để cùng gìn giữ di sản văn hóa",
-            to: "/upload",
-          },
-        ]),
-    ]
-    : [
-      {
-        icon: ShieldCheck,
-        title: "Kiểm duyệt bản thu",
-        description:
-          "Xem xét và phê duyệt các bản thu âm nhạc truyền thống được đóng góp bởi cộng đồng",
-        to: "/moderation",
-      },
-      {
-        icon: Sparkles,
-        title: "Tìm theo ý nghĩa",
-        description:
-          "Mô tả bằng ngôn ngữ tự nhiên để tìm bản thu phù hợp theo nghĩa",
-        to: "/semantic-search",
-      },
-      {
-        icon: FileCheck,
-        title: "Quản lý bản thu đã được kiểm duyệt",
-        description:
-          "Quản lý và theo dõi các bản thu đã được phê duyệt trong hệ thống",
-        to: "/approved-recordings",
-      },
-    ];
-
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gradient-to-b from-cream-50 via-[#F9F5EF] to-secondary-50/35">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Hero Section with Features */}
-        <div
-          className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 md:p-12 mb-8 transition-all duration-300 hover:shadow-xl"
-          style={{ backgroundColor: "#FFFCF5" }}
-        >
-          <div className="text-center mb-8">
+        <div className={`${exploreLikePanel} mb-10 p-8 md:p-14 lg:p-16`}>
+          <div className="text-center mb-10">
             {/* Logo */}
-            <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="flex items-center justify-center gap-3 mb-7">
               <img
                 src={logo}
                 alt="VietTune Logo"
-                className="h-20 w-20 object-contain rounded-2xl"
+                className="h-24 w-24 object-contain rounded-2xl shadow-md"
               />
             </div>
 
+            <p className="text-xs md:text-sm font-semibold tracking-[0.22em] uppercase text-primary-600/90 mb-3">
+              Kho tri thức âm nhạc dân tộc
+            </p>
+
             {/* Title */}
-            <h1 className="text-4xl md:text-5xl font-bold text-neutral-900 mb-4">
+            <h1 className="text-4xl md:text-6xl font-bold text-neutral-900 mb-5 leading-tight">
               VietTune
             </h1>
 
             {/* Tagline */}
-            <p className="text-xl md:text-2xl text-primary-700 font-medium mb-4">
+            <p className="text-2xl md:text-3xl text-primary-700 font-semibold mb-5">
               Hệ thống lưu giữ âm nhạc truyền thống Việt Nam
             </p>
 
             {/* Description */}
-            <p className="text-neutral-800 leading-relaxed max-w-2xl mx-auto mb-8">
+            <p className="text-neutral-800 leading-relaxed max-w-3xl mx-auto text-base md:text-lg mb-0">
               Gìn giữ và lan tỏa di sản âm nhạc của 54 dân tộc Việt Nam
               <br />
               qua nền tảng chia sẻ cộng đồng với công nghệ tìm kiếm thông minh
             </p>
-          </div>
 
-          {/* Features Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-            {features.map((feature, index) => (
-              <FeatureCard
-                key={index}
-                icon={feature.icon}
-                title={feature.title}
-                description={feature.description}
-                to={feature.to}
+            {/* Chỉ tìm theo ngữ nghĩa (marketing); từ khóa + link semantic đầy đủ chỉ trên Explore */}
+            <div className="mx-auto mt-8 max-w-4xl text-left">
+              <ExploreSearchHeader
+                layout="home-semantic-only"
+                className="mb-0 shadow-md"
+                mode="semantic"
+                onModeChange={() => {}}
+                keywordValue=""
+                onKeywordChange={() => {}}
+                onKeywordSubmit={() => {}}
+                semanticValue={semanticInput}
+                onSemanticChange={setSemanticInput}
+                onSemanticSubmit={handleHomeSemanticSubmit}
+                semanticBusy={isSimulatingSearch}
               />
-            ))}
+            </div>
           </div>
 
         </div>
 
         {/* Popular Recordings Section */}
         {popularRecordings.length > 0 && (
-          <div
-            className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 mb-8 transition-all duration-300 hover:shadow-xl"
-            style={{ backgroundColor: "#FFFCF5" }}
-          >
+          <div className={`${exploreLikePanel} mb-8 p-8`}>
             <SectionHeader
               icon={TrendingUp}
               title="Bản thu phổ biến"
@@ -384,20 +318,25 @@ export default function HomePage() {
               action={{ label: "Xem tất cả", to: "/explore" }}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {popularRecordings.map((recording) => (
-                <RecordingCard key={recording.id} recording={recording} />
-              ))}
-            </div>
+            <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {popularRecordings
+                .filter((r) => r.id)
+                .map((recording) => (
+                  <li key={recording.id} className="min-w-0">
+                    <MemoRecordingCardCompact
+                      recording={recording}
+                      to={`/recordings/${recording.id}`}
+                      linkState={{ from: "/" }}
+                    />
+                  </li>
+                ))}
+            </ul>
           </div>
         )}
 
         {/* Recent Recordings Section */}
         {recentRecordings.length > 0 && (
-          <div
-            className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 mb-8 transition-all duration-300 hover:shadow-xl"
-            style={{ backgroundColor: "#FFFCF5" }}
-          >
+          <div className={`${exploreLikePanel} mb-8 p-8`}>
             <SectionHeader
               icon={Clock}
               title="Tải lên gần đây"
@@ -405,37 +344,97 @@ export default function HomePage() {
               action={{ label: "Xem tất cả", to: "/explore" }}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {recentRecordings.map((recording) => (
-                <RecordingCard key={recording.id} recording={recording} />
-              ))}
-            </div>
+            <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {recentRecordings
+                .filter((r) => r.id)
+                .map((recording) => (
+                  <li key={recording.id} className="min-w-0">
+                    <MemoRecordingCardCompact
+                      recording={recording}
+                      to={`/recordings/${recording.id}`}
+                      linkState={{ from: "/" }}
+                    />
+                  </li>
+                ))}
+            </ul>
           </div>
         )}
 
-        {/* Terms and Conditions Section */}
-        <div
-          className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 text-center transition-all duration-300 hover:shadow-xl"
-          style={{ backgroundColor: "#FFFCF5" }}
-        >
-          <div className="bg-neutral-100/90 rounded-full w-12 h-12 flex items-center justify-center mb-4 mx-auto shadow-sm">
-            <FileText className="h-6 w-6 text-neutral-600" strokeWidth={2.5} />
+        {/* Terms — cùng họ panel Explore (Phase 4) */}
+        <div className={`${exploreLikePanel} p-6 text-center sm:p-8`}>
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary-100/90 to-secondary-100/90 shadow-sm ring-1 ring-secondary-200/40">
+            <FileText className="h-6 w-6 text-primary-600" strokeWidth={2.5} />
           </div>
           <h3 className="text-xl font-semibold mb-3 text-neutral-900">
             Điều khoản và Điều kiện
           </h3>
-          <p className="text-neutral-700 mb-6 font-medium">
+          <p className="text-neutral-700 mb-6 font-medium leading-relaxed">
             Tìm hiểu các quy định và chính sách khi sử dụng nền tảng VietTune.
           </p>
           <Link
             to="/terms"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-2 px-6 py-3 min-h-[44px] rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 font-semibold text-white shadow-xl shadow-primary-600/40 transition-all duration-300 hover:from-primary-500 hover:to-primary-600 hover:shadow-2xl hover:scale-[1.02] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50"
           >
-            <FileText className="h-5 w-5" strokeWidth={2.5} />
+            <FileText className="h-5 w-5 shrink-0" strokeWidth={2.5} />
             Xem Điều khoản và Điều kiện
           </Link>
         </div>
       </div>
+
+      {/* Login/Register Gateway Modal */}
+      {isGatewayModalOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-neutral-900/40 p-4 backdrop-blur-[2px]"
+          onClick={() => setIsGatewayModalOpen(false)}
+          role="presentation"
+        >
+          <div
+            className="relative w-full max-w-2xl animate-in fade-in zoom-in-95 duration-200 rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 p-6 pt-10 text-center shadow-lg backdrop-blur-sm sm:p-8 sm:pt-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="gateway-modal-title"
+            aria-describedby="gateway-modal-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Đóng"
+              onClick={() => setIsGatewayModalOpen(false)}
+              className="absolute right-2 top-2 rounded-lg p-2 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 sm:right-4 sm:top-4"
+            >
+              <X className="h-5 w-5" strokeWidth={2.25} />
+            </button>
+            <h3
+              id="gateway-modal-title"
+              className="mx-auto mb-3 max-w-3xl text-2xl font-semibold text-neutral-900 sm:text-3xl"
+            >
+              Yêu cầu quyền truy cập
+            </h3>
+            <p
+              id="gateway-modal-desc"
+              className="mx-auto max-w-3xl font-medium leading-relaxed text-neutral-700"
+            >
+              Hệ thống đã tìm thấy các bản ghi âm và sơ đồ tri thức phù hợp! Đăng nhập hoặc đăng ký ngay để xem kết quả chi tiết và truy cập toàn bộ kho lưu trữ VietTune.
+            </p>
+
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                ref={loginCtaRef}
+                to="/login"
+                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 px-5 py-3 font-semibold text-white shadow-xl shadow-primary-600/35 transition-all hover:from-primary-500 hover:to-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 sm:w-auto"
+              >
+                Đăng nhập
+              </Link>
+              <Link
+                to="/register"
+                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-secondary-300/70 bg-gradient-to-br from-secondary-100 to-secondary-200/75 px-5 py-3 font-semibold text-primary-900 shadow-sm transition-colors hover:from-secondary-200 hover:to-secondary-300/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 sm:w-auto"
+              >
+                Đăng ký cấp quyền
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

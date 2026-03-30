@@ -20,6 +20,18 @@ function normalizeId(v: unknown): string {
   return String(v ?? "").trim().toLowerCase();
 }
 
+function pickMeaningfulText(...values: Array<unknown>): string | undefined {
+  for (const value of values) {
+    const raw = String(value ?? "").trim();
+    if (!raw) continue;
+    const lowered = raw.toLowerCase();
+    if (lowered === "không có tiêu đề" || lowered === "untitled") continue;
+    if (raw.toUpperCase().startsWith("ID:")) continue;
+    return raw;
+  }
+  return undefined;
+}
+
 /** Địa lý cấp tỉnh → nhãn vùng/miền; không dùng tên phường/xã/huyện cho “Vùng miền”. */
 function macroRegionLabelFromGeo(
   lookups: SubmissionLookupMaps | undefined,
@@ -130,10 +142,39 @@ export function mapSubmissionToLocalRecording(
   const recordingEntityId =
     rec?.id != null && String(rec.id).trim() ? String(rec.id).trim() : "";
   const id = recordingEntityId || submissionId;
-  const title =
-    (rec?.title as string | undefined) ||
-    (x.title as string | undefined) ||
-    "Không có tiêu đề";
+  const recBasicInfo = (rec?.basicInfo && typeof rec.basicInfo === "object")
+    ? (rec.basicInfo as Record<string, unknown>)
+    : undefined;
+  const xBasicInfo = (x.basicInfo && typeof x.basicInfo === "object")
+    ? (x.basicInfo as Record<string, unknown>)
+    : undefined;
+  const title = pickMeaningfulText(
+    rec?.title,
+    rec?.Title,
+    rec?.recordingTitle,
+    rec?.recordingName,
+    rec?.songName,
+    rec?.name,
+    recBasicInfo?.title,
+    recBasicInfo?.Title,
+    recBasicInfo?.recordingTitle,
+    recBasicInfo?.recordingName,
+    recBasicInfo?.songName,
+    recBasicInfo?.name,
+    x.title,
+    x.Title,
+    x.recordingTitle,
+    x.recordingName,
+    x.songName,
+    x.name,
+    x.submissionTitle,
+    xBasicInfo?.title,
+    xBasicInfo?.Title,
+    xBasicInfo?.recordingTitle,
+    xBasicInfo?.recordingName,
+    xBasicInfo?.songName,
+    xBasicInfo?.name,
+  ) ?? "Không có tiêu đề";
   const audioFileUrl =
     (rec?.audioFileUrl as string | undefined) ??
     (x.audioFileUrl as string | undefined) ??

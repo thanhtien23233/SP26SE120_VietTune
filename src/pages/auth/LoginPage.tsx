@@ -4,11 +4,12 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { authService } from "@/services/authService";
 import { useAuthStore } from "@/stores/authStore";
 import Input from "@/components/common/Input";
-import { LoginForm, UserRole, ConfirmAccountForm } from "@/types";
+import { LoginForm, ConfirmAccountForm } from "@/types";
 import { notify } from "@/stores/notificationStore";
 import logo from "@/components/image/VietTune logo.png";
 import { sessionGetItem, sessionRemoveItem } from "@/services/storageService";
 import { ZitherStrings } from "@/components/image/pattern/BackgroundPatterns";
+import { resolvePostLoginPath } from "@/utils/routeAccess";
 
 /** Safe internal path for post-login redirect (no open redirect). */
 function getSafeRedirect(redirect: string | null): string | null {
@@ -50,10 +51,8 @@ export default function LoginPage() {
       if (response.success && response.data) {
         setUser(response.data.user);
         void sessionRemoveItem("fromLogout");
-        const defaultPath =
-          response.data.user?.role === UserRole.RESEARCHER ? "/researcher" :
-            response.data.user?.role === UserRole.EXPERT ? "/dashboard" : "/";
-        navigate(redirectTo ?? defaultPath);
+        const nextPath = resolvePostLoginPath(response.data.user, redirectTo);
+        navigate(nextPath);
       }
     } catch (error: unknown) {
       const errorMessage =

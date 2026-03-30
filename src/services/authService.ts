@@ -100,9 +100,16 @@ export const authService = {
         data: response.data,
         message: "Registration successful",
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Demo mode: when API is unavailable, create user locally and return so caller can log in
-      const errorMessage = error.response?.data?.message || error.message || "Đăng ký thất bại";
+      const axiosLike = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const errorMessage =
+        axiosLike.response?.data?.message ||
+        axiosLike.message ||
+        "Đăng ký thất bại";
       console.warn(`Register API failed (${errorMessage}), creating user locally for demo:`, error);
       try {
         const oRaw = getItem("users_overrides");
@@ -131,8 +138,15 @@ export const authService = {
     try {
       const response = await api.post<ApiResponse<unknown>>("/auth/register-researcher", data);
       return response;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Đăng ký nhà nghiên cứu thất bại";
+    } catch (error: unknown) {
+      const axiosLike = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const errorMessage =
+        axiosLike.response?.data?.message ||
+        axiosLike.message ||
+        "Đăng ký nhà nghiên cứu thất bại";
       console.error("Register researcher error:", errorMessage);
       throw error;
     }

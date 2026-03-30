@@ -39,7 +39,8 @@ export default function MainLayout() {
   return (
     <div className="flex flex-col min-h-screen min-w-0 overflow-x-hidden" style={{ backgroundColor: '#FFF2D6' }}>
       <Header />
-      <main className="flex-grow min-w-0 w-full pt-[4.5rem]">
+      {/* Đủ chừa fixed header (pt-4 + nav có thể wrap 2 dòng); lg:pt-[4.75rem] trước đây quá thấp → nội dung/Hồ sơ bị che */}
+      <main className="flex-grow min-w-0 w-full pt-32 lg:pt-40">
         <ErrorBoundary region="main">
           <Outlet />
         </ErrorBoundary>

@@ -1,8 +1,8 @@
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useLayoutEffect, useState, FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { Target, Users, Heart, FileText, X, UserMinus } from "lucide-react";
-import { useAuthStore } from "@/stores/authStore";
+import { useAuth } from "@/contexts/AuthContext";
 import { User, UserRole } from "@/types";
 import { notify } from "@/stores/notificationStore";
 import { authService } from "@/services/authService";
@@ -12,7 +12,7 @@ import { getItem, setItem } from "@/services/storageService";
 import { accountDeletionService } from "@/services/accountDeletionService";
 
 export default function ProfilePage() {
-  const { user, setUser, logout } = useAuthStore();
+  const { user, setUser, logout } = useAuth();
   const navigate = useNavigate();
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
 
@@ -175,6 +175,14 @@ export default function ProfilePage() {
     }
   };
 
+  /** Tránh kẹt position:fixed / overflow từ modal trang khác khi vào Hồ sơ */
+  useLayoutEffect(() => {
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.width = "";
+    document.body.style.overflow = "";
+  }, []);
+
   // Disable body scroll when dialogs are open
   useEffect(() => {
     if (isEditOpen || showDeleteAccountConfirm) {
@@ -192,7 +200,8 @@ export default function ProfilePage() {
       document.body.style.width = '';
       document.body.style.overflow = '';
       if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0') * -1);
+        const n = parseInt(scrollY.replace("px", ""), 10);
+        if (!Number.isNaN(n)) window.scrollTo(0, -n);
       }
     }
     return () => {

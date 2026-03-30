@@ -337,11 +337,18 @@ function cleanInstrumentList(values?: string[]): string {
     return cleaned.length > 0 ? cleaned.join(", ") : "—";
 }
 
+function isPlaceholderField(value?: string | null): boolean {
+    const raw = String(value ?? "").trim().toLowerCase();
+    return raw === "" || raw === "—" || raw === "-" || raw === "không xác định" || raw === "không có tiêu đề" || raw === "untitled";
+}
+
 function pickNonEmptyText(...values: Array<string | null | undefined>): string | undefined {
     for (const value of values) {
         const raw = String(value ?? "").trim();
         if (!raw) continue;
         if (raw.toUpperCase().startsWith("ID:")) continue;
+        const lowered = raw.toLowerCase();
+        if (lowered === "không có tiêu đề" || lowered === "untitled") continue;
         return raw;
     }
     return undefined;
@@ -447,6 +454,235 @@ function projectModerationLists(
     return { expertItems, visibleItems: filtered };
 }
 
+type ModerationQueueStatusItem = { key: string; label: string; count: number };
+type ModerationQueueStatusGroup = { title: string; items: ModerationQueueStatusItem[] };
+type ModerationQueueStatusMeta = {
+    counts: Record<string, number>;
+    groups: ModerationQueueStatusGroup[];
+};
+
+function buildQueueStatusMeta(allItems: LocalRecordingMini[]): ModerationQueueStatusMeta {
+    const counts = allItems.reduce<Record<string, number>>((acc, item) => {
+        const key = item.moderation?.status ?? "UNKNOWN";
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+    }, {});
+
+    return {
+        counts,
+        groups: [
+            {
+                title: "Đang xử lý",
+                items: [
+                    { key: "ALL", label: "Tất cả", count: allItems.length },
+                    {
+                        key: ModerationStatus.PENDING_REVIEW,
+                        label: "Chờ được kiểm duyệt",
+                        count: counts[ModerationStatus.PENDING_REVIEW] ?? 0,
+                    },
+                    {
+                        key: ModerationStatus.IN_REVIEW,
+                        label: "Đang được kiểm duyệt",
+                        count: counts[ModerationStatus.IN_REVIEW] ?? 0,
+                    },
+                ],
+            },
+            {
+                title: "Đã xử lý",
+                items: [
+                    {
+                        key: ModerationStatus.APPROVED,
+                        label: "Đã được kiểm duyệt",
+                        count: counts[ModerationStatus.APPROVED] ?? 0,
+                    },
+                    {
+                        key: ModerationStatus.REJECTED,
+                        label: "Đã bị từ chối vĩnh viễn",
+                        count: counts[ModerationStatus.REJECTED] ?? 0,
+                    },
+                    {
+                        key: ModerationStatus.TEMPORARILY_REJECTED,
+                        label: "Đã bị từ chối tạm thời",
+                        count: counts[ModerationStatus.TEMPORARILY_REJECTED] ?? 0,
+                    },
+                ],
+            },
+        ],
+    };
+}
+
+function ModerationQueueSidebar({
+    queueStatusMeta,
+    statusFilter,
+    onStatusFilterChange,
+    dateSort,
+    onDateSortChange,
+    items,
+    selectedId,
+    onSelect,
+}: {
+    queueStatusMeta: ModerationQueueStatusMeta;
+    statusFilter: string;
+    onStatusFilterChange: (v: string) => void;
+    dateSort: "newest" | "oldest";
+    onDateSortChange: (v: "newest" | "oldest") => void;
+    items: LocalRecordingMini[];
+    selectedId: string | null;
+    onSelect: (id: string | null) => void;
+}) {
+    return (
+        <div
+            className="rounded-2xl border border-secondary-200/50 bg-gradient-to-b from-[#FFFCF5] to-secondary-50/55 shadow-lg backdrop-blur-sm flex flex-col overflow-hidden lg:sticky lg:top-32 lg:self-start lg:max-h-[min(100vh-10rem,56rem)] xl:top-40 xl:max-h-[min(100vh-12rem,56rem)]"
+            aria-label="Hàng đợi kiểm duyệt (sidebar)"
+        >
+            <div className="p-4 flex-shrink-0 bg-gradient-to-b from-amber-50/40 to-white">
+                <h2 className="text-lg font-semibold text-neutral-900 mb-1">Hàng đợi kiểm duyệt</h2>
+                <p className="text-xs text-neutral-600 mb-3">Theo dõi bản thu theo trạng thái và ưu tiên xử lý bản mới.</p>
+
+                <div className="space-y-3">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                        <input
+                            type="search"
+                            placeholder="Tìm bản thu..."
+                            aria-label="Tìm kiếm trong hàng đợi kiểm duyệt"
+                            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-amber-200 bg-white text-neutral-900 placeholder:text-neutral-500 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:border-primary-500"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        {queueStatusMeta.groups.map((group) => (
+                            <div key={group.title}>
+                                <div className="mb-1 flex items-center justify-between">
+                                    <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{group.title}</span>
+                                    <span className="text-[11px] text-neutral-500">
+                                        {group.items.filter((f) => f.key !== "ALL").reduce((sum, f) => sum + f.count, 0)} bản thu
+                                    </span>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2">
+                                    {group.items.map((f) => (
+                                        <button
+                                            key={f.key}
+                                            type="button"
+                                            onClick={() => onStatusFilterChange(f.key)}
+                                            aria-pressed={statusFilter === f.key}
+                                            aria-label={`Lọc hàng đợi: ${f.label} (${f.count})`}
+                                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
+                                                statusFilter === f.key
+                                                    ? "bg-primary-600 text-white border-primary-600 shadow-sm"
+                                                    : "bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700"
+                                            }`}
+                                        >
+                                            <span>{f.label}</span>
+                                            <span
+                                                className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
+                                                    statusFilter === f.key
+                                                        ? "bg-white/20 text-white"
+                                                        : "bg-white text-neutral-600 border border-neutral-200"
+                                                }`}
+                                            >
+                                                {f.count}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="block text-xs font-medium text-neutral-600">Sắp xếp theo ngày</label>
+                        <SearchableDropdown
+                            value={dateSort === "newest" ? "Mới nhất" : "Cũ nhất"}
+                            onChange={(val) => onDateSortChange(val === "Mới nhất" ? "newest" : "oldest")}
+                            options={["Mới nhất", "Cũ nhất"]}
+                            placeholder="Chọn thứ tự"
+                            searchable={false}
+                            ariaLabel="Sắp xếp theo ngày"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-0" role="region" aria-label="Danh sách bản thu trong hàng đợi kiểm duyệt">
+                {items.length === 0 ? (
+                    <div className="m-4 rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/40 p-6 text-center text-neutral-600 text-sm" role="status">
+                        Không có bản thu nào trong hàng đợi.
+                    </div>
+                ) : (
+                    items
+                        .filter((it) => it.id)
+                        .map((it) => {
+                            const status = it.moderation?.status;
+                            const borderColor =
+                                status === ModerationStatus.PENDING_REVIEW
+                                    ? "border-l-neutral-400"
+                                    : status === ModerationStatus.IN_REVIEW
+                                      ? "border-l-primary-500"
+                                      : status === ModerationStatus.APPROVED
+                                        ? "border-l-green-500"
+                                        : "border-l-red-400";
+                            const rowTitle = it.basicInfo?.title || it.title || "Không có tiêu đề";
+                            return (
+                                <div
+                                    key={it.id}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label={
+                                        selectedId === it.id
+                                            ? `${rowTitle}, trạng thái ${getModerationStatusLabel(status)}, đang chọn`
+                                            : `${rowTitle}, trạng thái ${getModerationStatusLabel(status)}`
+                                    }
+                                    data-selected={selectedId === it.id ? "true" : undefined}
+                                    onClick={() => onSelect(it.id ?? null)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            e.preventDefault();
+                                            onSelect(it.id ?? null);
+                                        }
+                                    }}
+                                    className={`m-2 p-4 rounded-xl border border-neutral-200 cursor-pointer transition-all duration-200 border-l-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 focus-visible:ring-offset-0 ${borderColor} ${
+                                        selectedId === it.id
+                                            ? "bg-primary-50 shadow-sm border-primary-200"
+                                            : "hover:bg-amber-50/40 hover:shadow-sm"
+                                    }`}
+                                >
+                                    <div className="flex justify-between items-start gap-2 mb-1">
+                                        <h3 className="text-sm font-semibold text-neutral-900 line-clamp-2">{rowTitle}</h3>
+                                        <span className="shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-neutral-200 text-neutral-900 border border-neutral-400/50">
+                                            {getModerationStatusLabel(status)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-xs text-neutral-600">
+                                        <UserIcon className="h-3.5 w-3.5 shrink-0" />
+                                        <span>{it.uploader?.username || "Khách"}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-xs text-neutral-600 mt-0.5">
+                                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                                        <span>
+                                            {it.culturalContext?.ethnicity || "—"}
+                                            {it.culturalContext?.province && ` • ${it.culturalContext?.province}`}
+                                        </span>
+                                    </div>
+                                    {(it.culturalContext?.instruments?.length ?? 0) > 0 && (
+                                        <div className="flex items-center gap-1.5 text-xs text-neutral-600 mt-0.5">
+                                            <Music className="h-3.5 w-3.5 shrink-0" />
+                                            <span>{(it.culturalContext?.instruments ?? []).slice(0, 2).join(", ")}</span>
+                                        </div>
+                                    )}
+                                    <div className="text-xs text-neutral-500 mt-2 pt-2 border-t border-neutral-100">
+                                        {formatDateTime(((it as LocalRecordingMini & { uploadedDate?: string }).uploadedDate || it.uploadedAt))}
+                                    </div>
+                                </div>
+                            );
+                        })
+                )}
+            </div>
+        </div>
+    );
+}
+
 // Extended Recording type that may include original local data
 type RecordingWithLocalData = Recording & {
     _originalLocalData?: LocalRecordingMini & {
@@ -494,34 +730,7 @@ export default function ModerationPage() {
     const [moderationA11yMessage, setModerationA11yMessage] = useState("");
     const prevItemsLengthRef = useRef<number | null>(null);
     const verificationDialogPanelRef = useRef<HTMLDivElement>(null);
-    const queueStatusMeta = useMemo(() => {
-        const counts = allItems.reduce<Record<string, number>>((acc, item) => {
-            const key = item.moderation?.status ?? "UNKNOWN";
-            acc[key] = (acc[key] ?? 0) + 1;
-            return acc;
-        }, {});
-        return {
-            counts,
-            groups: [
-                {
-                    title: "Đang xử lý",
-                    items: [
-                        { key: "ALL", label: "Tất cả", count: allItems.length },
-                        { key: ModerationStatus.PENDING_REVIEW, label: "Chờ được kiểm duyệt", count: counts[ModerationStatus.PENDING_REVIEW] ?? 0 },
-                        { key: ModerationStatus.IN_REVIEW, label: "Đang được kiểm duyệt", count: counts[ModerationStatus.IN_REVIEW] ?? 0 },
-                    ],
-                },
-                {
-                    title: "Đã xử lý",
-                    items: [
-                        { key: ModerationStatus.APPROVED, label: "Đã được kiểm duyệt", count: counts[ModerationStatus.APPROVED] ?? 0 },
-                        { key: ModerationStatus.REJECTED, label: "Đã bị từ chối vĩnh viễn", count: counts[ModerationStatus.REJECTED] ?? 0 },
-                        { key: ModerationStatus.TEMPORARILY_REJECTED, label: "Đã bị từ chối tạm thời", count: counts[ModerationStatus.TEMPORARILY_REJECTED] ?? 0 },
-                    ],
-                },
-            ],
-        };
-    }, [allItems]);
+    const queueStatusMeta = useMemo(() => buildQueueStatusMeta(allItems), [allItems]);
 
     const handleExpertReviewNotesChange = useCallback((submissionId: string, text: string) => {
         setExpertReviewNotesDraft((prev) => ({ ...prev, [submissionId]: text }));
@@ -1278,8 +1487,8 @@ export default function ModerationPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-[#FFF7E8] to-[#FFFDF8]">
-            <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 min-w-0">
+        <div className="min-h-screen min-w-0 bg-gradient-to-b from-cream-50 via-[#F9F5EF] to-secondary-50/35">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-w-0">
                 <div className="sr-only" aria-live="polite" aria-atomic="true">
                     {moderationA11yMessage}
                 </div>
@@ -1357,151 +1566,21 @@ export default function ModerationPage() {
                             id="moderation-panel-review"
                             role="tabpanel"
                             aria-labelledby="moderation-tab-review"
-                            className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-4 p-4 pt-3 rounded-b-3xl lg:h-[calc(100dvh-220px)]"
+                            className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] lg:gap-8 xl:gap-10 lg:items-start p-4 pt-3"
                         >
-                            {/* Left: Hàng đợi */}
-                            <div className="rounded-2xl bg-white/95 shadow-sm ring-1 ring-amber-200/70 flex flex-col overflow-hidden">
-                                <div className="p-4 flex-shrink-0 bg-gradient-to-b from-amber-50/40 to-white">
-                                    <h2 className="text-lg font-semibold text-neutral-900 mb-1">Hàng đợi kiểm duyệt</h2>
-                                    <p className="text-xs text-neutral-600 mb-3">Theo dõi bản thu theo trạng thái và ưu tiên xử lý bản mới.</p>
-                                    <div className="space-y-3">
-                                        <div className="relative">
-                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-                                            <input
-                                                type="search"
-                                                placeholder="Tìm bản thu..."
-                                                aria-label="Tìm kiếm trong hàng đợi kiểm duyệt"
-                                                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-amber-200 bg-white text-neutral-900 placeholder:text-neutral-500 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:border-primary-500"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            {queueStatusMeta.groups.map((group) => (
-                                                <div key={group.title}>
-                                                    <div className="mb-1 flex items-center justify-between">
-                                                        <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-                                                            {group.title}
-                                                        </span>
-                                                        <span className="text-[11px] text-neutral-500">
-                                                            {group.items
-                                                                .filter((f) => f.key !== "ALL")
-                                                                .reduce((sum, f) => sum + f.count, 0)} bản thu
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {group.items.map((f) => (
-                                                            <button
-                                                                key={f.key}
-                                                                type="button"
-                                                                onClick={() => setStatusFilter(f.key)}
-                                                                aria-pressed={statusFilter === f.key}
-                                                                aria-label={`Lọc hàng đợi: ${f.label} (${f.count})`}
-                                                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${statusFilter === f.key
-                                                                    ? "bg-primary-600 text-white border-primary-600 shadow-sm"
-                                                                    : "bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700"
-                                                                    }`}
-                                                            >
-                                                                <span>{f.label}</span>
-                                                                <span className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${statusFilter === f.key ? "bg-white/20 text-white" : "bg-white text-neutral-600 border border-neutral-200"}`}>
-                                                                    {f.count}
-                                                                </span>
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="block text-xs font-medium text-neutral-600">Sắp xếp theo ngày</label>
-                                            <SearchableDropdown
-                                                value={dateSort === "newest" ? "Mới nhất" : "Cũ nhất"}
-                                                onChange={(val) => setDateSort(val === "Mới nhất" ? "newest" : "oldest")}
-                                                options={["Mới nhất", "Cũ nhất"]}
-                                                placeholder="Chọn thứ tự"
-                                                searchable={false}
-                                                ariaLabel="Sắp xếp theo ngày"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div
-                                    className="flex-1 overflow-y-auto min-h-0"
-                                    role="region"
-                                    aria-label="Danh sách bản thu trong hàng đợi kiểm duyệt"
-                                >
-                                    {items.length === 0 ? (
-                                        <div className="m-4 rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/40 p-6 text-center text-neutral-600 text-sm" role="status">
-                                            Không có bản thu nào trong hàng đợi.
-                                        </div>
-                                    ) : (
-                                        items.filter((it) => it.id).map((it) => {
-                                            const status = it.moderation?.status;
-                                            const borderColor =
-                                                status === ModerationStatus.PENDING_REVIEW
-                                                    ? "border-l-neutral-400"
-                                                    : status === ModerationStatus.IN_REVIEW
-                                                        ? "border-l-primary-500"
-                                                        : status === ModerationStatus.APPROVED
-                                                            ? "border-l-green-500"
-                                                            : "border-l-red-400";
-                                            const rowTitle = it.basicInfo?.title || it.title || "Không có tiêu đề";
-                                            return (
-                                                <div
-                                                    key={it.id}
-                                                    role="button"
-                                                    tabIndex={0}
-                                                    aria-label={
-                                                        selectedId === it.id
-                                                            ? `${rowTitle}, trạng thái ${getModerationStatusLabel(status)}, đang chọn`
-                                                            : `${rowTitle}, trạng thái ${getModerationStatusLabel(status)}`
-                                                    }
-                                                    data-selected={selectedId === it.id ? "true" : undefined}
-                                                    onClick={() => setSelectedId(it.id ?? null)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === "Enter" || e.key === " ") {
-                                                            e.preventDefault();
-                                                            setSelectedId(it.id ?? null);
-                                                        }
-                                                    }}
-                                                    className={`m-2 p-4 rounded-xl border border-neutral-200 cursor-pointer transition-all duration-200 border-l-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 focus-visible:ring-offset-0 ${borderColor} ${selectedId === it.id ? "bg-primary-50 shadow-sm border-primary-200" : "hover:bg-amber-50/40 hover:shadow-sm"
-                                                        }`}
-                                                >
-                                                    <div className="flex justify-between items-start gap-2 mb-1">
-                                                        <h3 className="text-sm font-semibold text-neutral-900 line-clamp-2">
-                                                            {rowTitle}
-                                                        </h3>
-                                                        <span className="shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-neutral-200 text-neutral-900 border border-neutral-400/50">
-                                                            {getModerationStatusLabel(status)}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 text-xs text-neutral-600">
-                                                        <UserIcon className="h-3.5 w-3.5 shrink-0" />
-                                                        <span>{it.uploader?.username || "Khách"}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 text-xs text-neutral-600 mt-0.5">
-                                                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                                                        <span>
-                                                            {it.culturalContext?.ethnicity || "—"}
-                                                            {it.culturalContext?.province && ` • ${it.culturalContext.province}`}
-                                                        </span>
-                                                    </div>
-                                                    {(it.culturalContext?.instruments?.length ?? 0) > 0 && (
-                                                        <div className="flex items-center gap-1.5 text-xs text-neutral-600 mt-0.5">
-                                                            <Music className="h-3.5 w-3.5 shrink-0" />
-                                                            <span>{(it.culturalContext?.instruments ?? []).slice(0, 2).join(", ")}</span>
-                                                        </div>
-                                                    )}
-                                                    <div className="text-xs text-neutral-500 mt-2 pt-2 border-t border-neutral-100">
-                                                        {formatDateTime((it as LocalRecordingMini & { uploadedDate?: string }).uploadedDate || it.uploadedAt)}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
-                            </div>
+                            <ModerationQueueSidebar
+                                queueStatusMeta={queueStatusMeta}
+                                statusFilter={statusFilter}
+                                onStatusFilterChange={setStatusFilter}
+                                dateSort={dateSort}
+                                onDateSortChange={setDateSort}
+                                items={items}
+                                selectedId={selectedId}
+                                onSelect={setSelectedId}
+                            />
 
                             {/* Right: Chi tiết bản thu hoặc empty state */}
-                            <div className="rounded-2xl bg-gradient-to-b from-white to-neutral-50 overflow-y-auto p-4 sm:p-6 shadow-sm ring-1 ring-amber-200/70">
+                            <div className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 overflow-y-auto p-4 sm:p-6 shadow-lg backdrop-blur-sm">
                                 {selectedId && (() => {
                                     const listItem = allItems.find((i) => i.id === selectedId);
                                     const item = mergeDisplayItem(listItem, selectedItemFull);
@@ -1533,9 +1612,6 @@ export default function ModerationPage() {
                                     } else if (item.videoData?.trim()) {
                                         mediaSrc = item.videoData;
                                         isVideo = true;
-                                    } else if (item.audioData?.trim()) {
-                                        mediaSrc = item.audioData;
-                                        if (mediaSrc.startsWith("data:video/")) isVideo = true;
                                     }
                                     const convertedForPlayer = item && (selectedItemFull ?? item) ? (() => {
                                         const r = selectedItemFull ?? item;
@@ -1572,6 +1648,51 @@ export default function ModerationPage() {
                                     );
                                     const eventTypeLabel = cleanMetadataText(item.culturalContext?.eventType);
                                     const instrumentsLabel = cleanInstrumentList(item.culturalContext?.instruments);
+                                    const uploadedAtLabel = formatDateTime(
+                                        (item as LocalRecordingMini & { uploadedDate?: string }).uploadedDate || item.uploadedAt,
+                                    );
+                                    const headerMetaParts = [ethnicityLabel, regionLabel, uploadedAtLabel]
+                                        .filter((x) => !isPlaceholderField(x));
+                                    const infoRows = [
+                                        {
+                                            key: "uploader",
+                                            icon: UserIcon,
+                                            label: "Người đóng góp",
+                                            value: item.uploader?.username || "Khách",
+                                        },
+                                        {
+                                            key: "instruments",
+                                            icon: Music,
+                                            label: "Nhạc cụ",
+                                            value: instrumentsLabel,
+                                        },
+                                        {
+                                            key: "event-type",
+                                            icon: null,
+                                            label: "Loại sự kiện",
+                                            value: eventTypeLabel,
+                                        },
+                                    ] as const;
+                                    const missingInfoCount = infoRows.filter((row) => isPlaceholderField(row.value)).length;
+                                    const headerMetadataSparse = headerMetaParts.length < 2;
+                                    const metadataHealthLabel =
+                                        missingInfoCount === 0 && !headerMetadataSparse
+                                            ? "Metadata đầy đủ"
+                                            : `Thiếu metadata (${missingInfoCount + (headerMetadataSparse ? 1 : 0)})`;
+                                    if (import.meta.env.DEV && (missingInfoCount > 0 || headerMetadataSparse)) {
+                                        console.info("[ModerationMetadata]", {
+                                            itemId: item.id,
+                                            title: item.basicInfo?.title || item.title || "Không có tiêu đề",
+                                            headerMetaParts,
+                                            missingInfoCount,
+                                            sparseHeader: headerMetadataSparse,
+                                            infoRows: infoRows.map((row) => ({
+                                                key: row.key,
+                                                value: row.value,
+                                                placeholder: isPlaceholderField(row.value),
+                                            })),
+                                        });
+                                    }
                                     return (
                                         <div className="space-y-6">
                                             <div className="rounded-2xl border border-neutral-200/80 shadow-md overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900 text-white p-6">
@@ -1579,7 +1700,10 @@ export default function ModerationPage() {
                                                     <div>
                                                         <h2 className="text-xl font-semibold mb-1">{item.basicInfo?.title || item.title || "Không có tiêu đề"}</h2>
                                                         <p className="text-sm text-white/80">
-                                                            {ethnicityLabel} • {regionLabel} • {formatDateTime((item as LocalRecordingMini & { uploadedDate?: string }).uploadedDate || item.uploadedAt)}
+                                                            {headerMetaParts.length > 0 ? headerMetaParts.join(" • ") : "Chưa có metadata chính"}
+                                                        </p>
+                                                        <p className={`mt-1 text-xs ${missingInfoCount === 0 && !headerMetadataSparse ? "text-emerald-200/90" : "text-amber-200/95"}`}>
+                                                            {metadataHealthLabel}
                                                         </p>
                                                     </div>
                                                     <div className="flex flex-col gap-2">
@@ -1697,10 +1821,24 @@ export default function ModerationPage() {
                                             <div className="rounded-2xl border border-neutral-200/80 p-4 bg-white shadow-sm">
                                                 <h3 className="text-base font-semibold text-neutral-900 mb-3">Thông tin bản thu</h3>
                                                 <ul className="space-y-2 text-sm">
-                                                    <li className="flex items-center gap-2"><UserIcon className="h-4 w-4 text-neutral-500" /> <span>Người đóng góp: {item.uploader?.username || "Khách"}</span></li>
-                                                    <li className="flex items-center gap-2"><MapPin className="h-4 w-4 text-neutral-500" /> <span>Dân tộc / Vùng: {ethnicityLabel} / {regionLabel}</span></li>
-                                                    <li className="flex items-center gap-2"><Music className="h-4 w-4 text-neutral-500" /> <span>Nhạc cụ: {instrumentsLabel}</span></li>
-                                                    <li>Loại sự kiện: {eventTypeLabel}</li>
+                                                    {infoRows.map((row) => {
+                                                        const muted = isPlaceholderField(row.value);
+                                                        const Icon = row.icon;
+                                                        return (
+                                                            <li
+                                                                key={row.key}
+                                                                className={`flex items-center gap-2 ${muted ? "text-neutral-500" : "text-neutral-800"}`}
+                                                            >
+                                                                {Icon ? <Icon className="h-4 w-4 text-neutral-500" /> : <span className="inline-block h-4 w-4" aria-hidden />}
+                                                                <span>
+                                                                    {row.label}:{" "}
+                                                                    <span className={muted ? "italic text-neutral-400" : ""}>
+                                                                        {row.value}
+                                                                    </span>
+                                                                </span>
+                                                            </li>
+                                                        );
+                                                    })}
                                                 </ul>
                                             </div>
                                             {(item.moderation?.rejectionNote || item.moderation?.notes) && (() => {

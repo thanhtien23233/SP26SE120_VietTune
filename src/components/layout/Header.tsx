@@ -1,5 +1,5 @@
-import { Link, useNavigate } from "react-router-dom";
-import { Search, Bell, User, LogOut, Menu, X, MessageCircle, CheckCircle, Edit3, Trash2 } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Bell, User, LogOut, Menu, X, MessageCircle, CheckCircle, Edit3, Trash2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types";
@@ -9,11 +9,14 @@ import logo from "@/components/image/VietTune logo.png";
 import { sessionSetItem } from "@/services/storageService";
 import { recordingRequestService } from "@/services/recordingRequestService";
 import { formatDateTime } from "@/utils/helpers";
+import { buildLoginRedirectPath } from "@/utils/routeAccess";
+import { getLayoutFeatureItems } from "@/utils/layoutFeatureItems";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Account dropdown refs/state
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -42,7 +45,7 @@ export default function Header() {
     sessionSetItem("fromLogout", "1");
     // Navigate first so we never render a "logged out" state on the current
     // page (which can show blank, e.g. AdminGuard returns null when !user).
-    navigate("/login", { replace: true });
+    navigate(buildLoginRedirectPath(location.pathname), { replace: true });
     queueMicrotask(() => logout());
   };
 
@@ -80,13 +83,16 @@ export default function Header() {
       }, 0);
     }
   }, [isMenuOpen]);
+  const headerFeatureItems = getLayoutFeatureItems(user ?? null);
+
   return (
     <header className="fixed top-0 left-0 right-0 z-[60] pt-4 px-4">
-      <nav className="bg-gradient-to-br from-primary-700 to-primary-800 rounded-full shadow-lg backdrop-blur-sm border border-white/10">
+      {/* overflow-visible: dropdown tài khoản + thông báo (absolute) nằm dưới nút; overflow-hidden sẽ cắt mất menu */}
+      <nav className="overflow-visible rounded-2xl bg-gradient-to-br from-primary-700 to-primary-800 shadow-lg backdrop-blur-sm">
         <div className="px-6 py-2.5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3 lg:grid lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-5 xl:gap-8">
             {/* Logo */}
-            <div className="flex items-center flex-shrink-0">
+            <div className="flex shrink-0 items-center justify-self-start">
               <Link to="/" className="group flex items-center space-x-2 text-white transition-colors hover:text-secondary-300">
                 <img
                   src={logo}
@@ -99,87 +105,59 @@ export default function Header() {
               </Link>
             </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex lg:items-center lg:justify-center lg:gap-3 xl:gap-4 flex-1 mx-4">
-              {user?.role === UserRole.ADMIN && user?.isActive ? (
-                <Link
-                  to="/admin"
-                  className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-                >
-                  Quản trị hệ thống
-                </Link>
-              ) : (user?.role === UserRole.CONTRIBUTOR && user?.isActive) ? (
-                null
-              ) : null}
-              {user?.role === UserRole.CONTRIBUTOR && user?.isActive ? (
-                <Link
-                  to="/contributions"
-                  className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-                >
-                  Đóng góp của bạn
-                </Link>
-              ) : null}
-              {(user?.role === UserRole.RESEARCHER && user?.isActive) ? (
-                <Link
-                  to="/researcher"
-                  className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-                >
-                  Cổng nghiên cứu
-                </Link>
-              ) : null}
-              <Link
-                to="/instruments"
-                className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-              >
-                Nhạc cụ truyền thống
-              </Link>
-              <Link
-                to="/ethnicities"
-                className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-              >
-                Dân tộc Việt Nam
-              </Link>
-              <Link
-                to="/masters"
-                className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-              >
-                Nghệ nhân âm nhạc
-              </Link>
-              <Link
-                to="/about"
-                className="text-white text-sm font-medium hover:text-secondary-300 active:text-secondary-400 transition-colors whitespace-nowrap px-2 py-1"
-              >
-                Giới thiệu VietTune
-              </Link>
+            {/* Desktop: cột giữa — lối tắt căn giữa theo bề ngang thanh */}
+            <div className="hidden min-w-0 justify-center justify-self-stretch px-2 lg:flex">
+              <div className="flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 xl:gap-x-4">
+                {headerFeatureItems.map((item, index) => (
+                  <Link
+                    key={`${item.to}-${index}`}
+                    to={item.to}
+                    className="max-w-[10rem] truncate px-1.5 py-1 text-center text-xs font-medium text-white/95 visited:text-white/95 transition-colors hover:text-secondary-300 active:text-secondary-400 xl:max-w-[12rem] xl:text-sm 2xl:max-w-none 2xl:whitespace-nowrap"
+                    title={item.title}
+                  >
+                    {item.title}
+                  </Link>
+                ))}
+                {user?.role === UserRole.CONTRIBUTOR && user?.isActive ? (
+                  <Link
+                    to="/contributions"
+                    className="whitespace-nowrap px-1.5 py-1 text-xs font-medium text-white/95 visited:text-white/95 transition-colors hover:text-secondary-300 active:text-secondary-400 xl:text-sm"
+                  >
+                    Đóng góp của bạn
+                  </Link>
+                ) : null}
+                {user?.role === UserRole.RESEARCHER && user?.isActive ? (
+                  <Link
+                    to="/researcher"
+                    className="whitespace-nowrap px-1.5 py-1 text-xs font-medium text-white/95 visited:text-white/95 transition-colors hover:text-secondary-300 active:text-secondary-400 xl:text-sm"
+                  >
+                    Cổng nghiên cứu
+                  </Link>
+                ) : null}
+              </div>
             </div>
 
-            {/* Right side buttons */}
-            <div className="hidden lg:flex lg:items-center lg:space-x-3 flex-shrink-0">
-              <Link
-                to="/search"
-                className="p-2 text-white hover:text-secondary-300 active:text-secondary-400 transition-colors duration-200 cursor-pointer"
-              >
-                <Search className="h-5 w-5" strokeWidth={2.5} />
-              </Link>
+            {/* Right: chat + thông báo + tài khoản — cùng chiều cao hàng với logo (h-9), tránh nút cao hơn nền đỏ */}
+            <div className="hidden shrink-0 items-center justify-end gap-0.5 sm:gap-1 lg:flex xl:gap-2 justify-self-end min-h-0">
               <Link
                 to="/chatbot"
-                className="p-2 text-white hover:text-secondary-300 active:text-secondary-400 transition-colors duration-200 cursor-pointer"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-white transition-colors duration-200 hover:bg-white/10 hover:text-secondary-300 active:text-secondary-400"
                 aria-label={INTELLIGENCE_NAME}
               >
                 <MessageCircle className="h-5 w-5" strokeWidth={2.5} />
               </Link>
               {(user?.role === UserRole.CONTRIBUTOR || user?.role === UserRole.EXPERT || user?.role === UserRole.ADMIN) && user?.isActive && (
-                <div className="relative">
+                <div className="relative flex shrink-0 items-center">
                   <button
                     ref={(el) => (notiButtonRef.current = el)}
                     type="button"
                     onClick={() => setIsNotiOpen(!isNotiOpen)}
-                    className="p-2 text-white hover:text-secondary-300 active:text-secondary-400 transition-colors duration-200 cursor-pointer relative"
+                    className="relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-white transition-colors duration-200 hover:bg-white/10 hover:text-secondary-300 active:text-secondary-400"
                     aria-label="Thông báo"
                   >
                     <Bell className="h-5 w-5" strokeWidth={2.5} />
                     {notifications.some(n => !n.read) && (
-                      <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-primary-700 rounded-full"></span>
+                      <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-primary-800 bg-red-500" />
                     )}
                   </button>
                   {isNotiOpen && (
@@ -241,7 +219,7 @@ export default function Header() {
               {isAuthenticated ? (
                 <>
                   {/* Account menu - open on click, rendered into portal and styled like SearchableDropdown */}
-                  <div className="relative">
+                  <div className="relative flex shrink-0 items-center">
                     {/* Button - click toggles menu */}
                     <button
                       ref={(el) => (buttonRef.current = el)}
@@ -249,11 +227,11 @@ export default function Header() {
                       onClick={() => setIsMenuOpen((s) => !s)}
                       aria-expanded={isMenuOpen}
                       aria-haspopup="menu"
-                      className="flex items-center gap-2 text-sm px-3 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-full transition-colors duration-200 shadow-md hover:shadow-lg cursor-pointer min-w-[180px] justify-center"
+                      className="flex h-9 max-w-[11rem] min-w-0 cursor-pointer items-center gap-1.5 rounded-xl border border-white/20 bg-white/15 px-2.5 text-left text-white shadow-sm transition-colors duration-200 hover:bg-white/25 sm:max-w-[13rem] sm:px-3"
                     >
-                      <User className="h-4 w-4" strokeWidth={2.5} />
-                      <span className="text-xs font-semibold whitespace-nowrap">
-                        {user?.email || user?.username || user?.fullName || "Người dùng"}
+                      <User className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
+                      <span className="min-w-0 truncate text-xs font-medium leading-none sm:text-sm">
+                        {user?.username || user?.fullName || "Người dùng"}
                       </span>
                     </button>
 
@@ -292,13 +270,13 @@ export default function Header() {
                 <>
                   <Link
                     to="/login"
-                    className="px-4 py-2 text-sm text-white font-semibold hover:text-secondary-300 active:text-secondary-400 transition-colors"
+                    className="flex h-9 items-center px-3 text-sm font-semibold text-white transition-colors hover:text-secondary-300 active:text-secondary-400"
                   >
                     Đăng nhập
                   </Link>
                   <Link
                     to="/register"
-                    className="text-sm px-4 py-2 bg-gradient-to-br from-secondary-500 to-secondary-600 hover:from-secondary-400 hover:to-secondary-500 text-white font-semibold rounded-xl transition-colors duration-300 shadow-xl hover:shadow-2xl shadow-secondary-500/40 cursor-pointer"
+                    className="flex h-9 items-center rounded-xl bg-gradient-to-br from-secondary-500 to-secondary-600 px-3 text-sm font-semibold text-white shadow-md transition-colors duration-300 hover:from-secondary-400 hover:to-secondary-500 hover:shadow-lg cursor-pointer"
                   >
                     Đăng ký
                   </Link>
@@ -307,10 +285,13 @@ export default function Header() {
             </div>
 
             {/* Mobile menu button */}
-            <div className="lg:hidden flex items-center justify-end">
+            <div className="flex items-center justify-end lg:hidden">
               <button
+                type="button"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-1.5 text-white hover:text-secondary-300 active:text-secondary-400 transition-colors duration-200 cursor-pointer"
+                className="cursor-pointer p-1.5 text-white transition-colors duration-200 hover:text-secondary-300 active:text-secondary-400"
+                aria-expanded={isMobileMenuOpen}
+                aria-label={isMobileMenuOpen ? "Đóng menu" : "Mở menu"}
               >
                 {isMobileMenuOpen ? (
                   <X className="h-6 w-6" strokeWidth={2.5} />
@@ -318,6 +299,37 @@ export default function Header() {
                   <Menu className="h-6 w-6" strokeWidth={2.5} />
                 )}
               </button>
+            </div>
+          </div>
+
+          {/* Mobile: cùng nền đỏ — lối tắt cuộn ngang */}
+          <div className="border-t border-white/15 lg:hidden">
+            <div className="flex gap-1 overflow-x-auto py-2 [-webkit-overflow-scrolling:touch]">
+              {headerFeatureItems.map((item, index) => (
+                <Link
+                  key={`m-${item.to}-${index}`}
+                  to={item.to}
+                  className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white/95 transition-colors hover:bg-white/10 hover:text-secondary-300"
+                >
+                  {item.title}
+                </Link>
+              ))}
+              {user?.role === UserRole.CONTRIBUTOR && user?.isActive ? (
+                <Link
+                  to="/contributions"
+                  className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white/95 transition-colors hover:bg-white/10 hover:text-secondary-300"
+                >
+                  Đóng góp của bạn
+                </Link>
+              ) : null}
+              {user?.role === UserRole.RESEARCHER && user?.isActive ? (
+                <Link
+                  to="/researcher"
+                  className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white/95 transition-colors hover:bg-white/10 hover:text-secondary-300"
+                >
+                  Cổng nghiên cứu
+                </Link>
+              ) : null}
             </div>
           </div>
 
@@ -361,46 +373,11 @@ export default function Header() {
                 </Link>
               )}
               <Link
-                to="/instruments"
-                className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Nhạc cụ truyền thống
-              </Link>
-              <Link
-                to="/ethnicities"
-                className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Dân tộc Việt Nam
-              </Link>
-              <Link
-                to="/masters"
-                className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Nghệ nhân âm nhạc
-              </Link>
-              <Link
-                to="/about"
-                className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Về VietTune
-              </Link>
-              <Link
                 to="/search"
                 className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Tìm kiếm
-              </Link>
-              <Link
-                to="/semantic-search"
-                className="block px-4 py-3 text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Tìm theo ý nghĩa
               </Link>
               <Link
                 to="/chatbot"

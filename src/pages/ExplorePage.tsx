@@ -1,33 +1,57 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { Search, Sparkles, Music, ArrowRight } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, useDeferredValue, memo, useRef } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { Search, Music, ArrowRight, ListFilter, X } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
-import SearchBar from "@/components/features/SearchBar";
+import ExploreSearchHeader, { type ExploreSearchMode } from "@/components/features/ExploreSearchHeader";
+import FilterSidebar from "@/components/features/FilterSidebar";
+import { cn } from "@/utils/helpers";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
+import { EXPLORE_FILTER_OPTIONS } from "@/constants/exploreFilterOptions";
+import {
+  createEmptyExploreFacetDraft,
+  exploreDraftToSearchFilters,
+  searchFiltersToExploreDraft,
+  type ExploreFacetDraft,
+} from "@/utils/exploreFacetDraft";
+import {
+  loadExploreRecordings,
+  isExploreRequestAborted,
+  type ExploreDataSource,
+} from "@/utils/exploreRecordingsLoad";
 import { Recording, SearchFilters, Region, RecordingType, VerificationStatus } from "@/types";
-import { recordingService } from "@/services/recordingService";
-import { fetchVerifiedSubmissionsAsRecordings } from "@/services/researcherArchiveService";
 import { useAuth } from "@/contexts/AuthContext";
-import { normalizeSearchText } from "@/utils/searchText";
-import SingleTrackPlayer from "@/components/researcher/SingleTrackPlayer";
+import RecordingCardCompact from "@/components/features/RecordingCardCompact";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+
+const MemoRecordingCard = memo(RecordingCardCompact);
 
 
 function filtersFromSearchParams(searchParams: URLSearchParams): SearchFilters {
   const q = searchParams.get("q")?.trim();
   const region = searchParams.get("region");
-  const type = searchParams.get("type");
+  const typeParam = searchParams.get("type");
   const status = searchParams.get("status");
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const tagsParam = searchParams.get("tags");
+  const ethnicityParam = searchParams.get("ethnicity");
   const filters: SearchFilters = {};
   if (q) filters.query = q;
   if (region && Object.values(Region).includes(region as Region)) filters.regions = [region as Region];
-  if (type && Object.values(RecordingType).includes(type as RecordingType)) filters.recordingTypes = [type as RecordingType];
+  if (typeParam) {
+    const parts = typeParam.split(",").map((t) => t.trim()).filter(Boolean);
+    const valid = parts.filter((p): p is RecordingType =>
+      Object.values(RecordingType).includes(p as RecordingType),
+    );
+    if (valid.length) filters.recordingTypes = valid;
+  }
   if (status && Object.values(VerificationStatus).includes(status as VerificationStatus)) filters.verificationStatus = [status as VerificationStatus];
   if (from) filters.dateFrom = from;
   if (to) filters.dateTo = to;
   if (tagsParam) filters.tags = tagsParam.split(",").map((t) => t.trim()).filter(Boolean);
+  if (ethnicityParam) {
+    filters.ethnicityIds = ethnicityParam.split(",").map((t) => t.trim()).filter(Boolean);
+  }
   return filters;
 }
 
@@ -35,53 +59,54 @@ function searchParamsFromFilters(filters: SearchFilters): Record<string, string>
   const params: Record<string, string> = {};
   if (filters.query) params.q = filters.query;
   if (filters.regions?.length) params.region = filters.regions[0];
-  if (filters.recordingTypes?.length) params.type = filters.recordingTypes[0];
+  if (filters.recordingTypes?.length) params.type = filters.recordingTypes.join(",");
   if (filters.verificationStatus?.length) params.status = filters.verificationStatus[0];
   if (filters.dateFrom) params.from = filters.dateFrom;
   if (filters.dateTo) params.to = filters.dateTo;
   if (filters.tags?.length) params.tags = filters.tags.join(",");
+  if (filters.ethnicityIds?.length) params.ethnicity = filters.ethnicityIds.join(",");
   return params;
 }
 
+function buildExploreSearchParams(
+  filters: SearchFilters,
+  mode: ExploreSearchMode,
+  semanticSq: string,
+): URLSearchParams {
+  const base = searchParamsFromFilters(filters);
+  const p = new URLSearchParams();
+  Object.entries(base).forEach(([k, v]) => p.set(k, v));
+  if (mode === "semantic") p.set("mode", "semantic");
+  else p.delete("mode");
+  const sem = semanticSq.trim();
+  if (sem) p.set("sq", sem);
+  else p.delete("sq");
+  return p;
+}
 
-
-type ApiResponseType = { items: Recording[]; total: number; totalPages: number };
-type ExploreDataSource = "recordingGuest" | "recordingApi" | "searchApi" | "archiveFallback" | "empty";
-
-function applyGuestFilters(rows: Recording[], filters: SearchFilters): Recording[] {
-  const query = normalizeSearchText(filters.query ?? "");
-  const selectedRegion = filters.regions?.[0];
-  const selectedType = filters.recordingTypes?.[0];
-  const dateFrom = filters.dateFrom ? new Date(filters.dateFrom).getTime() : null;
-  const dateTo = filters.dateTo ? new Date(filters.dateTo).getTime() : null;
-  const tags = (filters.tags ?? []).map((t) => normalizeSearchText(t)).filter(Boolean);
-
-  return rows.filter((r) => {
-    if (query) {
-      const title = normalizeSearchText(`${r.title ?? ""} ${r.titleVietnamese ?? ""}`);
-      const desc = normalizeSearchText(r.description ?? "");
-      const tagText = normalizeSearchText((r.tags ?? []).join(" "));
-      const haystack = `${title} ${desc} ${tagText}`;
-      if (!haystack.includes(query)) return false;
-    }
-    if (selectedRegion && r.region !== selectedRegion) return false;
-    if (selectedType && r.recordingType !== selectedType) return false;
-    if (tags.length > 0) {
-      const tagSet = new Set((r.tags ?? []).map((x) => normalizeSearchText(x)));
-      if (!tags.every((t) => tagSet.has(t))) return false;
-    }
-    if (dateFrom || dateTo) {
-      const ts = new Date(r.recordedDate || r.uploadedDate || 0).getTime();
-      if (Number.isFinite(dateFrom) && ts < (dateFrom as number)) return false;
-      if (Number.isFinite(dateTo) && ts > (dateTo as number)) return false;
-    }
-    return true;
-  });
+function exploreDataSourceShortLabel(source: ExploreDataSource): string {
+  switch (source) {
+    case "recordingGuest":
+      return "Guest";
+    case "searchApi":
+      return "Search API";
+    case "recordingApi":
+      return "Recording API";
+    case "archiveFallback":
+      return "Archive";
+    case "semanticLocal":
+      return "Ngữ nghĩa";
+    default:
+      return "";
+  }
 }
 
 /**
- * Explore: latest approved recordings (contributor + expert moderation).
- * UI/UX aligned with SemanticSearchPage; search filter via SearchBar.
+ * Explore — Phase 5 data model (URL = applied state):
+ * - `searchMode` → URL `mode` (`keyword` | `semantic`).
+ * - Keyword query → `filters.query` / `q`; semantic text → `sq` (applied when user submits).
+ * - `facetDraft` = pending sidebar edits until **Áp dụng** commits to URL → `filters`.
+ * - `currentPage` = pagination (guest semantic path ignores page on pool fetch).
  */
 export default function ExplorePage() {
   const location = useLocation();
@@ -97,6 +122,63 @@ export default function ExplorePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
   const [dataSource, setDataSource] = useState<ExploreDataSource>("empty");
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [facetDraft, setFacetDraft] = useState<ExploreFacetDraft>(() =>
+    searchFiltersToExploreDraft(initialFiltersFromUrl, EXPLORE_FILTER_OPTIONS),
+  );
+  const sqFromUrl = searchParams.get("sq") ?? "";
+  const [semanticInput, setSemanticInput] = useState(sqFromUrl);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  const exploreMode: ExploreSearchMode = searchParams.get("mode") === "semantic" ? "semantic" : "keyword";
+
+  const isNarrowViewport = useMediaQuery("(max-width: 1023px)");
+  const filterDrawerTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterDrawerCloseRef = useRef<HTMLButtonElement>(null);
+
+  const closeFilterDrawer = useCallback(() => {
+    setFilterDrawerOpen(false);
+    queueMicrotask(() => filterDrawerTriggerRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    setSemanticInput(sqFromUrl);
+  }, [sqFromUrl]);
+
+  useEffect(() => {
+    if (!filterDrawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeFilterDrawer();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [filterDrawerOpen, closeFilterDrawer]);
+
+  useEffect(() => {
+    if (!filterDrawerOpen || !isNarrowViewport) return;
+    const id = requestAnimationFrame(() => filterDrawerCloseRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [filterDrawerOpen, isNarrowViewport]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => {
+      if (mq.matches) setFilterDrawerOpen(false);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!filterDrawerOpen) return;
+    const narrow = window.matchMedia("(max-width: 1023px)");
+    if (!narrow.matches) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [filterDrawerOpen]);
 
   const logExploreTelemetry = useCallback(
     (source: ExploreDataSource, count: number, extra?: Record<string, unknown>) => {
@@ -107,84 +189,102 @@ export default function ExplorePage() {
         isAuthenticated,
         page: currentPage,
         filters,
+        exploreMode,
+        semanticQ: sqFromUrl,
         ...extra,
       });
     },
-    [currentPage, filters, isAuthenticated],
+    [currentPage, exploreMode, filters, isAuthenticated, sqFromUrl],
   );
 
-  const fetchRecordings = useCallback(async () => {
-    setLoading(true);
-    try {
-      let response: ApiResponseType;
-      if (!isAuthenticated) {
-        // Guest flow: always use dedicated public API without token.
-        const guestRes = await recordingService.getGuestRecordings(currentPage, 20);
-        const filteredGuestItems = applyGuestFilters(
-          Array.isArray(guestRes?.items) ? guestRes.items : [],
-          filters,
-        );
-        response = {
-          items: filteredGuestItems,
-          total: filteredGuestItems.length,
-          totalPages: 1,
-        };
-        setDataSource(filteredGuestItems.length > 0 ? "recordingGuest" : "empty");
-        logExploreTelemetry(filteredGuestItems.length > 0 ? "recordingGuest" : "empty", filteredGuestItems.length);
-      } else if (Object.keys(filters).length > 0) {
-        const res = await recordingService.searchRecordings(filters, currentPage, 20);
-        response = res as ApiResponseType;
-        const count = Array.isArray((res as ApiResponseType)?.items) ? (res as ApiResponseType).items.length : 0;
-        setDataSource(count > 0 ? "searchApi" : "empty");
-        logExploreTelemetry(count > 0 ? "searchApi" : "empty", count);
-      } else {
-        const res = await recordingService.getRecordings(currentPage, 20);
-        response = res as ApiResponseType;
-        const count = Array.isArray((res as ApiResponseType)?.items) ? (res as ApiResponseType).items.length : 0;
-        setDataSource(count > 0 ? "recordingApi" : "empty");
-        logExploreTelemetry(count > 0 ? "recordingApi" : "empty", count);
-      }
-      const apiItems = Array.isArray(response?.items) ? response.items : [];
-      const apiTotal = typeof response?.total === "number" ? response.total : apiItems.length;
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
 
-      const sorted = [...apiItems].sort((a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime());
-
-      setRecordings(sorted);
-      setTotalResults(apiTotal);
-    } catch (error) {
-      console.error("Error fetching recordings:", error);
-      // Guest fallback: still show approved archive when /Recording endpoints are restricted.
+    (async () => {
+      setLoading(true);
+      setSearchError(null);
       try {
-        const fallback = await fetchVerifiedSubmissionsAsRecordings();
-        const filteredFallback = !isAuthenticated ? applyGuestFilters(fallback, filters) : fallback;
-        const sorted = [...filteredFallback].sort(
-          (a, b) =>
-            new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
-        );
-        setRecordings(sorted.slice(0, 20));
-        setTotalResults(sorted.length);
-        setDataSource(sorted.length > 0 ? "archiveFallback" : "empty");
-        logExploreTelemetry(sorted.length > 0 ? "archiveFallback" : "empty", sorted.length, { fallback: true });
-      } catch {
+        const r = await loadExploreRecordings({
+          signal: controller.signal,
+          currentPage,
+          exploreMode,
+          filters,
+          sqActive: sqFromUrl.trim(),
+          isAuthenticated,
+        });
+        if (cancelled || controller.signal.aborted) return;
+        setRecordings(r.recordings);
+        setTotalResults(r.totalResults);
+        setDataSource(r.dataSource);
+        setSearchError(r.fetchWarning ?? null);
+        logExploreTelemetry(r.dataSource, r.recordings.length, {
+          ...(r.fetchWarning ? { fallback: true } : {}),
+        });
+      } catch (e) {
+        if (cancelled || controller.signal.aborted || isExploreRequestAborted(e)) return;
+        console.error("Explore load failed:", e);
         setRecordings([]);
         setTotalResults(0);
         setDataSource("empty");
-        logExploreTelemetry("empty", 0, { fallback: true, failed: true });
+        setSearchError("Không tải được dữ liệu. Bạn có thể thử lại sau.");
+        logExploreTelemetry("empty", 0, { failed: true });
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage, filters, isAuthenticated, logExploreTelemetry]);
+    })();
 
-  useEffect(() => {
-    fetchRecordings();
-  }, [fetchRecordings]);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [currentPage, exploreMode, filters, isAuthenticated, logExploreTelemetry, sqFromUrl]);
 
-  const handleSearch = useCallback((newFilters: SearchFilters) => {
-    setFilters(newFilters);
+  const handleSearch = useCallback(
+    (newFilters: SearchFilters) => {
+      setFilters(newFilters);
+      setCurrentPage(1);
+      const mode = searchParams.get("mode") === "semantic" ? "semantic" : "keyword";
+      const sq = searchParams.get("sq") ?? "";
+      setSearchParams(buildExploreSearchParams(newFilters, mode, sq), { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const handleFilterSearch = useCallback(
+    (newFilters: SearchFilters) => {
+      handleSearch(newFilters);
+      setFilterDrawerOpen(false);
+    },
+    [handleSearch],
+  );
+
+  const submitKeywordSearch = useCallback(() => {
+    const next = exploreDraftToSearchFilters(facetDraft);
     setCurrentPage(1);
-    const params = searchParamsFromFilters(newFilters);
-    setSearchParams(Object.keys(params).length > 0 ? params : {}, { replace: true });
+    setSearchParams(buildExploreSearchParams(next, "keyword", ""), { replace: true });
+  }, [facetDraft, setSearchParams]);
+
+  const submitSemanticSearch = useCallback(() => {
+    const next: SearchFilters = { ...filters };
+    delete next.query;
+    setCurrentPage(1);
+    setSearchParams(buildExploreSearchParams(next, "semantic", semanticInput), { replace: true });
+  }, [filters, semanticInput, setSearchParams]);
+
+  const onExploreModeChange = useCallback(
+    (m: ExploreSearchMode) => {
+      setCurrentPage(1);
+      setSearchParams(buildExploreSearchParams(filters, m, semanticInput), { replace: true });
+    },
+    [filters, semanticInput, setSearchParams],
+  );
+
+  const clearAllExplore = useCallback(() => {
+    setFacetDraft(createEmptyExploreFacetDraft());
+    setSemanticInput("");
+    setSearchError(null);
+    setSearchParams({}, { replace: true });
   }, [setSearchParams]);
 
   useEffect(() => {
@@ -193,57 +293,164 @@ export default function ExplorePage() {
     setCurrentPage(1);
   }, [searchParams]);
 
+  useEffect(() => {
+    setFacetDraft(searchFiltersToExploreDraft(filters, EXPLORE_FILTER_OPTIONS));
+  }, [filters]);
+
   const hasFilters = Object.keys(filters).length > 0;
+  const hasSemanticQuery = sqFromUrl.trim().length > 0;
+  const filterBadgeActive = hasFilters || hasSemanticQuery;
+
+  const deferredRecordings = useDeferredValue(recordings);
+  const cardSourceLabel = useMemo(() => exploreDataSourceShortLabel(dataSource), [dataSource]);
+
+  const handleFacetApply = useCallback(() => {
+    const next = exploreDraftToSearchFilters(facetDraft);
+    if (exploreMode === "semantic") delete next.query;
+    handleFilterSearch(next);
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setFilterDrawerOpen(false);
+      queueMicrotask(() => filterDrawerTriggerRef.current?.focus());
+    }
+  }, [exploreMode, facetDraft, handleFilterSearch]);
+
+  const handleFacetReset = useCallback(() => {
+    clearAllExplore();
+    setFilterDrawerOpen(false);
+    queueMicrotask(() => filterDrawerTriggerRef.current?.focus());
+  }, [clearAllExplore]);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gradient-to-b from-cream-50 via-[#F9F5EF] to-secondary-50/35">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header — responsive; wraps on small screens */}
-        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-6 lg:mb-8">
           <h1 className="text-xl sm:text-3xl font-bold text-neutral-900 min-w-0">
             Khám phá âm nhạc dân tộc
           </h1>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
-            <Link
-              to="/semantic-search"
-              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 sm:px-6 py-2 rounded-xl bg-primary-100/90 text-primary-700 hover:bg-primary-200/90 font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 cursor-pointer focus:outline-none border border-primary-200/80 text-sm sm:text-base"
-              title="Tìm theo ý nghĩa"
-            >
-              <Sparkles className="h-5 w-5 shrink-0" strokeWidth={2.5} />
-              <span className="whitespace-nowrap">Tìm theo ý nghĩa</span>
-            </Link>
             <BackButton />
           </div>
         </div>
 
-        {/* Main Search / Filter card — same style as SemanticSearchPage */}
-        <div
-          className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 mb-8 transition-all duration-300 hover:shadow-xl"
-          style={{ backgroundColor: "#FFFCF5" }}
-        >
-          <h2 className="text-2xl font-semibold mb-4 text-neutral-900 flex items-center gap-3">
-            <div className="p-2 bg-primary-100/90 rounded-lg shadow-sm">
-              <Search className="h-5 w-5 text-primary-600" strokeWidth={2.5} />
-            </div>
-            Bộ lọc tìm kiếm
-          </h2>
-          <p className="text-neutral-600 font-medium leading-relaxed mb-4">
-            Lọc theo từ khóa, vùng miền, loại hình, thẻ hoặc ngày để tìm bản thu phù hợp.
-          </p>
-          <SearchBar onSearch={handleSearch} initialFilters={filters} />
+        {/* Mobile / tablet: open filter drawer */}
+        <div className="mb-4 flex lg:hidden">
+          <button
+            ref={filterDrawerTriggerRef}
+            type="button"
+            id="explore-filter-drawer-trigger"
+            aria-expanded={filterDrawerOpen}
+            aria-controls="explore-filter-drawer"
+            onClick={() => setFilterDrawerOpen(true)}
+            className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-secondary-300/70 bg-gradient-to-br from-secondary-100 to-secondary-200/70 px-4 py-2 text-sm font-semibold text-primary-900 shadow-sm transition-colors hover:from-secondary-200 hover:to-secondary-300/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-400"
+          >
+            <ListFilter className="h-5 w-5 shrink-0 text-primary-600" strokeWidth={2.25} aria-hidden />
+            Bộ lọc
+            {filterBadgeActive ? (
+              <span className="rounded-full bg-primary-600 px-2 py-0.5 text-xs font-medium text-white">Đang bật</span>
+            ) : null}
+          </button>
         </div>
 
-        {/* Results — same card style as SemanticSearchPage */}
+        {filterDrawerOpen ? (
+          <button
+            type="button"
+            aria-label="Đóng bộ lọc"
+            className="fixed inset-0 z-40 bg-neutral-900/40 backdrop-blur-[2px] lg:hidden"
+            onClick={closeFilterDrawer}
+          />
+        ) : null}
+
+        {/* Phase 1: desktop = filter column (left) + results (right); mobile = drawer for filters */}
+        <div className="lg:grid lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] lg:gap-8 xl:gap-10 lg:items-start">
+          <aside
+            id="explore-filter-drawer"
+            className={cn(
+              "flex min-h-0 max-h-[min(100vh-6rem,56rem)] flex-col overflow-hidden rounded-2xl border border-secondary-200/50 bg-gradient-to-b from-[#FFFCF5] to-secondary-50/55 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl sm:p-8 lg:max-h-[calc(100vh-7rem)]",
+              "lg:sticky lg:top-24 lg:self-start",
+              "max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-50 max-lg:h-full max-lg:max-h-none max-lg:max-w-[min(100vw,22rem)] max-lg:w-full max-lg:rounded-none max-lg:rounded-l-2xl max-lg:border-y-0 max-lg:border-r-0",
+              filterDrawerOpen
+                ? "max-lg:translate-x-0 max-lg:pointer-events-auto"
+                : "max-lg:translate-x-full max-lg:pointer-events-none",
+              "max-lg:transition-transform max-lg:duration-200 max-lg:ease-out",
+            )}
+            aria-hidden={isNarrowViewport && !filterDrawerOpen ? true : undefined}
+            {...(isNarrowViewport && filterDrawerOpen
+              ? ({
+                  role: "dialog",
+                  "aria-modal": true,
+                  "aria-labelledby": "explore-filter-drawer-title",
+                } as const)
+              : {})}
+          >
+            <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
+              <h2
+                id="explore-filter-drawer-title"
+                className="flex min-w-0 items-center gap-2 text-xl font-semibold text-neutral-900 sm:gap-3 sm:text-2xl"
+              >
+                <span className="flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-100/95 to-secondary-100/90 p-2 shadow-sm ring-1 ring-secondary-200/50">
+                  <Search className="h-5 w-5 text-primary-600" strokeWidth={2.5} aria-hidden />
+                </span>
+                <span className="leading-tight">Bộ lọc tìm kiếm</span>
+              </h2>
+              <button
+                ref={filterDrawerCloseRef}
+                type="button"
+                className="shrink-0 rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 lg:hidden"
+                onClick={closeFilterDrawer}
+                aria-label="Đóng bộ lọc"
+              >
+                <X className="h-5 w-5" strokeWidth={2.25} />
+              </button>
+            </div>
+            <p className="mb-4 shrink-0 text-sm font-medium leading-relaxed text-neutral-600 sm:text-base">
+              Chọn tiêu chí trong từng nhóm, sau đó nhấn <strong className="font-semibold text-neutral-800">Áp dụng</strong> để lọc kết quả.
+            </p>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <FilterSidebar
+                options={EXPLORE_FILTER_OPTIONS}
+                selected={facetDraft}
+                onChange={setFacetDraft}
+                onApply={handleFacetApply}
+                onReset={handleFacetReset}
+              />
+            </div>
+          </aside>
+
+        <main className="min-w-0 lg:mt-0 mt-2">
+        <ExploreSearchHeader
+          mode={exploreMode}
+          onModeChange={onExploreModeChange}
+          keywordValue={facetDraft.query}
+          onKeywordChange={(q) => setFacetDraft((d) => ({ ...d, query: q }))}
+          onKeywordSubmit={submitKeywordSearch}
+          semanticValue={semanticInput}
+          onSemanticChange={setSemanticInput}
+          onSemanticSubmit={submitSemanticSearch}
+          keywordBusy={loading && exploreMode === "keyword"}
+          semanticBusy={loading && exploreMode === "semantic"}
+        />
         <div
-          className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-8 mb-8 transition-all duration-300 hover:shadow-xl"
-          style={{ backgroundColor: "#FFFCF5" }}
+          className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl sm:p-8 mb-8 lg:mb-0"
+          aria-live="polite"
+          aria-busy={loading}
         >
           <h2 className="text-2xl font-semibold mb-4 text-neutral-900 flex items-center gap-3">
-            <div className="p-2 bg-primary-100/90 rounded-lg shadow-sm">
-              <Music className="h-5 w-5 text-primary-600" strokeWidth={2.5} />
+            <div className="rounded-lg bg-gradient-to-br from-primary-100/90 to-secondary-100/90 p-2 shadow-sm ring-1 ring-secondary-200/40">
+              <Music className="h-5 w-5 text-primary-600" strokeWidth={2.5} aria-hidden />
             </div>
-            {hasFilters ? "Kết quả" : "Bản thu mới nhất"}
+            {exploreMode === "semantic" && hasSemanticQuery
+              ? "Kết quả theo ngữ nghĩa"
+              : hasFilters
+                ? "Kết quả"
+                : "Bản thu mới nhất"}
           </h2>
+
+          {searchError ? (
+            <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+              {searchError}
+            </p>
+          ) : null}
 
           {loading ? (
             <div className="flex justify-center py-12">
@@ -251,28 +458,38 @@ export default function ExplorePage() {
             </div>
           ) : recordings.length === 0 ? (
             <div className="py-10 text-center">
-              <Music className="h-12 w-12 text-neutral-400 mx-auto mb-4" strokeWidth={1.5} />
+              <Music className="h-12 w-12 text-neutral-400 mx-auto mb-4" strokeWidth={1.5} aria-hidden />
               <h3 className="text-lg font-semibold text-neutral-800 mb-2">Chưa có bản thu nào</h3>
               <p className="text-neutral-600 font-medium leading-relaxed max-w-md mx-auto mb-4">
-                {hasFilters ? "Thử thay đổi bộ lọc hoặc xóa bộ lọc để xem bản thu mới nhất." : "Chưa có bản thu nào được kiểm duyệt."}
+                {exploreMode === "semantic" && hasSemanticQuery
+                  ? "Không có bản thu khớp mô tả. Thử diễn đạt khác, nới lỏng bộ lọc, hoặc chuyển sang tìm theo từ khóa."
+                  : hasFilters || hasSemanticQuery
+                    ? "Thử thay đổi bộ lọc hoặc xóa bộ lọc để xem bản thu mới nhất."
+                    : "Chưa có bản thu nào được kiểm duyệt."}
               </p>
-              {hasFilters && (
+              {(hasFilters || hasSemanticQuery) && (
                 <button
                   type="button"
-                  onClick={() => handleSearch({})}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-105 active:scale-95 cursor-pointer focus:outline-none"
+                  onClick={() => {
+                    clearAllExplore();
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-105 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2"
                 >
                   Xóa bộ lọc
-                  <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
+                  <ArrowRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />
                 </button>
               )}
             </div>
           ) : (
             <>
               <p className="text-neutral-700 font-medium leading-relaxed mb-4">
-                {hasFilters ? `Tìm thấy ${totalResults} bản thu` : `Có ${totalResults} bản thu đã được kiểm duyệt`}
+                {exploreMode === "semantic" && hasSemanticQuery
+                  ? `Tìm thấy ${totalResults} bản thu phù hợp`
+                  : hasFilters || hasSemanticQuery
+                    ? `Tìm thấy ${totalResults} bản thu`
+                    : `Có ${totalResults} bản thu đã được kiểm duyệt`}
               </p>
-              <p className="text-[11px] text-neutral-500 mb-3">
+              <p className="text-[11px] text-neutral-500 mb-6">
                 Nguồn dữ liệu:{" "}
                 {dataSource === "recordingGuest"
                   ? "recordingGuest (guest)"
@@ -282,26 +499,26 @@ export default function ExplorePage() {
                       ? "Recording API"
                       : dataSource === "archiveFallback"
                         ? "Archive fallback"
-                        : "Không có dữ liệu"}
+                        : dataSource === "semanticLocal"
+                          ? "Xếp hạng ngữ nghĩa (trên máy)"
+                          : "Không có dữ liệu"}
               </p>
-              <ul className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-                {recordings.map((r) => (
-                  <li key={r.id}>
-                    <SingleTrackPlayer recording={r} />
-                    <div className="mt-2">
-                      <Link
-                        to={`/recordings/${r.id}`}
-                        state={{ from: returnTo }}
-                        className="inline-flex items-center rounded-lg border border-primary-200/80 bg-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                      >
-                        Xem chi tiết
-                      </Link>
-                    </div>
+              <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {deferredRecordings.map((r) => (
+                  <li key={r.id} className="min-w-0">
+                    <MemoRecordingCard
+                      recording={r}
+                      to={`/recordings/${r.id}`}
+                      linkState={{ from: returnTo }}
+                      sourceLabel={cardSourceLabel}
+                    />
                   </li>
                 ))}
               </ul>
             </>
           )}
+        </div>
+        </main>
         </div>
       </div>
     </div>

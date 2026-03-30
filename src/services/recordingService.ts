@@ -182,23 +182,30 @@ function toGuestPaginatedResponse(input: unknown, page: number, pageSize: number
 
 export const recordingService = {
   // Get all recordings with pagination (backend: GET /api/Recording)
-  getRecordings: async (page: number = 1, pageSize: number = 20) => {
-    return api.get<PaginatedResponse<Recording>>(`/Recording?page=${page}&pageSize=${pageSize}`);
+  getRecordings: async (
+    page: number = 1,
+    pageSize: number = 20,
+    opts?: { signal?: AbortSignal },
+  ) => {
+    return api.get<PaginatedResponse<Recording>>(`/Recording?page=${page}&pageSize=${pageSize}`, {
+      signal: opts?.signal,
+    });
   },
 
   /**
    * Guest-only catalog (no Authorization header): GET /api/RecordingGuest
    * Uses raw axios client to avoid global auth interceptor/token injection.
    */
-  getGuestRecordings: async (page: number = 1, pageSize: number = 20) => {
+  getGuestRecordings: async (page: number = 1, pageSize: number = 20, opts?: { signal?: AbortSignal }) => {
     const qs = `?page=${page}&pageSize=${pageSize}`;
+    const reqOpts = { signal: opts?.signal };
     try {
-      const response = await guestApiClient.get<unknown>(`/RecordingGuest${qs}`);
+      const response = await guestApiClient.get<unknown>(`/RecordingGuest${qs}`, reqOpts);
       return toGuestPaginatedResponse(response.data, page, pageSize);
     } catch (primaryErr) {
       try {
         // Compatibility fallback for backends exposing camelCase route.
-        const fallbackRes = await guestApiClient.get<unknown>(`/recordingGuest${qs}`);
+        const fallbackRes = await guestApiClient.get<unknown>(`/recordingGuest${qs}`, reqOpts);
         return toGuestPaginatedResponse(fallbackRes.data, page, pageSize);
       } catch {
         throw primaryErr;
@@ -222,7 +229,12 @@ export const recordingService = {
   },
 
   // Search recordings (backend: GET /api/Search/songs with query params)
-  searchRecordings: async (filters: SearchFilters, page: number = 1, pageSize: number = 20) => {
+  searchRecordings: async (
+    filters: SearchFilters,
+    page: number = 1,
+    pageSize: number = 20,
+    opts?: { signal?: AbortSignal },
+  ) => {
     const params = new URLSearchParams();
     if (filters.query) params.append('q', filters.query);
     params.append('page', String(page));
@@ -230,7 +242,9 @@ export const recordingService = {
     if (filters.regions?.length) params.append('region', filters.regions.join(','));
     if (filters.recordingTypes?.length) params.append('type', filters.recordingTypes.join(','));
     if (filters.tags?.length) params.append('tags', filters.tags.join(','));
-    return api.get<PaginatedResponse<Recording>>(`/Search/songs?${params.toString()}`);
+    return api.get<PaginatedResponse<Recording>>(`/Search/songs?${params.toString()}`, {
+      signal: opts?.signal,
+    });
   },
 
   // Upload new recording (backend: POST /api/Recording with JSON body)
