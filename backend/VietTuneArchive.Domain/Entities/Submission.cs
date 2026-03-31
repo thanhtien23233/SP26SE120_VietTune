@@ -29,6 +29,11 @@ namespace VietTuneArchive.Domain.Entities
         [Required]
         public SubmissionStatus Status { get; set; }
 
+        public Guid? ReviewerId { get; set; }
+
+        [ForeignKey("ReviewerId")]
+        public User? Reviewer { get; set; }
+
         public string? Notes { get; set; }
 
         [Required]

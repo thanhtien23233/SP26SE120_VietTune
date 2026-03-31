@@ -103,13 +103,13 @@ namespace VietTuneArchive.Application.Services
             }
         }
 
-        public async Task<Result<bool>> EditRequest (Guid SubmissionId)
+        public async Task<Result<bool>> EditRequest (Guid submissionId, Guid reviewerId)
         {
             try
             {
-                if (SubmissionId == Guid.Empty)
-                    throw new ArgumentException("Submission id cannot be empty", nameof(SubmissionId));
-                var submission = await _submissionRepo.GetSubmissionByIdAsync(SubmissionId);
+                if (submissionId == Guid.Empty)
+                    throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
+                var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
                 if (submission == null)
                     return Result<bool>.Failure("Submission not found");
                 if (submission.Status != SubmissionStatus.Pending)
@@ -121,6 +121,7 @@ namespace VietTuneArchive.Application.Services
                     return Result<bool>.Failure("Recording is not in a state that can be marked for edit");
 
                 submission.Status = SubmissionStatus.UpdateRequested;
+                submission.ReviewerId = reviewerId;
                 submission.UpdatedAt = DateTime.UtcNow;
                 await _submissionRepo.UpdateAsync(submission);
                 recording.Status = SubmissionStatus.UpdateRequested;
@@ -166,7 +167,7 @@ namespace VietTuneArchive.Application.Services
                 return Result<bool>.Failure($"Failed to confirm submission edit: {ex.Message}");
             }
         }
-        public async Task<Result<bool>> RejectSubmission(Guid submissionId)
+        public async Task<Result<bool>> RejectSubmission(Guid submissionId, Guid reviewerId)
         {
             try
             {
@@ -184,6 +185,7 @@ namespace VietTuneArchive.Application.Services
                     return Result<bool>.Failure("Recording is not in a state that can be rejected");
 
                 submission.Status = SubmissionStatus.Rejected;
+                submission.ReviewerId = reviewerId;
                 submission.UpdatedAt = DateTime.UtcNow;
                 await _submissionRepo.UpdateAsync(submission);
                 recording.Status = SubmissionStatus.Rejected;
@@ -208,7 +210,7 @@ namespace VietTuneArchive.Application.Services
             }
         }
 
-        public async Task<Result<bool>> ApproveSubmission(Guid submissionId)
+        public async Task<Result<bool>> ApproveSubmission(Guid submissionId, Guid reviewerId)
         {
             try
             {
@@ -226,6 +228,7 @@ namespace VietTuneArchive.Application.Services
                     return Result<bool>.Failure("Recording is not in a state that can be approved");
 
                 submission.Status = SubmissionStatus.Approved;
+                submission.ReviewerId = reviewerId;
                 submission.UpdatedAt = DateTime.UtcNow;
                 await _submissionRepo.UpdateAsync(submission);
                 recording.Status = SubmissionStatus.Approved;

@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VietTuneArchive.Application.IServices;
@@ -61,7 +61,11 @@ namespace VietTuneArchive.API.Controllers
         [Authorize(Roles = "Admin,Expert,Contributor")]
         public async Task<IActionResult> EditRequestSubmission(Guid submissionId)
         {
-            var result = await _submissionService.EditRequest(submissionId);
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var result = await _submissionService.EditRequest(submissionId, userId);
             if (result.IsSuccess)
             {
                 return Ok(result);
@@ -85,7 +89,11 @@ namespace VietTuneArchive.API.Controllers
         [Authorize(Roles = "Admin,Expert")]
         public async Task<IActionResult> ApproveSubmission(Guid submissionId)
         {
-            var result = await _submissionService.ApproveSubmission(submissionId);
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var result = await _submissionService.ApproveSubmission(submissionId, userId);
             if (result.IsSuccess)
             {
                 return Ok(result);
@@ -97,7 +105,11 @@ namespace VietTuneArchive.API.Controllers
         [Authorize(Roles = "Admin,Expert,Contributor")]
         public async Task<IActionResult> RejectSubmission(Guid submissionId)
         {
-            var result = await _submissionService.RejectSubmission(submissionId);
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var result = await _submissionService.RejectSubmission(submissionId, userId);
             if (result.IsSuccess)
             {
                 return Ok(result);

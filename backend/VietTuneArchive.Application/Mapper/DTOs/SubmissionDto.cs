@@ -26,6 +26,8 @@ namespace VietTuneArchive.Application.Mapper.DTOs
         public string? Notes { get; set; }
         public DateTime SubmittedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public Guid? ReviewerId { get; set; }
+        public string? ReviewerName { get; set; }
         public RecordingDto Recording { get; set; }
     }
 }
