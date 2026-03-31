@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,6 +27,7 @@ namespace VietTuneArchive.Domain.Repositories
                     .ThenInclude(ri => ri.Instrument)
                 .Include(sv => sv.SubmissionVersions)
                 .Include(rv => rv.Reviews)
+                .Include(re => re.Reviewer)
                 .ToListAsync();
         }
         public async Task<Submission> GetSubmissionByIdAsync(Guid id)
@@ -37,6 +38,7 @@ namespace VietTuneArchive.Domain.Repositories
                     .ThenInclude(ri => ri.Instrument)
                 .Include(sv => sv.SubmissionVersions)
                 .Include(rv => rv.Reviews)
+                .Include(re => re.Reviewer)
                 .FirstOrDefaultAsync(s => s.Id == id);
         }
         public async Task<IEnumerable<Submission>> GetByUserIdAsync(Guid userId)
@@ -48,6 +50,7 @@ namespace VietTuneArchive.Domain.Repositories
                     .ThenInclude(ri => ri.Instrument)
                 .Include(sv => sv.SubmissionVersions)
                 .Include(rv => rv.Reviews)
+                .Include(re => re.Reviewer)
                 .ToListAsync();
         }
         public async Task<IEnumerable<Submission>> GetByStatusAsync(SubmissionStatus status)
@@ -59,6 +62,7 @@ namespace VietTuneArchive.Domain.Repositories
                     .ThenInclude(ri => ri.Instrument)
                 .Include(sv => sv.SubmissionVersions)
                 .Include(rv => rv.Reviews)
+                .Include(re => re.Reviewer)
                 .ToListAsync();
         }
     }

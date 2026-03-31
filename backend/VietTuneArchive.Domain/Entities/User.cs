@@ -55,6 +55,7 @@ namespace VietTuneArchive.Domain.Entities
         public ICollection<RefreshToken>? RefreshTokens { get; set; }
         public ICollection<Recording>? Recordings { get; set; }
         public ICollection<Submission>? Submissions { get; set; }
+        public ICollection<Submission>? AssignedSubmissions { get; set; }
         public ICollection<Review>? Reviews { get; set; }
         public ICollection<Annotation>? Annotations { get; set; }
         public ICollection<QAConversation>? QAConversations { get; set; }

@@ -468,6 +468,11 @@ namespace VietTuneArchive.Domain.Context
                     .WithOne(r => r.Submission)
                     .HasForeignKey(r => r.SubmissionId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Reviewer)
+                    .WithMany(u => u.AssignedSubmissions)
+                    .HasForeignKey(e => e.ReviewerId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<SubmissionVersion>(entity =>

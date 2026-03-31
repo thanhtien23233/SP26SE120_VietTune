@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Domain.Entities;
 
@@ -43,7 +43,8 @@ namespace VietTuneArchive.Application.Mapper
 
             // ============= SUBMISSION & REVIEW =============
             CreateMap<Submission, SubmissionDto>().ReverseMap();
-            CreateMap<Submission, GetSubmissionDto>();
+            CreateMap<Submission, GetSubmissionDto>()
+                .ForMember(dest => dest.ReviewerName, opt => opt.MapFrom(src => src.Reviewer != null ? src.Reviewer.FullName : null));
             CreateMap<SubmissionVersion, SubmissionVersionDto>().ReverseMap();
             CreateMap<Review, ReviewDto>().ReverseMap();
 
