@@ -37,36 +37,43 @@ namespace VietTuneArchive.API.Controllers
         }
 
         /// <summary>
-        /// Detect instrument from an uploaded audio file (temporary, not saved to DB)
+        /// Detect multiple instruments from an uploaded audio file.
+        /// Chunks are processed via Python service for embeddings and local ONNX for classification.
         /// </summary>
-        [HttpPost("detect-instrument")]
+        [HttpPost("detect-instruments")]
         [AllowAnonymous]
         [RequestSizeLimit(50 * 1024 * 1024)] // 50MB
-        public async Task<ActionResult<ServiceResponse<InstrumentDetectionResponse>>> DetectInstrument(IFormFile file)
+        public async Task<ActionResult<ServiceResponse<MultiInstrumentDetectionResponse>>> DetectInstruments(IFormFile file, [FromQuery] bool includeTimeline = false)
         {
             if (file == null || file.Length == 0)
-                return BadRequest(new ServiceResponse<InstrumentDetectionResponse> { Success = false, Message = "No file uploaded." });
+                return BadRequest(new ServiceResponse<MultiInstrumentDetectionResponse> { Success = false, Message = "No file uploaded." });
 
             var allowedExtensions = new[] { ".wav", ".mp3" };
             var extension = Path.GetExtension(file.FileName).ToLower();
             if (!allowedExtensions.Contains(extension))
-                return BadRequest(new ServiceResponse<InstrumentDetectionResponse> { Success = false, Message = "Invalid file format. Only .wav and .mp3 are supported." });
+                return BadRequest(new ServiceResponse<MultiInstrumentDetectionResponse> { Success = false, Message = "Invalid file format. Only .wav and .mp3 are supported." });
 
             try
             {
                 using var stream = file.OpenReadStream();
-                var result = await _detectionService.DetectInstrumentAsync(stream, file.FileName);
-                return Ok(new ServiceResponse<InstrumentDetectionResponse>
+                var result = await _detectionService.DetectMultipleInstrumentsAsync(stream, file.FileName);
+                
+                if (!includeTimeline)
+                {
+                    result.Timeline = null;
+                }
+
+                return Ok(new ServiceResponse<MultiInstrumentDetectionResponse>
                 {
                     Success = true,
                     Data = result,
-                    Message = "Instrument detection successful."
+                    Message = "Multiple instrument detection successful."
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error detecting instrument for file {FileName}", file.FileName);
-                return StatusCode(500, new ServiceResponse<InstrumentDetectionResponse>
+                _logger.LogError(ex, "Error detecting instruments for file {FileName}", file.FileName);
+                return StatusCode(500, new ServiceResponse<MultiInstrumentDetectionResponse>
                 {
                     Success = false,
                     Message = $"Internal server error: {ex.Message}",
@@ -76,20 +83,20 @@ namespace VietTuneArchive.API.Controllers
         }
 
         /// <summary>
-        /// Analyze a recorded audio file from URL and save result to database
+        /// Analyze a recorded audio file from URL and save result to database.
         /// </summary>
         [HttpPost("analyze-recording/{recordingId:guid}")]
         [Authorize(Roles = "Admin,Expert")]
-        public async Task<ActionResult<ServiceResponse<RecordingAnalysisResponse>>> AnalyzeRecording(Guid recordingId)
+        public async Task<ActionResult<ServiceResponse<MultiInstrumentDetectionResponse>>> AnalyzeRecording(Guid recordingId)
         {
             try
             {
                 var recording = await _dbContext.Recordings.FindAsync(recordingId);
                 if (recording == null)
-                    return NotFound(new ServiceResponse<RecordingAnalysisResponse> { Success = false, Message = $"Recording with ID {recordingId} not found." });
+                    return NotFound(new ServiceResponse<MultiInstrumentDetectionResponse> { Success = false, Message = $"Recording with ID {recordingId} not found." });
 
                 if (string.IsNullOrEmpty(recording.AudioFileUrl))
-                    return BadRequest(new ServiceResponse<RecordingAnalysisResponse> { Success = false, Message = "Recording does not have an audio URL." });
+                    return BadRequest(new ServiceResponse<MultiInstrumentDetectionResponse> { Success = false, Message = "Recording does not have an audio URL." });
 
                 _logger.LogInformation("Downloading audio from {Url} for recording {RecordingId}", recording.AudioFileUrl, recordingId);
                 
@@ -97,33 +104,25 @@ namespace VietTuneArchive.API.Controllers
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogError("Failed to download audio file from {Url}. Status: {StatusCode}", recording.AudioFileUrl, response.StatusCode);
-                    return StatusCode((int)response.StatusCode, new ServiceResponse<RecordingAnalysisResponse> { Success = false, Message = "Failed to download audio file from storage." });
+                    return StatusCode((int)response.StatusCode, new ServiceResponse<MultiInstrumentDetectionResponse> { Success = false, Message = "Failed to download audio file from storage." });
                 }
 
                 using var stream = await response.Content.ReadAsStreamAsync();
-                var detectionResult = await _detectionService.DetectInstrumentAsync(stream, "recording.wav");
+                var result = await _detectionService.DetectMultipleInstrumentsAsync(stream, "recording.wav");
 
                 var analysisResult = new AudioAnalysisResult
                 {
                     Id = Guid.NewGuid(),
                     RecordingId = recordingId,
-                    DetectedInstrumentsJson = JsonSerializer.Serialize(detectionResult.AllScores),
-                    SuggestedMetadataJson = JsonSerializer.Serialize(detectionResult),
+                    DetectedInstrumentsJson = JsonSerializer.Serialize(result.DetectedInstruments),
+                    SuggestedMetadataJson = JsonSerializer.Serialize(result),
                     AnalyzedAt = DateTime.UtcNow
                 };
 
                 _dbContext.AudioAnalysisResults.Add(analysisResult);
                 await _dbContext.SaveChangesAsync();
 
-                var result = new RecordingAnalysisResponse
-                {
-                    AnalysisResultId = analysisResult.Id,
-                    RecordingId = recordingId,
-                    Detection = detectionResult,
-                    AnalyzedAt = analysisResult.AnalyzedAt
-                };
-
-                return Ok(new ServiceResponse<RecordingAnalysisResponse>
+                return Ok(new ServiceResponse<MultiInstrumentDetectionResponse>
                 {
                     Success = true,
                     Data = result,
@@ -133,7 +132,7 @@ namespace VietTuneArchive.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error analyzing recording {RecordingId}", recordingId);
-                return StatusCode(500, new ServiceResponse<RecordingAnalysisResponse>
+                return StatusCode(500, new ServiceResponse<MultiInstrumentDetectionResponse>
                 {
                     Success = false,
                     Message = $"Internal server error: {ex.Message}",
@@ -143,7 +142,7 @@ namespace VietTuneArchive.API.Controllers
         }
 
         /// <summary>
-        /// Get a list of instruments supported by the ONNX model
+        /// Get a list of instruments supported by the ONNX model.
         /// </summary>
         [HttpGet("supported-instruments")]
         public ActionResult<ServiceResponse<string[]>> GetSupportedInstruments()
