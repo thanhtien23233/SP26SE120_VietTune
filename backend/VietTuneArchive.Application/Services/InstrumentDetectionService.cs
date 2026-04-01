@@ -1,14 +1,10 @@
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
-using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 
@@ -16,230 +12,256 @@ namespace VietTuneArchive.Application.Services
 {
     public class InstrumentDetectionService : IInstrumentDetectionService
     {
-        private const int TargetSampleRate = 16000;
-        private const int ChunkSamples = 48000; // 3 seconds * 16000
+        private const float DETECTION_THRESHOLD = 0.10f;
+        private const float FRAME_DURATION = 0.96f;
+        private const float FRAME_HOP = 0.48f;
+        private const string BACKGROUND_CLASS = "background";
+        private const float CONFIDENCE_THRESHOLD = 0.70f;
 
-        private readonly InferenceSession _session;
-        private readonly string[] _classNames;
+        private static InferenceSession? _classifierSession;
+        private static string[]? _classNames;
+        private static string? _classifierInputName;
+        private static readonly object _lock = new object();
+
+        private readonly HttpClient _httpClient;
         private readonly ILogger<InstrumentDetectionService> _logger;
 
-        public InstrumentDetectionService(ILogger<InstrumentDetectionService> logger, IWebHostEnvironment env)
+        public InstrumentDetectionService(HttpClient httpClient, IWebHostEnvironment env, ILogger<InstrumentDetectionService> logger)
         {
+            _httpClient = httpClient;
             _logger = logger;
 
+            if (_classifierSession == null)
+            {
+                lock (_lock)
+                {
+                    if (_classifierSession == null)
+                    {
+                        Initialize(env);
+                    }
+                }
+            }
+        }
+
+        private void Initialize(IWebHostEnvironment env)
+        {
             try
             {
-                string modelPath = Path.Combine(env.ContentRootPath, "Models", "AI", "instrument_detector_full.onnx");
-                string classesPath = Path.Combine(env.ContentRootPath, "Models", "AI", "class_names.txt");
+                var onnxPath = Path.Combine(env.ContentRootPath, "Models", "AI", "instrument_detector.onnx");
+                var classNamesPath = Path.Combine(env.ContentRootPath, "Models", "AI", "class_names.txt");
 
-                if (!File.Exists(modelPath))
+                if (File.Exists(onnxPath))
                 {
-                    _logger.LogWarning("ONNX model file not found at {modelPath}. Detection will fail.", modelPath);
+                    var options = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
+                    _classifierSession = new InferenceSession(onnxPath, options);
+                    _classifierInputName = _classifierSession.InputMetadata.Keys.First();
+                    _logger.LogInformation("Classifier loaded. Input name: {inputName}", _classifierInputName);
+                }
+                else
+                {
+                    _logger.LogWarning("ONNX classifier not found at {onnxPath}", onnxPath);
                 }
 
-                if (!File.Exists(classesPath))
+                if (File.Exists(classNamesPath))
                 {
-                    _logger.LogWarning("Class names file not found at {classesPath}. Detection will fail.", classesPath);
+                    _classNames = File.ReadAllLines(classNamesPath)
+                                      .Where(l => !string.IsNullOrWhiteSpace(l))
+                                      .Select(l => l.Trim())
+                                      .ToArray();
+                    _logger.LogInformation("Loaded {count} classes: [{classes}]", _classNames.Length, string.Join(", ", _classNames));
+                }
+                else
+                {
                     _classNames = Array.Empty<string>();
-                }
-                else
-                {
-                    _classNames = File.ReadAllLines(classesPath)
-                        .Where(line => !string.IsNullOrWhiteSpace(line))
-                        .Select(line => line.Trim())
-                        .ToArray();
-                    _logger.LogInformation("Loaded {count} classes for instrument detection.", _classNames.Length);
-                }
-
-                if (File.Exists(modelPath))
-                {
-                    var sessionOptions = new SessionOptions();
-                    sessionOptions.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
-                    _session = new InferenceSession(modelPath, sessionOptions);
-                    _logger.LogInformation("ONNX InferenceSession initialized successfully.");
-                }
-                else
-                {
-                    _session = null!;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error initializing InstrumentDetectionService");
-                // Don't throw here to allow app to start even if AI fails, 
-                // but throw later when Detect is called.
-                _session = null!;
+                _logger.LogError(ex, "Error initializing static ONNX resources in InstrumentDetectionService");
                 _classNames = Array.Empty<string>();
             }
         }
 
-        public string[] SupportedInstruments => _classNames;
+        public string[] SupportedInstruments => _classNames ?? Array.Empty<string>();
 
-        public async Task<InstrumentDetectionResponse> DetectInstrumentAsync(Stream audioStream, string fileName)
+        public async Task<MultiInstrumentDetectionResponse> DetectMultipleInstrumentsAsync(Stream audioStream, string fileName)
         {
-            if (_session == null)
+            if (_classifierSession == null)
             {
-                throw new InvalidOperationException("ONNX InferenceSession is not initialized. Check logs for model loading errors.");
+                throw new InvalidOperationException("Classifier session is not initialized. Check model folder and logs.");
             }
 
-            if (_classNames == null || _classNames.Length == 0)
+            // Ensure we are at the beginning of the stream if possible
+            if (audioStream.CanSeek) audioStream.Position = 0;
+
+            // GỌI PYTHON FASTAPI
+            using var content = new MultipartFormDataContent();
+            
+            // Read stream into byte array for HttpClient
+            byte[] byteArray;
+            if (audioStream is MemoryStream ms)
             {
-                 throw new InvalidOperationException("Class names are not loaded. Check logs for file loading errors.");
+                byteArray = ms.ToArray();
+            }
+            else
+            {
+                using var memoryStream = new MemoryStream();
+                await audioStream.CopyToAsync(memoryStream);
+                byteArray = memoryStream.ToArray();
             }
 
-            try
+            using var streamContent = new ByteArrayContent(byteArray);
+            streamContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
+            content.Add(streamContent, "file", fileName);
+
+            _logger.LogInformation("Sending audio analysis request to embedding service for {fileName} ({size} bytes)", fileName, byteArray.Length);
+            var httpResponse = await _httpClient.PostAsync("/extract-embeddings", content);
+            
+            if (!httpResponse.IsSuccessStatusCode)
             {
-                float[] waveform = await LoadAndResampleAudioAsync(audioStream, fileName);
-                List<float[]> chunks = SplitIntoChunks(waveform);
+                var errorBody = await httpResponse.Content.ReadAsStringAsync();
+                _logger.LogError("Embedding service returned error: {code} - {body}", httpResponse.StatusCode, errorBody);
+                throw new Exception($"Embedding service failed: {httpResponse.StatusCode}");
+            }
 
-                List<float[]> allPredictions = new();
-                foreach (var chunk in chunks)
+            var json = await httpResponse.Content.ReadAsStringAsync();
+            
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var yamnetResponse = JsonSerializer.Deserialize<YamNetEmbeddingResponse>(json, options);
+
+            if (yamnetResponse == null || yamnetResponse.Embeddings == null)
+            {
+                throw new Exception("Invalid response from embedding service.");
+            }
+
+            _logger.LogInformation("Received {count} embeddings from YAMNet service", yamnetResponse.Embeddings.Count);
+
+            // CHẠY ONNX CLASSIFIER cho mỗi embedding
+            var chunkResults = new List<ChunkResult>();
+
+            for (int i = 0; i < yamnetResponse.Embeddings.Count; i++)
+            {
+                float[] embedding = yamnetResponse.Embeddings[i].ToArray();
+
+                if (embedding.Length != 1024)
                 {
-                    allPredictions.Add(RunInference(chunk));
+                    _logger.LogWarning("Received embedding with length {length} instead of 1024 at chunk {index}. Skipping.", embedding.Length, i);
+                    continue;
                 }
 
-                float[] avgScores = AggregatePredictions(allPredictions);
-
-                // Argmax
-                int predictedIndex = 0;
-                float maxScore = -1f;
-                for (int i = 0; i < avgScores.Length; i++)
+                // Tensor [1, 1024]
+                var tensor = new DenseTensor<float>(embedding, new[] { 1, 1024 });
+                var inputs = new List<NamedOnnxValue>
                 {
-                    if (avgScores[i] > maxScore)
-                    {
-                        maxScore = avgScores[i];
-                        predictedIndex = i;
-                    }
-                }
-
-                var response = new InstrumentDetectionResponse
-                {
-                    PredictedInstrument = predictedIndex < _classNames.Length ? _classNames[predictedIndex] : "Unknown",
-                    Confidence = maxScore,
-                    ChunksAnalyzed = chunks.Count,
-                    AudioDurationSeconds = (float)waveform.Length / TargetSampleRate,
-                    AllScores = avgScores.Select((score, index) => new ClassScoreDto
-                    {
-                        ClassName = index < _classNames.Length ? _classNames[index] : $"Index_{index}",
-                        Score = score
-                    }).OrderByDescending(s => s.Score).ToList()
+                    NamedOnnxValue.CreateFromTensor(_classifierInputName, tensor)
                 };
 
-                return response;
+                using var results = _classifierSession.Run(inputs);
+                float[] scores = results.First().AsEnumerable<float>().ToArray();
+
+                // Argmax
+                int topIdx = Array.IndexOf(scores, scores.Max());
+                if (scores[topIdx] >= CONFIDENCE_THRESHOLD)
+                {
+                    chunkResults.Add(new ChunkResult
+                    {
+                        ChunkIndex = i,
+                        StartSeconds = i * FRAME_HOP,
+                        EndSeconds = i * FRAME_HOP + FRAME_DURATION,
+                        PredictedInstrument = (topIdx >= 0 && topIdx < (_classNames?.Length ?? 0)) ? _classNames![topIdx] : "unknown",
+                        Confidence = scores[topIdx],
+                    });
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during instrument detection for file {fileName}", fileName);
-                throw;
-            }
+
+            // AGGREGATE
+            return AggregateResults(chunkResults, yamnetResponse.DurationSeconds);
         }
 
-        private async Task<float[]> LoadAndResampleAudioAsync(Stream audioStream, string fileName)
+        private MultiInstrumentDetectionResponse AggregateResults(List<ChunkResult> chunks, float duration)
         {
-            // NAudio needs seekable stream for most thin
-            using var ms = new MemoryStream();
-            await audioStream.CopyToAsync(ms);
-            ms.Position = 0;
-
-            string extension = Path.GetExtension(fileName).ToLower();
-            WaveStream reader = extension switch
+            if (chunks.Count == 0)
             {
-                ".wav" => new WaveFileReader(ms),
-                ".mp3" => new Mp3FileReader(ms),
-                _ => throw new NotSupportedException($"Audio format {extension} is not supported.")
+                return new MultiInstrumentDetectionResponse
+                {
+                    TotalChunks = 0,
+                    AudioDurationSeconds = duration,
+                    DetectionThreshold = DETECTION_THRESHOLD,
+                    PrimaryInstrument = "unknown"
+                };
+            }
+
+            // Group chunks by PredictedInstrument
+            var instrumentSummaries = chunks
+                .GroupBy(c => c.PredictedInstrument)
+                .Select(group => new DetectedInstrumentSummary
+                {
+                    InstrumentName = group.Key,
+                    ChunkCount = group.Count(),
+                    TotalChunks = chunks.Count,
+                    Percentage = group.Count() / (float)chunks.Count,
+                    AverageConfidence = group.Average(c => c.Confidence),
+                    Segments = MergeConsecutiveChunks(group)
+                })
+                .Where(summary => summary.InstrumentName != BACKGROUND_CLASS && summary.Percentage >= DETECTION_THRESHOLD)
+                .OrderByDescending(summary => summary.Percentage)
+                .ToList();
+
+            var response = new MultiInstrumentDetectionResponse
+            {
+                DetectedInstruments = instrumentSummaries,
+                PrimaryInstrument = instrumentSummaries.FirstOrDefault()?.InstrumentName ?? "unknown",
+                TotalChunks = chunks.Count,
+                AudioDurationSeconds = duration,
+                DetectionThreshold = DETECTION_THRESHOLD,
+                Timeline = chunks
             };
 
-            using (reader)
-            {
-                var outFormat = new WaveFormat(TargetSampleRate, 16, 1);
-                using (var resampler = new MediaFoundationResampler(reader, outFormat))
-                {
-                    resampler.ResamplerQuality = 60;
-                    
-                    // Convert to float array
-                    var byteBuffer = new byte[TargetSampleRate * 2 * 10]; // 10 second buffer
-                    using var resultStream = new MemoryStream();
-                    
-                    int read;
-                    while ((read = resampler.Read(byteBuffer, 0, byteBuffer.Length)) > 0)
-                    {
-                        resultStream.Write(byteBuffer, 0, read);
-                    }
-
-                    byte[] finalBytes = resultStream.ToArray();
-                    float[] waveform = new float[finalBytes.Length / 2];
-                    for (int i = 0; i < waveform.Length; i++)
-                    {
-                        waveform[i] = BitConverter.ToInt16(finalBytes, i * 2) / 32768f;
-                    }
-                    return waveform;
-                }
-            }
+            return response;
         }
 
-        private List<float[]> SplitIntoChunks(float[] waveform)
+        private List<TimeSegment> MergeConsecutiveChunks(IEnumerable<ChunkResult> chunks)
         {
-            List<float[]> chunks = new();
-            int numChunks = (int)Math.Ceiling((double)waveform.Length / ChunkSamples);
-            if (numChunks == 0) numChunks = 1;
+            var segments = new List<TimeSegment>();
+            var sorted = chunks.OrderBy(c => c.ChunkIndex).ToList();
 
-            for (int i = 0; i < numChunks; i++)
+            if (sorted.Count == 0) return segments;
+
+            TimeSegment current = new TimeSegment
             {
-                float[] chunk = new float[ChunkSamples];
-                int offset = i * ChunkSamples;
-                int count = Math.Min(ChunkSamples, waveform.Length - offset);
-                
-                if (count > 0)
-                {
-                    Array.Copy(waveform, offset, chunk, 0, count);
-                }
-                // remaining is zero-padded by default in new float[]
-                chunks.Add(chunk);
-            }
-
-            return chunks;
-        }
-
-        private float[] RunInference(float[] audioChunk)
-        {
-            var tensor = new DenseTensor<float>(audioChunk, new[] { ChunkSamples });
-            string inputName = _session.InputMetadata.Keys.First();
-            
-            var inputs = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor(inputName, tensor)
+                StartSeconds = sorted[0].StartSeconds,
+                EndSeconds = sorted[0].EndSeconds
             };
 
-            using var results = _session.Run(inputs);
-            return results.First().AsEnumerable<float>().ToArray();
-        }
-
-        private float[] AggregatePredictions(List<float[]> allPredictions)
-        {
-            if (allPredictions.Count == 0) return Array.Empty<float>();
-            
-            int numClasses = allPredictions[0].Length;
-            float[] avgScores = new float[numClasses];
-
-            foreach (var prediction in allPredictions)
+            for (int i = 1; i < sorted.Count; i++)
             {
-                for (int i = 0; i < Math.Min(numClasses, prediction.Length); i++)
+                if (sorted[i].ChunkIndex == sorted[i-1].ChunkIndex + 1 || Math.Abs(sorted[i].StartSeconds - sorted[i-1].EndSeconds) < 0.1f)
                 {
-                    avgScores[i] += prediction[i];
+                    current.EndSeconds = sorted[i].EndSeconds;
+                }
+                else
+                {
+                    current.DurationSeconds = (float)Math.Round(current.EndSeconds - current.StartSeconds, 2);
+                    segments.Add(current);
+
+                    current = new TimeSegment
+                    {
+                        StartSeconds = sorted[i].StartSeconds,
+                        EndSeconds = sorted[i].EndSeconds
+                    };
                 }
             }
 
-            for (int i = 0; i < numClasses; i++)
-            {
-                avgScores[i] /= allPredictions.Count;
-            }
+            current.DurationSeconds = (float)Math.Round(current.EndSeconds - current.StartSeconds, 2);
+            segments.Add(current);
 
-            return avgScores;
+            return segments;
         }
 
         public void Dispose()
         {
-            _session?.Dispose();
+            // Note: Since _classifierSession is static, it stays across instances.
+            // Disposal should usually be handled by a container, but singleton behavior means it lives for app life.
         }
     }
 }
