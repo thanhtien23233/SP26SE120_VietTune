@@ -651,3 +651,4 @@ obj/
 appsettings.Development.json
 appsettings.Local.json
 appsettings.json
+backend/VietTuneArchive.Application/Services/InstrumentDetectionService.cs
