@@ -174,6 +174,15 @@ builder.Services.AddHttpClient<IInstrumentDetectionService, InstrumentDetectionS
     client.Timeout = TimeSpan.FromSeconds(config.TimeoutSeconds);
 });
 
+// === Gemini & Vector Embedding Services ===
+builder.Services.Configure<GeminiOptions>(
+    builder.Configuration.GetSection(GeminiOptions.SectionName));
+
+builder.Services.AddHttpClient<IOpenAIEmbeddingService, GeminiEmbeddingService>();
+builder.Services.AddScoped<IEmbeddingTextBuilder, EmbeddingTextBuilder>();
+builder.Services.AddScoped<IVectorEmbeddingService, VectorEmbeddingService>();
+builder.Services.AddScoped<ISemanticSearchService, SemanticSearchService>();
+
 
 // ✅ SERVICES - Knowledge Base
 builder.Services.AddScoped<IKBEntryService, KBEntryService>();

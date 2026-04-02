@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Logging;
 using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
@@ -22,7 +23,9 @@ namespace VietTuneArchive.Application.Services
         private readonly ISubmissionRepository _submissionRepository;
         private readonly INotificationService _notificationService;
         private readonly IUserRepository _userRepository;
-        public RecordingService(IRecordingRepository repository, IMapper mapper, ICommuneRepository communeRepository, IEthnicGroupRepository ethnicGroupRepository, ICeremonyRepository ceremonyRepository, IMusicalScaleRepository musicalScaleRepository, IInstrumentRepository instrumentRepository, IVocalStyleRepository vocalStyleRepository, ISubmissionRepository submissionRepository, INotificationService notificationService, IUserRepository userRepository)
+        private readonly IVectorEmbeddingService _vectorEmbeddingService;
+        private readonly ILogger<RecordingService> _logger;
+        public RecordingService(IRecordingRepository repository, IMapper mapper, ICommuneRepository communeRepository, IEthnicGroupRepository ethnicGroupRepository, ICeremonyRepository ceremonyRepository, IMusicalScaleRepository musicalScaleRepository, IInstrumentRepository instrumentRepository, IVocalStyleRepository vocalStyleRepository, ISubmissionRepository submissionRepository, INotificationService notificationService, IUserRepository userRepository, IVectorEmbeddingService vectorEmbeddingService, ILogger<RecordingService> logger)
             : base(repository, mapper)
         {
             _recordingRepository = repository ?? throw new ArgumentNullException(nameof(repository));
@@ -36,6 +39,8 @@ namespace VietTuneArchive.Application.Services
             _musicalScaleRepository = musicalScaleRepository;
             _instrumentRepository = instrumentRepository;
             _vocalStyleRepository = vocalStyleRepository;
+            _vectorEmbeddingService = vectorEmbeddingService;
+            _logger = logger;
         }
         public async Task<Result<RecordingDto>> UploadRecordInfo(RecordingDto recordingDto, Guid recordingId) { 
             try
@@ -137,6 +142,20 @@ namespace VietTuneArchive.Application.Services
                             "Recording",
                             existingRecording.Id
                         );
+                    }
+                }
+                
+                // <<< THÊM: Re-generate embedding nếu bản ghi đã được duyệt (Published) >>>
+                // LƯU Ý: Ở trên đã set Pending, nên chỗ này chỉ chạy nếu logic bên trên thay đổi hoặc status được giữ nguyên.
+                if (existingRecording.Status == SubmissionStatus.Approved)
+                {
+                    try
+                    {
+                        await _vectorEmbeddingService.GenerateAndSaveAsync(existingRecording.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to regenerate embedding for updated Recording {Id}", existingRecording.Id);
                     }
                 }
 
@@ -390,6 +409,27 @@ namespace VietTuneArchive.Application.Services
                     Errors = new List<string> { ex.Message }
                 };
             }
+        }
+
+        public override async Task<ServiceResponse<RecordingDto>> UpdateAsync(Guid id, RecordingDto dto)
+        {
+            var response = await base.UpdateAsync(id, dto);
+            if (response.Success && response.Data != null)
+            {
+                var recording = await _recordingRepository.GetByIdAsync(id);
+                if (recording != null && recording.Status == SubmissionStatus.Approved)
+                {
+                    try
+                    {
+                        await _vectorEmbeddingService.GenerateAndSaveAsync(id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to regenerate embedding for updated Recording {Id} in base update", id);
+                    }
+                }
+            }
+            return response;
         }
     }
 }
