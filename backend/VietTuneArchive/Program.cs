@@ -12,6 +12,8 @@ using VietTuneArchive.Domain.Context;
 using VietTuneArchive.Domain.Entities;
 using VietTuneArchive.Domain.IRepositories;
 using VietTuneArchive.Domain.Repositories;
+using VietTuneArchive.Application.Common;
+using Microsoft.Extensions.Options;
 using VietTuneArchive.Application.Hubs;
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
@@ -161,6 +163,26 @@ builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IAnnotationService, AnnotationService>();
 builder.Services.AddScoped<IVectorEmbeddingService, VectorEmbeddingService>();
 builder.Services.AddScoped<IAudioProcessingService, AudioProcessingService>();
+// ✅ YamNet Service Config
+builder.Services.Configure<YamNetServiceConfig>(builder.Configuration.GetSection("YamNetService"));
+
+// ✅ Register HttpClient for InstrumentDetectionService (Typed HttpClient)
+builder.Services.AddHttpClient<IInstrumentDetectionService, InstrumentDetectionService>((sp, client) =>
+{
+    var config = sp.GetRequiredService<IOptions<YamNetServiceConfig>>().Value;
+    client.BaseAddress = new Uri(config.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(config.TimeoutSeconds);
+});
+
+// === Gemini & Vector Embedding Services ===
+builder.Services.Configure<GeminiOptions>(
+    builder.Configuration.GetSection(GeminiOptions.SectionName));
+
+builder.Services.AddHttpClient<IOpenAIEmbeddingService, GeminiEmbeddingService>();
+builder.Services.AddScoped<IEmbeddingTextBuilder, EmbeddingTextBuilder>();
+builder.Services.AddScoped<IVectorEmbeddingService, VectorEmbeddingService>();
+builder.Services.AddScoped<ISemanticSearchService, SemanticSearchService>();
+
 
 // ✅ SERVICES - Knowledge Base
 builder.Services.AddScoped<IKBEntryService, KBEntryService>();

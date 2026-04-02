@@ -1,151 +1,187 @@
-using AutoMapper;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.IServices;
-using VietTuneArchive.Application.Mapper.DTOs;
-using VietTuneArchive.Application.Responses;
+using VietTuneArchive.Domain.Context;
 using VietTuneArchive.Domain.Entities;
-using VietTuneArchive.Domain.IRepositories;
+using VietTuneArchive.Domain.Entities.Enum;
 
 namespace VietTuneArchive.Application.Services
 {
-    public class VectorEmbeddingService : GenericService<VectorEmbedding, VectorEmbeddingDto>, IVectorEmbeddingService
+    public class VectorEmbeddingService : IVectorEmbeddingService
     {
-        private readonly IVectorEmbeddingRepository _vectorEmbeddingRepository;
+        private readonly DBContext _db;
+        private readonly IOpenAIEmbeddingService _embeddingService;
+        private readonly IEmbeddingTextBuilder _textBuilder;
+        private readonly GeminiOptions _options;
+        private readonly ILogger<VectorEmbeddingService> _logger;
 
-        public VectorEmbeddingService(IVectorEmbeddingRepository repository, IMapper mapper)
-            : base(repository, mapper)
+        public VectorEmbeddingService(
+            DBContext db,
+            IOpenAIEmbeddingService embeddingService,
+            IEmbeddingTextBuilder textBuilder,
+            IOptions<GeminiOptions> options,
+            ILogger<VectorEmbeddingService> logger)
         {
-            _vectorEmbeddingRepository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _db = db;
+            _embeddingService = embeddingService;
+            _textBuilder = textBuilder;
+            _options = options.Value;
+            _logger = logger;
         }
 
-        /// <summary>
-        /// Get embeddings by recording
-        /// </summary>
-        public async Task<ServiceResponse<List<VectorEmbeddingDto>>> GetByRecordingAsync(Guid recordingId)
+        public async Task<VectorEmbedding> GenerateAndSaveAsync(
+            Guid recordingId, CancellationToken ct = default)
         {
-            try
-            {
-                if (recordingId == Guid.Empty)
-                    throw new ArgumentException("Recording id cannot be empty", nameof(recordingId));
+            // 1. Load recording với đầy đủ navigation properties
+            var recording = await GetRecordingWithIncludes(recordingId, ct);
+            if (recording == null)
+                throw new KeyNotFoundException($"Recording {recordingId} not found.");
 
-                var embeddings = await _vectorEmbeddingRepository.GetAsync(ve => ve.RecordingId == recordingId);
-                var dtos = _mapper.Map<List<VectorEmbeddingDto>>(embeddings);
-                return new ServiceResponse<List<VectorEmbeddingDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} embeddings"
-                };
-            }
-            catch (Exception ex)
+            // 2. Build text
+            var text = _textBuilder.BuildSearchableText(recording);
+            if (string.IsNullOrWhiteSpace(text))
+                throw new InvalidOperationException(
+                    $"Recording {recordingId} has no metadata to generate embedding.");
+
+            // 3. Gọi OpenAI
+            var embeddingVector = await _embeddingService.GetEmbeddingAsync(text, ct);
+
+            // 4. Xóa embedding cũ nếu có
+            var existing = await _db.VectorEmbeddings
+                .FirstOrDefaultAsync(v => v.RecordingId == recordingId, ct);
+            if (existing != null)
+                _db.VectorEmbeddings.Remove(existing);
+
+            // 5. Tạo mới
+            var vectorEmbedding = new VectorEmbedding
             {
-                return new ServiceResponse<List<VectorEmbeddingDto>>
+                Id = Guid.NewGuid(),
+                RecordingId = recordingId,
+                EmbeddingJson = JsonSerializer.Serialize(embeddingVector),
+                ModelVersion = _options.EmbeddingModel,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.VectorEmbeddings.Add(vectorEmbedding);
+            await _db.SaveChangesAsync(ct);
+
+            _logger.LogInformation(
+                "Generated embedding for Recording {RecordingId}, vector dim={Dim}",
+                recordingId, embeddingVector.Length);
+
+            return vectorEmbedding;
+        }
+
+        public async Task<int> SyncAllMissingAsync(CancellationToken ct = default)
+        {
+            // Lấy các Recording chưa có embedding
+            var recordingIds = await _db.Recordings
+                .Where(r => r.Status == SubmissionStatus.Approved) // chỉ sync recording đã published
+                .Where(r => !_db.VectorEmbeddings.Any(v => v.RecordingId == r.Id))
+                .Select(r => r.Id)
+                .ToListAsync(ct);
+
+            _logger.LogInformation("Found {Count} recordings without embeddings", recordingIds.Count);
+
+            int synced = 0;
+            foreach (var id in recordingIds)
+            {
+                try
                 {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
+                    await GenerateAndSaveAsync(id, ct);
+                    synced++;
+
+                    // Rate limit: delay 200ms giữa các request
+                    await Task.Delay(200, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to generate embedding for Recording {RecordingId}", id);
+                }
+            }
+
+            return synced;
+        }
+
+        public async Task<int> ResyncAllAsync(
+            string? modelVersion = null, CancellationToken ct = default)
+        {
+            var recordingIds = await _db.Recordings
+                .Where(r => r.Status == SubmissionStatus.Approved)
+                .Select(r => r.Id)
+                .ToListAsync(ct);
+
+            int synced = 0;
+            foreach (var id in recordingIds)
+            {
+                try
+                {
+                    await GenerateAndSaveAsync(id, ct);
+                    synced++;
+                    await Task.Delay(200, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to resync embedding for Recording {RecordingId}", id);
+                }
+            }
+
+            return synced;
+        }
+
+        public async Task DeleteByRecordingIdAsync(
+            Guid recordingId, CancellationToken ct = default)
+        {
+            var existing = await _db.VectorEmbeddings
+                .FirstOrDefaultAsync(v => v.RecordingId == recordingId, ct);
+            if (existing != null)
+            {
+                _db.VectorEmbeddings.Remove(existing);
+                await _db.SaveChangesAsync(ct);
             }
         }
 
-        /// <summary>
-        /// Get embeddings by model version
-        /// </summary>
-        public async Task<ServiceResponse<List<VectorEmbeddingDto>>> GetByModelVersionAsync(string modelVersion)
+        public async Task<EmbeddingSyncStatus> GetSyncStatusAsync(
+            CancellationToken ct = default)
         {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(modelVersion))
-                    throw new ArgumentException("Model version cannot be empty", nameof(modelVersion));
+            var totalRecordings = await _db.Recordings.CountAsync(ct);
+            var withEmbedding = await _db.VectorEmbeddings.CountAsync(ct);
 
-                var embeddings = await _vectorEmbeddingRepository.GetAsync(ve => ve.ModelVersion == modelVersion);
-                var dtos = _mapper.Map<List<VectorEmbeddingDto>>(embeddings);
-                return new ServiceResponse<List<VectorEmbeddingDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} embeddings"
-                };
-            }
-            catch (Exception ex)
+            return new EmbeddingSyncStatus
             {
-                return new ServiceResponse<List<VectorEmbeddingDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
-            }
+                TotalRecordings = totalRecordings,
+                WithEmbedding = withEmbedding,
+                WithoutEmbedding = totalRecordings - withEmbedding,
+                CurrentModelVersion = _options.EmbeddingModel
+            };
         }
 
-        /// <summary>
-        /// Get latest embedding for a recording
-        /// </summary>
-        public async Task<ServiceResponse<VectorEmbeddingDto>> GetLatestByRecordingAsync(Guid recordingId)
+        private async Task<Recording?> GetRecordingWithIncludes(
+            Guid recordingId, CancellationToken ct)
         {
-            try
-            {
-                if (recordingId == Guid.Empty)
-                    throw new ArgumentException("Recording id cannot be empty", nameof(recordingId));
-
-                var embeddings = await _vectorEmbeddingRepository.GetAsync(ve => ve.RecordingId == recordingId);
-                var latestEmbedding = embeddings.OrderByDescending(e => e.CreatedAt).FirstOrDefault();
-
-                if (latestEmbedding == null)
-                    return new ServiceResponse<VectorEmbeddingDto>
-                    {
-                        Success = false,
-                        Message = "Embedding not found"
-                    };
-
-                var dto = _mapper.Map<VectorEmbeddingDto>(latestEmbedding);
-                return new ServiceResponse<VectorEmbeddingDto>
-                {
-                    Success = true,
-                    Data = dto,
-                    Message = "Retrieved successfully"
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ServiceResponse<VectorEmbeddingDto>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
-            }
-        }
-
-        /// <summary>
-        /// Get all available model versions
-        /// </summary>
-        public async Task<ServiceResponse<List<string>>> GetAllModelVersionsAsync()
-        {
-            try
-            {
-                var embeddings = await _vectorEmbeddingRepository.GetAllAsync();
-                var versions = embeddings
-                    .Select(e => e.ModelVersion)
-                    .Distinct()
-                    .OrderByDescending(v => v)
-                    .ToList();
-
-                return new ServiceResponse<List<string>>
-                {
-                    Success = true,
-                    Data = versions,
-                    Message = "Retrieved all model versions successfully"
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ServiceResponse<List<string>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
-            }
+            return await _db.Recordings
+                .Include(r => r.EthnicGroup)
+                .Include(r => r.Ceremony)
+                .Include(r => r.VocalStyle)
+                .Include(r => r.MusicalScale)
+                .Include(r => r.Commune)
+                    .ThenInclude(c => (c != null) ? c.District : null)
+                        .ThenInclude(d => (d != null) ? d.Province : null)
+                .Include(r => r.RecordingInstruments)
+                    .ThenInclude(ri => ri.Instrument)
+                .Include(r => r.RecordingTags)
+                    .ThenInclude(rt => rt.Tag)
+                .FirstOrDefaultAsync(r => r.Id == recordingId, ct);
         }
     }
 }
