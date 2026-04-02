@@ -182,6 +182,7 @@ builder.Services.AddHttpClient<IOpenAIEmbeddingService, GeminiEmbeddingService>(
 builder.Services.AddScoped<IEmbeddingTextBuilder, EmbeddingTextBuilder>();
 builder.Services.AddScoped<IVectorEmbeddingService, VectorEmbeddingService>();
 builder.Services.AddScoped<ISemanticSearchService, SemanticSearchService>();
+builder.Services.AddScoped<IKnowledgeGraphService, KnowledgeGraphService>();
 
 
 // ✅ SERVICES - Knowledge Base
