@@ -15,7 +15,7 @@ export default function NotificationPage() {
     recordingRequestService.getNotificationsForRole(user.role).then(setNotifications);
     const t = setInterval(() => {
       recordingRequestService.getNotificationsForRole(user.role).then(setNotifications);
-    }, 5000);
+    }, 30_000);
     return () => clearInterval(t);
   }, [user?.role]);
 
@@ -23,21 +23,11 @@ export default function NotificationPage() {
     await recordingRequestService.markNotificationRead(id);
     if (user?.role) setNotifications(await recordingRequestService.getNotificationsForRole(user.role));
   };
-  const handleMarkUnread = async (id: string) => {
-    await recordingRequestService.markNotificationUnread(id);
-    if (user?.role) setNotifications(await recordingRequestService.getNotificationsForRole(user.role));
-  };
 
   const hasUnread = notifications.some((n) => !n.read);
-  const hasRead = notifications.some((n) => n.read);
   const handleMarkAllRead = async () => {
     if (!user?.role) return;
     await recordingRequestService.markAllNotificationsReadForRole(user.role);
-    setNotifications(await recordingRequestService.getNotificationsForRole(user.role));
-  };
-  const handleMarkAllUnread = async () => {
-    if (!user?.role) return;
-    await recordingRequestService.markAllNotificationsUnreadForRole(user.role);
     setNotifications(await recordingRequestService.getNotificationsForRole(user.role));
   };
 
@@ -51,21 +41,12 @@ export default function NotificationPage() {
           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
             <button
               type="button"
-              onClick={handleMarkAllUnread}
-              disabled={!hasRead}
-              title={hasRead ? "Đánh dấu tất cả thông báo là chưa đọc" : "Không còn thông báo đã đọc"}
-              className="inline-flex items-center justify-center min-h-[44px] px-4 sm:px-6 py-2 rounded-xl text-sm sm:text-base font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
-            >
-              Đánh dấu chưa đọc tất cả thông báo
-            </button>
-            <button
-              type="button"
               onClick={handleMarkAllRead}
               disabled={!hasUnread}
               title={hasUnread ? "Đánh dấu tất cả thông báo là đã đọc" : "Không còn thông báo chưa đọc"}
               className="inline-flex items-center justify-center min-h-[44px] px-4 sm:px-6 py-2 rounded-xl text-sm sm:text-base font-medium bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
             >
-              Đánh dấu đã đọc tất cả thông báo
+              Đánh dấu đã đọc tất cả
             </button>
             <BackButton />
           </div>
@@ -122,26 +103,18 @@ export default function NotificationPage() {
                       <p className="text-neutral-700 font-medium text-sm">{n.body}</p>
                       <p className="text-neutral-500 text-xs mt-2">{formatDateTime(n.createdAt)}</p>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleMarkUnread(n.id)}
-                        disabled={!n.read}
-                        title={n.read ? "Đánh dấu thông báo này là chưa đọc" : "Đã ở trạng thái chưa đọc"}
-                        className="px-3 py-1.5 rounded-xl text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
-                      >
-                        Đánh dấu chưa đọc
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMarkRead(n.id)}
-                        disabled={n.read}
-                        title={!n.read ? "Đánh dấu thông báo này là đã đọc" : "Đã ở trạng thái đã đọc"}
-                        className="px-3 py-1.5 rounded-xl text-sm font-medium bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
-                      >
-                        Đánh dấu đã đọc
-                      </button>
-                    </div>
+                    {!n.read && (
+                      <div className="flex items-center flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleMarkRead(n.id)}
+                          title="Đánh dấu thông báo này là đã đọc"
+                          className="px-3 py-1.5 rounded-xl text-sm font-medium bg-primary-600 text-white hover:bg-primary-500 transition-colors cursor-pointer shadow-sm"
+                        >
+                          Đánh dấu đã đọc
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </li>
               ))}

@@ -42,7 +42,10 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
     },
 }));
 
-// Helper functions for convenience
+/**
+ * @deprecated Thông báo dạng modal cũ. Luồng mới: `@/uiToast` (toast không chặn UI).
+ * Giữ store cho NotificationProvider / màn hình cần stack dialog.
+ */
 export const notify = {
     success: (title: string, message: string | React.ReactNode, autoClose = true, autoCloseDelay = 3000) => {
         return useNotificationStore.getState().showNotification(title, message, 'success', autoClose, autoCloseDelay);

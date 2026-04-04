@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useDeferredValue, memo, useRef } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
+import { useDebounce } from "@/hooks/useDebounce";
 import { Search, Music, ArrowRight, ListFilter, X } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import ExploreSearchHeader, { type ExploreSearchMode } from "@/components/features/ExploreSearchHeader";
@@ -128,6 +129,7 @@ export default function ExplorePage() {
   );
   const sqFromUrl = searchParams.get("sq") ?? "";
   const [semanticInput, setSemanticInput] = useState(sqFromUrl);
+  const debouncedSemanticInput = useDebounce(semanticInput, 600);
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const exploreMode: ExploreSearchMode = searchParams.get("mode") === "semantic" ? "semantic" : "keyword";
@@ -271,6 +273,17 @@ export default function ExplorePage() {
     setCurrentPage(1);
     setSearchParams(buildExploreSearchParams(next, "semantic", semanticInput), { replace: true });
   }, [filters, semanticInput, setSearchParams]);
+
+  useEffect(() => {
+    if (exploreMode === "semantic" && debouncedSemanticInput !== sqFromUrl) {
+      if (debouncedSemanticInput.trim() !== "" || sqFromUrl !== "") {
+        const next: SearchFilters = { ...filters };
+        delete next.query;
+        setCurrentPage(1);
+        setSearchParams(buildExploreSearchParams(next, "semantic", debouncedSemanticInput), { replace: true });
+      }
+    }
+  }, [debouncedSemanticInput, exploreMode, sqFromUrl, filters, setSearchParams]);
 
   const onExploreModeChange = useCallback(
     (m: ExploreSearchMode) => {

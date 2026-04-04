@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Target, Users, Heart, FileText, X, UserMinus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { User, UserRole } from "@/types";
-import { notify } from "@/stores/notificationStore";
+import { uiToast, notifyLine } from "@/uiToast";
 import { authService } from "@/services/authService";
 import BackButton from "@/components/common/BackButton";
 import ConfirmationDialog from "@/components/common/ConfirmationDialog";
@@ -76,7 +76,7 @@ export default function ProfilePage() {
     setTouchedUsername(true);
     setTouchedEmail(true);
     if (!validate()) {
-      notify.error("Lỗi", "Vui lòng sửa các lỗi trong biểu mẫu trước khi lưu.");
+      uiToast.error(notifyLine("Lỗi", "Vui lòng sửa các lỗi trong biểu mẫu trước khi lưu."));
       return;
     }
 
@@ -115,9 +115,11 @@ export default function ProfilePage() {
         void setItem("user", JSON.stringify(updated));
         setUser(updated);
         // Inform user that changes were saved locally and queued for sync
-        notify.info(
-          "Thông báo",
-          "Không thể lưu hồ sơ lên server ngay bây giờ. Thay đổi đã được lưu cục bộ và sẽ tự động đồng bộ khi có kết nối.",
+        uiToast.info(
+          notifyLine(
+            "Thông báo",
+            "Không thể lưu hồ sơ lên server ngay bây giờ. Thay đổi đã được lưu cục bộ và sẽ tự động đồng bộ khi có kết nối.",
+          ),
         );
       }
     } else {
@@ -138,7 +140,7 @@ export default function ProfilePage() {
     }
 
     setIsEditOpen(false);
-    notify.success("Thành công", "Lưu hồ sơ thành công");
+    uiToast.success(notifyLine("Thành công", "Lưu hồ sơ thành công"));
   };
 
   // Helper: normalize role to friendly Vietnamese label
@@ -159,7 +161,7 @@ export default function ProfilePage() {
         await accountDeletionService.deleteAccountContributor(user.id);
         logout();
         navigate("/login", { replace: true });
-        notify.success("Thành công", "Tài khoản đã được xóa khỏi hệ thống.");
+        uiToast.success(notifyLine("Thành công", "Tài khoản đã được xóa khỏi hệ thống."));
       } else if (user.role === UserRole.EXPERT) {
         await accountDeletionService.requestExpertAccountDeletion({
           expertId: user.id,
@@ -167,11 +169,16 @@ export default function ProfilePage() {
           expertFullName: user.fullName,
         });
         setShowDeleteAccountConfirm(false);
-        notify.success("Thành công", "Yêu cầu xóa tài khoản đã được gửi đến Quản trị viên. Bạn sẽ được xóa khỏi hệ thống sau khi được duyệt.");
+        uiToast.success(
+          notifyLine(
+            "Thành công",
+            "Yêu cầu xóa tài khoản đã được gửi đến Quản trị viên. Bạn sẽ được xóa khỏi hệ thống sau khi được duyệt.",
+          ),
+        );
       }
     } catch (err) {
       console.error("Delete account error:", err);
-      notify.error("Lỗi", "Không thể xử lý yêu cầu. Vui lòng thử lại.");
+      uiToast.error(notifyLine("Lỗi", "Không thể xử lý yêu cầu. Vui lòng thử lại."));
     }
   };
 

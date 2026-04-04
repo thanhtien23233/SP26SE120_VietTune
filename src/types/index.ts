@@ -57,6 +57,7 @@ export interface Recording {
   viewCount: number;
   likeCount: number;
   downloadCount: number;
+  _semanticScore?: number; // Added for Semantic Search result display
 }
 
 export interface RecordingMetadata {

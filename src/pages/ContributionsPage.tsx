@@ -6,7 +6,7 @@ import { UserRole } from "@/types";
 import BackButton from "@/components/common/BackButton";
 import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
-import { notify } from "@/stores/notificationStore";
+import { uiToast, notifyLine } from "@/uiToast";
 import { LogIn, ChevronLeft, ChevronRight, Clock, FileAudio, AlertCircle, X, Music, User, Loader2, Trash2, ListFilter } from "lucide-react";
 import axios from "axios";
 import { submissionService, type Submission, type SubmissionRecording } from "@/services/submissionService";
@@ -115,7 +115,7 @@ export default function ContributionsPage() {
   const statusFilterTabClass = (isActive: boolean, layout: "sidebar" | "horizontal") =>
     cn(
       "inline-flex min-h-[44px] items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 sm:text-base",
-      layout === "sidebar" ? "w-full justify-start text-left" : "shrink-0 justify-center whitespace-nowrap",
+      layout === "sidebar" ? "w-full justify-start text-left" : "shrink-0 whitespace-nowrap",
       isActive
         ? "bg-gradient-to-br from-white to-secondary-50 text-primary-900 shadow-md ring-2 ring-secondary-300/70"
         : "text-neutral-700 hover:bg-secondary-50/90 hover:text-neutral-900",
@@ -134,7 +134,7 @@ export default function ContributionsPage() {
           <span
             className={cn(
               "flex shrink-0 items-center justify-center rounded-full bg-white font-bold text-primary-800 shadow-sm ring-1 ring-secondary-200/60",
-              compact ? "h-5 min-w-5 text-[9px]" : "h-6 min-w-6 text-[10px]",
+              compact ? "h-5 w-5 text-[9px]" : "h-6 w-6 text-[10px]",
             )}
             aria-hidden
           >
@@ -185,6 +185,9 @@ export default function ContributionsPage() {
         if (activeStatusTab !== "ALL") {
           filteredData = res.data.filter(s => s.status === activeStatusTab);
         }
+
+        // Sort by submittedAt descending (newest first)
+        filteredData.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 
         setSubmissions(filteredData);
         setHasMore(res.data.length === pageSize);
@@ -377,7 +380,7 @@ export default function ContributionsPage() {
         }
       }
 
-      notify.success("Thành công", "Bản đóng góp đã được xóa.");
+      uiToast.success(notifyLine("Thành công", "Bản đóng góp đã được xóa."));
     } catch (err: unknown) {
       const status = axios.isAxiosError(err) ? err.response?.status : undefined;
       const isActuallySuccess = status !== undefined && [200, 201, 204, 400, 404].includes(status);
@@ -390,7 +393,7 @@ export default function ContributionsPage() {
             new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
           ));
         }
-        notify.error("Lỗi", "Không thể xóa bản đóng góp. Vui lòng thử lại sau.");
+        uiToast.error(notifyLine("Lỗi", "Không thể xóa bản đóng góp. Vui lòng thử lại sau."));
       } else {
         // Even if we got a 400/404, the deletion happened, so clean up files now
         if (submissionToDelete?.recording) {
@@ -402,7 +405,7 @@ export default function ContributionsPage() {
             deleteFileFromSupabase(fileUrl).catch(e => console.warn("Background file cleanup catch-path skip:", e));
           }
         }
-        notify.success("Thành công", "Bản đóng góp đã được xóa.");
+        uiToast.success(notifyLine("Thành công", "Bản đóng góp đã được xóa."));
       }
     } finally {
       setIsDeleting(false);
@@ -926,11 +929,11 @@ export default function ContributionsPage() {
                     try {
                       const res = await submissionService.requestEditSubmission(detailSubmission.id);
                       if (res?.isSuccess) {
-                        notify.success("Thành công", "Yêu cầu chỉnh sửa đã được gửi đến ban quản trị.");
+                        uiToast.success(notifyLine("Thành công", "Yêu cầu chỉnh sửa đã được gửi đến ban quản trị."));
                         setDetailSubmission(null);
                         loadSubmissions();
                       } else {
-                        notify.error("Lỗi", res?.message || "Không thể gửi yêu cầu chỉnh sửa.");
+                        uiToast.error(notifyLine("Lỗi", res?.message || "Không thể gửi yêu cầu chỉnh sửa."));
                       }
                     } catch (err: unknown) {
                       console.error("Failed to request edit:", err);
@@ -939,7 +942,7 @@ export default function ContributionsPage() {
                           ? String((err.response.data as { message?: string }).message ?? "")
                           : "";
                       const fallback = err instanceof Error ? err.message : "";
-                      notify.error("Lỗi", apiMsg || fallback || "Đã xảy ra lỗi khi gửi yêu cầu chỉnh sửa.");
+                      uiToast.error(notifyLine("Lỗi", apiMsg || fallback || "Đã xảy ra lỗi khi gửi yêu cầu chỉnh sửa."));
                     } finally {
                       setIsRequestingEdit(false);
                     }

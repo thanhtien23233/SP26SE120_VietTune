@@ -198,9 +198,9 @@ export const submissionService = {
             : data;
 
         const isSuccess =
-          env && typeof env === "object" && "isSuccess" in env ? Boolean((env as any).isSuccess) : true;
+          env && typeof env === "object" && "isSuccess" in env ? Boolean((env as Record<string, unknown>).isSuccess) : true;
         const message =
-          env && typeof env === "object" && "message" in env ? String((env as any).message ?? "") : "";
+          env && typeof env === "object" && "message" in env ? String((env as Record<string, unknown>).message ?? "") : "";
 
         return { isSuccess, message, data: filtered } satisfies SubmissionListResponse;
       } catch (err) {

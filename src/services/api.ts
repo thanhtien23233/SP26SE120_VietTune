@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import { API_BASE_URL } from "@/config/constants";
 import { getItem, removeItem } from "@/services/storageService";
+import { attachNormalizedApiError } from "@/uiToast/normalizeApiError";
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -43,37 +44,37 @@ function isProtectedPath(path: string): boolean {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
+    if (axios.isAxiosError(error)) {
+      attachNormalizedApiError(error);
+    }
     if (error.response?.status === 401 && !isRedirectingToLogin) {
-      // Only auto-logout if the user has no stored token (genuine auth failure)
-      // or if the failing URL is an auth endpoint (login, refresh, etc.)
       const url = error.config?.url ?? "";
       const isAuthEndpoint = url.includes("/auth/") || url.includes("/Auth/");
 
-      // If it's an auth endpoint failure (e.g. login with bad creds), just throw
+      // Auth endpoint failure (bad credentials, confirm email, etc.) — let caller handle
       if (isAuthEndpoint) {
         return Promise.reject(error);
       }
 
-      // For data endpoints: if no token, redirect only on protected pages.
-      const hasToken = !!getItem("access_token");
-      if (!hasToken) {
-        const path =
-          typeof window !== "undefined" ? window.location.pathname : "";
+      const token = getItem("access_token");
+      const path = typeof window !== "undefined" ? window.location.pathname : "";
+
+      if (!token) {
+        // No token at all — redirect only from protected pages
         if (isProtectedPath(path)) {
           isRedirectingToLogin = true;
           await removeItem("access_token");
           await removeItem("user");
-          const redirect =
-            path && path !== "/login"
-              ? `?redirect=${encodeURIComponent(path)}`
-              : "";
+          const redirect = path && path !== "/login" ? `?redirect=${encodeURIComponent(path)}` : "";
           window.location.href = `/login${redirect}`;
         }
         return Promise.reject(error);
       }
-      // If we DO have a token but got 401, the token may be expired or the
-      // endpoint may not support the current user's role — just throw the error
-      // and let the component display an error message instead of force-logging out.
+
+      // Token present but 401: could be role-restricted endpoint or transient server issue.
+      // Do NOT auto-logout — let the component display an appropriate error instead.
+      // Only logout when there is genuinely no token (handled above).
+
     }
     return Promise.reject(error);
   },

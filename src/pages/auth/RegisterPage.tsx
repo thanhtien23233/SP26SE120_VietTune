@@ -5,7 +5,7 @@ import { authService } from "@/services/authService";
 import Input from "@/components/common/Input";
 import BackButton from "@/components/common/BackButton";
 import { RegisterForm } from "@/types";
-import { notify } from "@/stores/notificationStore";
+import { uiToast, notifyLine } from "@/uiToast";
 import logo from "@/components/image/VietTune logo.png";
 import TermsAndConditions from "@/components/features/TermsAndConditions";
 import { sessionGetItem, sessionRemoveItem } from "@/services/storageService";
@@ -47,7 +47,7 @@ export default function RegisterPage() {
         result && typeof result === "object" && "message" in result && typeof (result as { message?: unknown }).message === "string"
           ? (result as { message: string }).message
           : "Đăng ký thành công. Vui lòng xác thực tài khoản.";
-      notify.success("Thành công", msg);
+      uiToast.success(notifyLine("Thành công", msg));
       navigate("/confirm-account");
     } catch (error: unknown) {
       const errorMessage =
@@ -55,7 +55,7 @@ export default function RegisterPage() {
           ? (error as { response?: { data?: { message?: string } } }).response
             ?.data?.message || "Đăng ký thất bại. Vui lòng thử lại."
           : "Đăng ký thất bại. Vui lòng thử lại.";
-      notify.error("Lỗi", errorMessage);
+      uiToast.error(notifyLine("Lỗi", errorMessage));
     } finally {
       setIsLoading(false);
     }

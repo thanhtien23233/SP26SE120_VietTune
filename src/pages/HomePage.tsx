@@ -22,6 +22,9 @@ const MemoRecordingCardCompact = memo(RecordingCardCompact);
 const exploreLikePanel =
   "rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl";
 
+/** Hiển thị 2 panel lưới bản thu (phổ biến / mới). Đặt `true` nếu muốn bật lại + gọi API. */
+const SHOW_HOME_RECORDING_HIGHLIGHTS = false;
+
 function pickRecordingRows(input: unknown): Recording[] {
   if (!input || typeof input !== "object") return [];
   const root = input as Record<string, unknown>;
@@ -130,7 +133,9 @@ export default function HomePage() {
   const simulateTimerRef = useRef<number | null>(null);
   const loginCtaRef = useRef<HTMLAnchorElement | null>(null);
   useEffect(() => {
-    fetchRecordings();
+    if (SHOW_HOME_RECORDING_HIGHLIGHTS) {
+      void fetchRecordings();
+    }
     return () => {
       if (simulateTimerRef.current) {
         window.clearTimeout(simulateTimerRef.current);
@@ -308,8 +313,8 @@ export default function HomePage() {
 
         </div>
 
-        {/* Popular Recordings Section */}
-        {popularRecordings.length > 0 && (
+        {/* Popular / Recent grids — tắt mặc định (SHOW_HOME_RECORDING_HIGHLIGHTS) */}
+        {SHOW_HOME_RECORDING_HIGHLIGHTS && popularRecordings.length > 0 && (
           <div className={`${exploreLikePanel} mb-8 p-8`}>
             <SectionHeader
               icon={TrendingUp}
@@ -334,8 +339,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Recent Recordings Section */}
-        {recentRecordings.length > 0 && (
+        {SHOW_HOME_RECORDING_HIGHLIGHTS && recentRecordings.length > 0 && (
           <div className={`${exploreLikePanel} mb-8 p-8`}>
             <SectionHeader
               icon={Clock}

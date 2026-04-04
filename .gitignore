@@ -6,9 +6,12 @@ node_modules/
 # Testing
 /coverage
 /playwright-report/
+playwright/.auth/contributor-idb.json
 /test-results/
 /blob-report/
-/tests/
+/tests/*
+!/tests/e2e/
+!/tests/e2e/**/*
 playwright.config.ts
 
 # Production

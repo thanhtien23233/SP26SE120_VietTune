@@ -9,11 +9,12 @@ import { USER_ROLE_NAMES } from "@/config/constants";
 import { migrateVideoDataToVideoData } from "@/utils/helpers";
 import type { LocalRecording } from "@/types";
 import { ModerationStatus } from "@/types";
-import { notify } from "@/stores/notificationStore";
+import { uiToast, notifyLine } from "@/uiToast";
 import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import Card from "@/components/common/Card";
 import { getItem, setItem } from "@/services/storageService";
-import { getLocalRecordingMetaList, removeLocalRecording } from "@/services/recordingStorage";
+import { removeLocalRecording } from "@/services/recordingStorage";
+import { extractSubmissionRows, mapSubmissionToLocalRecording } from "@/services/submissionApiMapper";
 import { accountDeletionService } from "@/services/accountDeletionService";
 import { recordingRequestService } from "@/services/recordingRequestService";
 import { adminApi } from "@/services/adminApi";
@@ -540,8 +541,14 @@ export default function AdminDashboard() {
     }
 
     try {
-      const metaList = await getLocalRecordingMetaList();
-      const migrated = migrateVideoDataToVideoData(metaList as LocalRecording[]);
+      // Admin: use GET /Admin/submissions to list all submissions (role-appropriate endpoint)
+      const adminSubmissionsRaw = await api.get<unknown>("/Admin/submissions", {
+        params: { page: 1, pageSize: 200 },
+      });
+      const rows = extractSubmissionRows(adminSubmissionsRaw);
+      const migrated = migrateVideoDataToVideoData(
+        rows.map((row) => mapSubmissionToLocalRecording(row)) as LocalRecording[]
+      );
       setRecordings(migrated);
     } catch {
       setRecordings([]);
@@ -567,10 +574,10 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     void load();
-    // Background refresh: keep UI stable (no loading state)
+    // Background refresh every 30s — keeps UI stable without hammering the API
     const t = setInterval(() => {
       void load();
-    }, 4000);
+    }, 30000);
     return () => clearInterval(t);
   }, [load]);
 
@@ -702,9 +709,11 @@ export default function AdminDashboard() {
       o[userId].role = newRole;
       void setItem("users_overrides", JSON.stringify(o));
       setUsersOverrides((prev) => ({ ...prev, [userId]: { ...prev[userId], role: newRole } }));
-      notify.success("Thành công", `Đã gán vai trò "${ROLE_NAMES_VI[newRole] ?? newRole}" cho người dùng.`);
+      uiToast.success(
+        notifyLine("Thành công", `Đã gán vai trò "${ROLE_NAMES_VI[newRole] ?? newRole}" cho người dùng.`),
+      );
     } catch (e) {
-      notify.error("Lỗi", "Không thể cập nhật vai trò.");
+      uiToast.error(notifyLine("Lỗi", "Không thể cập nhật vai trò."));
     }
   };
 
@@ -721,9 +730,9 @@ export default function AdminDashboard() {
       setDeletedUserIds(next);
       void setItem("admin_deleted_user_ids", JSON.stringify([...next]));
       setDeleteUserTarget(null);
-      notify.success("Thành công", "Đã vô hiệu hóa người dùng.");
+      uiToast.success(notifyLine("Thành công", "Đã vô hiệu hóa người dùng."));
     } catch (e) {
-      notify.error("Lỗi", "Không thể xóa người dùng.");
+      uiToast.error(notifyLine("Lỗi", "Không thể xóa người dùng."));
     }
   };
 
@@ -732,9 +741,9 @@ export default function AdminDashboard() {
       await removeLocalRecording(id);
       setRemoveTarget(null);
       void load();
-      notify.success("Thành công", "Đã xóa bản ghi khỏi hệ thống.");
+      uiToast.success(notifyLine("Thành công", "Đã xóa bản ghi khỏi hệ thống."));
     } catch (e) {
-      notify.error("Lỗi", "Không thể xóa bản ghi.");
+      uiToast.error(notifyLine("Lỗi", "Không thể xóa bản ghi."));
     }
   };
 
@@ -861,7 +870,7 @@ export default function AdminDashboard() {
                         try {
                           setShowUsersLoadingHint(true);
                           await load({ showUserLoadingHint: true });
-                          notify.success("Đã làm mới", "Dữ liệu quản trị đã được cập nhật.");
+                          uiToast.success(notifyLine("Đã làm mới", "Dữ liệu quản trị đã được cập nhật."));
                         } finally {
                           setShowUsersLoadingHint(false);
                         }
@@ -1168,14 +1177,23 @@ export default function AdminDashboard() {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => notify.info("Thông tin", "Chức năng cập nhật cơ sở tri thức sẽ kích hoạt khi có backend/flow đầy đủ.")}
+                      onClick={() =>
+                        uiToast.info(
+                          notifyLine(
+                            "Thông tin",
+                            "Chức năng cập nhật cơ sở tri thức sẽ kích hoạt khi có backend/flow đầy đủ.",
+                          ),
+                        )}
                       className="px-6 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer"
                     >
                       Tạo bản cập nhật cơ sở tri thức
                     </button>
                     <button
                       type="button"
-                      onClick={() => notify.info("Thông tin", "Trang lịch sử cập nhật cơ sở tri thức sẽ được kết nối sau.")}
+                      onClick={() =>
+                        uiToast.info(
+                          notifyLine("Thông tin", "Trang lịch sử cập nhật cơ sở tri thức sẽ được kết nối sau."),
+                        )}
                       className="px-4 py-2 rounded-full border border-neutral-200/80 text-neutral-800 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
                       style={{ backgroundColor: "#FFFCF5" }}
                     >
@@ -1288,9 +1306,11 @@ export default function AdminDashboard() {
                                         await recordingRequestService.forwardDeleteToExpert(req.id, forwardDeleteExpertId.expertId);
                                         setForwardDeleteExpertId(null);
                                         setDeleteRecordingRequests(await recordingRequestService.getDeleteRecordingRequests());
-                                        notify.success("Thành công", "Đã chuyển yêu cầu xóa đến Chuyên gia.");
+                                        uiToast.success(
+                                          notifyLine("Thành công", "Đã chuyển yêu cầu xóa đến Chuyên gia."),
+                                        );
                                       } catch (e) {
-                                        notify.error("Lỗi", "Không thể chuyển yêu cầu.");
+                                        uiToast.error(notifyLine("Lỗi", "Không thể chuyển yêu cầu."));
                                       }
                                     }}
                                     className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium cursor-pointer"
@@ -1339,9 +1359,19 @@ export default function AdminDashboard() {
                                       try {
                                         await recordingRequestService.approveEditRequest(req.id);
                                         setEditRecordingRequests(await recordingRequestService.getEditRecordingRequests());
-                                        notify.success("Thành công", "Đã duyệt yêu cầu chỉnh sửa bản thu. Người đóng góp có thể chỉnh sửa bản thu.");
+                                        uiToast.success(
+                                          notifyLine(
+                                            "Thành công",
+                                            "Đã duyệt yêu cầu chỉnh sửa bản thu. Người đóng góp có thể chỉnh sửa bản thu.",
+                                          ),
+                                        );
                                       } catch (e) {
-                                        notify.error("Lỗi", "Không thể duyệt yêu cầu chỉnh sửa bản thu. Vui lòng thử lại.");
+                                        uiToast.error(
+                                          notifyLine(
+                                            "Lỗi",
+                                            "Không thể duyệt yêu cầu chỉnh sửa bản thu. Vui lòng thử lại.",
+                                          ),
+                                        );
                                       }
                                     }}
                                     className="px-4 py-2 rounded-full bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium cursor-pointer"
@@ -1633,10 +1663,12 @@ export default function AdminDashboard() {
             });
             setExpertDeletionApproveTarget(null);
             setPendingExpertDeletions(accountDeletionService.getPendingExpertDeletionRequests());
-            notify.success("Thành công", "Đã duyệt xóa tài khoản Chuyên gia khỏi hệ thống.");
+            uiToast.success(
+              notifyLine("Thành công", "Đã duyệt xóa tài khoản Chuyên gia khỏi hệ thống."),
+            );
             void load();
           } catch (e) {
-            notify.error("Lỗi", "Không thể duyệt xóa tài khoản.");
+            uiToast.error(notifyLine("Lỗi", "Không thể duyệt xóa tài khoản."));
           }
         }}
         title="Duyệt xóa tài khoản Chuyên gia"

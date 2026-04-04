@@ -1,5 +1,7 @@
 import axios from "axios";
 import apiClient, { api } from "@/services/api";
+import type { MutationResult } from "@/types/mutationResult";
+import { mutationFail, mutationOk } from "@/types/mutationResult";
 import {
   extractSubmissionRows,
   mapSubmissionToLocalRecording,
@@ -7,8 +9,9 @@ import {
 } from "@/services/submissionApiMapper";
 import { referenceDataService } from "@/services/referenceDataService";
 import type { LocalRecording } from "@/types";
-import type { ExpertQueueSource } from "@/config/expertWorkflowPhase";
+import { EXPERT_QUEUE_USE_MOCK, type ExpertQueueSource } from "@/config/expertWorkflowPhase";
 import { macroRegionDisplayNameFromProvinceRegionCode } from "@/config/provinceRegionCodes";
+import { buildMockExpertQueue } from "@/services/expertModerationMock";
 
 const DEFAULT_PAGE_SIZE = 200;
 const LOOKUP_TTL_MS = 15 * 60 * 1000;
@@ -83,14 +86,21 @@ async function getSubmissionsByStatus(params: {
   lookups?: SubmissionLookupMaps;
 }): Promise<LocalRecording[]> {
   const lookups = params.lookups ?? (await buildSubmissionLookupMaps());
-  const res = await api.get<unknown>("/Submission/get-by-status", {
-    params: {
-      ...(params.status !== undefined ? { status: params.status } : {}),
-      page: params.page ?? 1,
-      pageSize: params.pageSize ?? DEFAULT_PAGE_SIZE,
-    },
-  });
-  return extractSubmissionRows(res).map((row) => mapSubmissionToLocalRecording(row, lookups));
+  try {
+    const res = await api.get<unknown>("/Submission/get-by-status", {
+      params: {
+        ...(params.status !== undefined ? { status: params.status } : {}),
+        page: params.page ?? 1,
+        pageSize: params.pageSize ?? DEFAULT_PAGE_SIZE,
+      },
+    });
+    return extractSubmissionRows(res).map((row) => mapSubmissionToLocalRecording(row, lookups));
+  } catch (err: unknown) {
+    // Backend returns 400 when no records match the status filter (instead of 200 + [])
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 400 || status === 404) return [];
+    throw err; // Propagate unexpected errors
+  }
 }
 
 async function getAdminSubmissions(params: {
@@ -112,38 +122,38 @@ async function getAdminSubmissions(params: {
   return extractSubmissionRows(res).map((row) => mapSubmissionToLocalRecording(row, lookups));
 }
 
-/**
- * Phase 2 queue: merge distinct statuses for expert view (dedupe by id).
- * Without `status`, some backends return a default slice only — we still try one unfiltered call first.
- */
 export async function fetchExpertQueueBase(source: ExpertQueueSource): Promise<LocalRecording[]> {
+  if (EXPERT_QUEUE_USE_MOCK) {
+    return buildMockExpertQueue();
+  }
   const lookups = await buildSubmissionLookupMaps();
   if (source === "admin") {
     return getAdminSubmissions({ page: 1, pageSize: DEFAULT_PAGE_SIZE, lookups });
   }
-  const unfiltered = await getSubmissionsByStatus({
+  // Moderation queue requirement: only fetch submissions with backend status = 1.
+  // Keep a single source of truth from API instead of mixing multiple statuses.
+  return getSubmissionsByStatus({
+    status: 1,
     page: 1,
     pageSize: DEFAULT_PAGE_SIZE,
     lookups,
   });
-  if (unfiltered.length > 0) return dedupeById(unfiltered);
-
-  const chunks = await Promise.all(
-    [0, 1, 2, 3, 4].map((status) =>
-      getSubmissionsByStatus({ status, page: 1, pageSize: DEFAULT_PAGE_SIZE, lookups }).catch(
-        () => [] as LocalRecording[],
-      ),
-    ),
-  );
-  return dedupeById(chunks.flat());
 }
 
-function dedupeById(rows: LocalRecording[]): LocalRecording[] {
-  const map = new Map<string, LocalRecording>();
-  for (const r of rows) {
-    if (r.id) map.set(r.id, r);
+/**
+ * Fetch approved submissions (backend status=2) for the Expert "Quản lý bản thu đã kiểm duyệt" page.
+ * Uses GET /Submission/get-by-status instead of /Submission/my (which is Contributor-only).
+ * Returns [] silently if backend returns 400/404 (no records found).
+ */
+export async function fetchApprovedSubmissionsForExpert(): Promise<LocalRecording[]> {
+  try {
+    return await getSubmissionsByStatus({ status: 2, page: 1, pageSize: DEFAULT_PAGE_SIZE });
+  } catch (err: unknown) {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 400 || status === 404) return [];
+    console.warn("[expertModerationApi] fetchApprovedSubmissionsForExpert failed", status);
+    return [];
   }
-  return [...map.values()];
 }
 
 /** Result of POST /Admin/submissions/{id}/assign — never throws. */
@@ -187,25 +197,27 @@ export async function assignSubmissionReviewer(
   }
 }
 
-export async function approveSubmissionOnServer(submissionId: string): Promise<boolean> {
+export async function approveSubmissionOnServer(submissionId: string): Promise<MutationResult> {
   try {
     await api.put("/Submission/approve-submission", undefined, {
       params: { submissionId },
     });
-    return true;
-  } catch {
-    return false;
+    return mutationOk();
+  } catch (err: unknown) {
+    const httpStatus = axios.isAxiosError(err) ? (err.response?.status) : undefined;
+    return mutationFail(err, httpStatus);
   }
 }
 
-export async function rejectSubmissionOnServer(submissionId: string): Promise<boolean> {
+export async function rejectSubmissionOnServer(submissionId: string): Promise<MutationResult> {
   try {
     await api.put("/Submission/reject-submission", undefined, {
       params: { submissionId },
     });
-    return true;
-  } catch {
-    return false;
+    return mutationOk();
+  } catch (err: unknown) {
+    const httpStatus = axios.isAxiosError(err) ? (err.response?.status) : undefined;
+    return mutationFail(err, httpStatus);
   }
 }
 

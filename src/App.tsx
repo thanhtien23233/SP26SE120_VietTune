@@ -37,7 +37,7 @@ import { Toaster } from "react-hot-toast";
 function RootWrapper() {
   return (
     <NotificationProvider>
-      <Toaster position="top-center" toastOptions={{ duration: 5000 }} />
+      <Toaster position="top-right" toastOptions={{ duration: 5000 }} />
       <ScrollToTop />
       <Outlet />
     </NotificationProvider>

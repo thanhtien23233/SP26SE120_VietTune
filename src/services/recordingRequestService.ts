@@ -17,14 +17,42 @@ import type {
 } from "@/types";
 import { UserRole } from "@/types";
 
-// Helper: safely extract array from API response
+// Helper: safely extract array from API response (handles paged .items wrapper)
 function safeArray<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data as T[];
-  if (data && typeof data === "object" && "data" in data) {
-    const inner = (data as Record<string, unknown>).data;
-    if (Array.isArray(inner)) return inner as T[];
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    // Paged response: { items: [...], page, pageSize, total }
+    if ("items" in obj && Array.isArray(obj.items)) return obj.items as T[];
+    // Envelope: { data: [...] } or { data: { items: [...] } }
+    if ("data" in obj) {
+      const inner = obj.data;
+      if (Array.isArray(inner)) return inner as T[];
+      if (inner && typeof inner === "object") {
+        const innerObj = inner as Record<string, unknown>;
+        if ("items" in innerObj && Array.isArray(innerObj.items)) return innerObj.items as T[];
+      }
+    }
   }
   return [];
+}
+
+/**
+ * Map backend NotificationDto → frontend AppNotification.
+ * BE fields: message, isRead, relatedId
+ * FE fields: body, read, recordingId
+ */
+function mapNotificationDto(raw: Record<string, unknown>): AppNotification {
+  return {
+    id: String(raw.id ?? ""),
+    type: (raw.type ?? "recording_edited") as AppNotification["type"],
+    title: String(raw.title ?? ""),
+    body: String(raw.message ?? raw.body ?? ""),
+    forRoles: Array.isArray(raw.forRoles) ? raw.forRoles as UserRole[] : [],
+    recordingId: String(raw.relatedId ?? raw.recordingId ?? "") || undefined,
+    createdAt: String(raw.createdAt ?? new Date().toISOString()),
+    read: typeof raw.isRead === "boolean" ? raw.isRead : (typeof raw.read === "boolean" ? raw.read : false),
+  };
 }
 
 /** Loose shape returned by `/Review/*` list/detail endpoints */
@@ -95,11 +123,16 @@ export const recordingRequestService = {
 
   /** Expert: get forwarded delete requests */
   async getForwardedDeleteRequestsForExpert(expertId: string): Promise<DeleteRecordingRequest[]> {
+    if (!expertId) return [];
     try {
       const res = await api.get(`/Review/reviewer/${expertId}`);
       const all = safeArray<DeleteRecordingRequest & { decision?: string }>(res);
       return all.filter((r) => r.decision === "forwarded_to_expert" || r.status === "forwarded_to_expert");
-    } catch {
+    } catch (err: unknown) {
+      // 400/404 = no data yet from backend; not a real error
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 400 || status === 404) return [];
+      console.warn("[recordingRequestService] getForwardedDeleteRequestsForExpert failed", status);
       return [];
     }
   },
@@ -311,7 +344,11 @@ export const recordingRequestService = {
     try {
       const res = await api.get("/Review/decision/edit_submission");
       return safeArray<EditSubmissionForReview>(res);
-    } catch {
+    } catch (err: unknown) {
+      // 400/404 = no data yet from backend; not a real error
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 400 || status === 404) return [];
+      console.warn("[recordingRequestService] getPendingEditSubmissionsForExpert failed", status);
       return [];
     }
   },
@@ -358,21 +395,21 @@ export const recordingRequestService = {
       await api.post("/Notification", {
         type: n.type,
         title: n.title,
-        body: n.body,
-        forRoles: n.forRoles,
-        recordingId: n.recordingId,
+        message: n.body,
+        relatedId: n.recordingId,
       });
     } catch (err) {
       console.error("Failed to add notification", err);
     }
   },
 
-  /** Get notifications for current user role */
+  /** Get notifications for current user (JWT-based, backend filters by user) */
   async getNotificationsForRole(role: UserRole): Promise<AppNotification[]> {
     void role;
     try {
       const res = await api.get("/Notification");
-      return safeArray<AppNotification>(res);
+      const rawItems = safeArray<Record<string, unknown>>(res);
+      return rawItems.map(mapNotificationDto);
     } catch {
       return [];
     }
@@ -386,15 +423,6 @@ export const recordingRequestService = {
     }
   },
 
-  async markNotificationUnread(id: string): Promise<void> {
-    try {
-      // Toggle back — not all backends support this, use PUT with read=false
-      await api.put(`/Notification/${id}`, { read: false });
-    } catch (err) {
-      console.error("Failed to mark notification unread", err);
-    }
-  },
-
   /** Mark all notifications as read for current role */
   async markAllNotificationsReadForRole(role: UserRole): Promise<void> {
     void role;
@@ -403,11 +431,5 @@ export const recordingRequestService = {
     } catch (err) {
       console.error("Failed to mark all notifications read", err);
     }
-  },
-
-  /** Mark all as unread (no backend endpoint, noop) */
-  async markAllNotificationsUnreadForRole(role: UserRole): Promise<void> {
-    void role;
-    console.warn("markAllNotificationsUnreadForRole: Not supported by backend API");
   },
 };

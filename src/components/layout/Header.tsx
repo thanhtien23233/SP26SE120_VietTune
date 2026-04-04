@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Bell, User, LogOut, Menu, X, MessageCircle, CheckCircle, Edit3, Trash2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,14 +9,12 @@ import logo from "@/components/image/VietTune logo.png";
 import { sessionSetItem } from "@/services/storageService";
 import { recordingRequestService } from "@/services/recordingRequestService";
 import { formatDateTime } from "@/utils/helpers";
-import { buildLoginRedirectPath } from "@/utils/routeAccess";
 import { getLayoutFeatureItems } from "@/utils/layoutFeatureItems";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   // Account dropdown refs/state
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -43,9 +41,8 @@ export default function Header() {
   const handleLogout = () => {
     // Set fromLogout before navigate so LoginPage sees it on mount and hides "Trở về".
     sessionSetItem("fromLogout", "1");
-    // Navigate first so we never render a "logged out" state on the current
-    // page (which can show blank, e.g. AdminGuard returns null when !user).
-    navigate(buildLoginRedirectPath(location.pathname), { replace: true });
+    // Navigate without redirect
+    navigate("/login", { replace: true });
     queueMicrotask(() => logout());
   };
 

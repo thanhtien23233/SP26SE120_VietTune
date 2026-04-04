@@ -7,7 +7,7 @@ import Input from "@/components/common/Input";
 import { UserPlus } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { UserRole, type User } from "@/types";
-import { notify } from "@/stores/notificationStore";
+import { uiToast, notifyLine } from "@/uiToast";
 import { getItem, setItem } from "@/services/storageService";
 
 export default function CreateExpertPage() {
@@ -120,9 +120,11 @@ export default function CreateExpertPage() {
       });
       setExpertFormErrors({});
 
-      notify.success("Thành công", `Đã tạo tài khoản Chuyên gia "${newExpert.username}" thành công.`);
+      uiToast.success(
+        notifyLine("Thành công", `Đã tạo tài khoản Chuyên gia "${newExpert.username}" thành công.`),
+      );
     } catch (e) {
-      notify.error("Lỗi", "Không thể tạo tài khoản Chuyên gia.");
+      uiToast.error(notifyLine("Lỗi", "Không thể tạo tài khoản Chuyên gia."));
     }
   };
 

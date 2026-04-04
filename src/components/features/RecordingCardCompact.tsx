@@ -89,6 +89,13 @@ export default function RecordingCardCompact({
           </div>
         )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-neutral-900/35 via-transparent to-transparent" />
+        
+        {recording._semanticScore !== undefined && recording._semanticScore > 0 ? (
+          <span className="absolute top-3 left-3 inline-flex items-center rounded-xl bg-gradient-to-r from-emerald-500/90 to-emerald-600/95 px-2 py-0.5 text-[11px] font-bold text-white shadow-md border border-emerald-400/50 backdrop-blur-sm shadow-emerald-500/20">
+            Độ khớp: {Math.round(recording._semanticScore * 100)}%
+          </span>
+        ) : null}
+
         <button
           type="button"
           onClick={togglePlay}

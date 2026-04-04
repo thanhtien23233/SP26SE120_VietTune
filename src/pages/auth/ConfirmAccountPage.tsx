@@ -5,7 +5,7 @@ import { authService } from "@/services/authService";
 import Input from "@/components/common/Input";
 import BackButton from "@/components/common/BackButton";
 import { ConfirmAccountForm } from "@/types";
-import { notify } from "@/stores/notificationStore";
+import { uiToast, notifyLine } from "@/uiToast";
 import logo from "@/components/image/VietTune logo.png";
 export default function ConfirmAccountPage() {
   const navigate = useNavigate();
@@ -30,7 +30,7 @@ export default function ConfirmAccountPage() {
         result && typeof result === "object" && "message" in result && typeof (result as { message?: unknown }).message === "string"
           ? (result as { message: string }).message
           : "Xác thực tài khoản thành công.";
-      notify.success("Thành công", msg);
+      uiToast.success(notifyLine("Thành công", msg));
       // Navigate to login after successful confirmation so they can now enter the system
       navigate("/login");
     } catch (error: unknown) {
@@ -39,7 +39,7 @@ export default function ConfirmAccountPage() {
           ? (error as { response?: { data?: { message?: string } } }).response
             ?.data?.message || "Xác thực thất bại. Vui lòng kiểm tra lại mã OTP."
           : "Xác thực thất bại. Vui lòng thử lại.";
-      notify.error("Lỗi", errorMessage);
+      uiToast.error(notifyLine("Lỗi", errorMessage));
     } finally {
       setIsLoading(false);
     }

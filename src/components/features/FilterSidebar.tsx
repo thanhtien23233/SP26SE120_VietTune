@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { memo } from "react";
-import { ChevronDown } from "lucide-react";
+import { memo, useMemo, useState } from "react";
+import { ChevronDown, Search } from "lucide-react";
 import type { ExploreFilterOptions } from "@/constants/exploreFilterOptions";
 import type { ExploreFacetDraft } from "@/utils/exploreFacetDraft";
 import { cn } from "@/utils/helpers";
@@ -22,6 +22,80 @@ function toggleString(list: string[], value: string): string[] {
 function toggleRecordingType(list: RecordingType[], value: RecordingType): RecordingType[] {
   return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
 }
+
+type LabeledFilterItem = { id: string; label: string };
+
+function SearchableCheckboxList({
+  items,
+  placeholder,
+  ariaLabel,
+  emptyMessage,
+  isChecked,
+  onToggle,
+  labelRowClassName = "py-1",
+  labelTextClassName,
+}: {
+  items: LabeledFilterItem[];
+  placeholder: string;
+  ariaLabel: string;
+  emptyMessage: string;
+  isChecked: (item: LabeledFilterItem) => boolean;
+  onToggle: (item: LabeledFilterItem) => void;
+  /** Padding row: dòng nhạc / nhạc cụ dùng py-0.5 */
+  labelRowClassName?: string;
+  /** Ví dụ leading-snug cho nhãn dài */
+  labelTextClassName?: string;
+}) {
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((e) => e.label.toLowerCase().includes(q));
+  }, [items, query]);
+
+  return (
+    <>
+      <div className="relative mb-1.5 shrink-0">
+        <Search
+          className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400"
+          aria-hidden
+        />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={placeholder}
+          aria-label={ariaLabel}
+          autoComplete="off"
+          className="w-full rounded-lg border border-secondary-200/80 bg-white py-2 pl-8 pr-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-primary-500/50 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+        />
+      </div>
+      {filtered.length === 0 ? (
+        <p className="px-1 text-xs text-neutral-500">{emptyMessage}</p>
+      ) : (
+        filtered.map((item) => (
+          <label
+            key={item.id}
+            className={cn(
+              "flex cursor-pointer items-start gap-2 rounded-lg px-1 text-sm text-neutral-800 hover:bg-secondary-50/90",
+              labelRowClassName,
+            )}
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-400 text-primary-600 focus:ring-primary-500"
+              checked={isChecked(item)}
+              onChange={() => onToggle(item)}
+            />
+            <span className={labelTextClassName}>{item.label}</span>
+          </label>
+        ))
+      )}
+    </>
+  );
+}
+
+const MemoSearchableCheckboxList = memo(SearchableCheckboxList);
 
 function AccordionSection({
   title,
@@ -82,23 +156,14 @@ function FilterSidebar({ options, selected, onChange, onApply, onReset }: Filter
         )}
       >
         <AccordionSection title="Dân tộc" defaultOpen badge={ethnicityCount}>
-          {options.ethnicities.map((e) => {
-            const checked = selected.ethnicityIds.includes(e.id);
-            return (
-              <label
-                key={e.id}
-                className="flex cursor-pointer items-start gap-2 rounded-lg px-1 py-1 text-sm text-neutral-800 hover:bg-secondary-50/90"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-400 text-primary-600 focus:ring-primary-500"
-                  checked={checked}
-                  onChange={() => set({ ethnicityIds: toggleString(selected.ethnicityIds, e.id) })}
-                />
-                <span>{e.label}</span>
-              </label>
-            );
-          })}
+          <MemoSearchableCheckboxList
+            items={options.ethnicities}
+            placeholder="Tìm dân tộc…"
+            ariaLabel="Tìm trong danh sách dân tộc"
+            emptyMessage="Không có dân tộc khớp bộ lọc."
+            isChecked={(e) => selected.ethnicityIds.includes(e.id)}
+            onToggle={(e) => set({ ethnicityIds: toggleString(selected.ethnicityIds, e.id) })}
+          />
         </AccordionSection>
 
         <AccordionSection title="Thể loại ghi âm" defaultOpen badge={recordingTypeCount}>
@@ -126,43 +191,28 @@ function FilterSidebar({ options, selected, onChange, onApply, onReset }: Filter
         </AccordionSection>
 
         <AccordionSection title="Dòng nhạc / thể loại dân gian" badge={genreCount}>
-          {options.genreTags.map((g) => {
-            const checked = selected.genreTags.includes(g.label);
-            return (
-              <label
-                key={g.id}
-                className="flex cursor-pointer items-start gap-2 rounded-lg px-1 py-0.5 text-sm text-neutral-800 hover:bg-secondary-50/90"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-400 text-primary-600 focus:ring-primary-500"
-                  checked={checked}
-                  onChange={() => set({ genreTags: toggleString(selected.genreTags, g.label) })}
-                />
-                <span>{g.label}</span>
-              </label>
-            );
-          })}
+          <MemoSearchableCheckboxList
+            items={options.genreTags}
+            placeholder="Tìm dòng nhạc…"
+            ariaLabel="Tìm trong danh sách dòng nhạc và thể loại dân gian"
+            emptyMessage="Không có mục khớp bộ lọc."
+            labelRowClassName="py-0.5"
+            isChecked={(g) => selected.genreTags.includes(g.label)}
+            onToggle={(g) => set({ genreTags: toggleString(selected.genreTags, g.label) })}
+          />
         </AccordionSection>
 
         <AccordionSection title="Nhạc cụ (một phần)" badge={instrumentCount}>
-          {options.instruments.map((i) => {
-            const checked = selected.instrumentTags.includes(i.label);
-            return (
-              <label
-                key={i.id}
-                className="flex cursor-pointer items-start gap-2 rounded-lg px-1 py-0.5 text-sm text-neutral-800 hover:bg-secondary-50/90"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-400 text-primary-600 focus:ring-primary-500"
-                  checked={checked}
-                  onChange={() => set({ instrumentTags: toggleString(selected.instrumentTags, i.label) })}
-                />
-                <span className="leading-snug">{i.label}</span>
-              </label>
-            );
-          })}
+          <MemoSearchableCheckboxList
+            items={options.instruments}
+            placeholder="Tìm nhạc cụ…"
+            ariaLabel="Tìm trong danh sách nhạc cụ"
+            emptyMessage="Không có nhạc cụ khớp bộ lọc."
+            labelRowClassName="py-0.5"
+            labelTextClassName="leading-snug"
+            isChecked={(i) => selected.instrumentTags.includes(i.label)}
+            onToggle={(i) => set({ instrumentTags: toggleString(selected.instrumentTags, i.label) })}
+          />
         </AccordionSection>
 
         <AccordionSection title="Khu vực" badge={regionActive}>
@@ -191,23 +241,14 @@ function FilterSidebar({ options, selected, onChange, onApply, onReset }: Filter
         </AccordionSection>
 
         <AccordionSection title="Bối cảnh văn hóa" badge={contextCount}>
-          {options.culturalContexts.map((c) => {
-            const checked = selected.culturalTags.includes(c.label);
-            return (
-              <label
-                key={c.id}
-                className="flex cursor-pointer items-start gap-2 rounded-lg px-1 py-1 text-sm text-neutral-800 hover:bg-secondary-50/90"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-400 text-primary-600 focus:ring-primary-500"
-                  checked={checked}
-                  onChange={() => set({ culturalTags: toggleString(selected.culturalTags, c.label) })}
-                />
-                <span>{c.label}</span>
-              </label>
-            );
-          })}
+          <MemoSearchableCheckboxList
+            items={options.culturalContexts}
+            placeholder="Tìm bối cảnh…"
+            ariaLabel="Tìm trong danh sách bối cảnh văn hóa"
+            emptyMessage="Không có bối cảnh khớp bộ lọc."
+            isChecked={(c) => selected.culturalTags.includes(c.label)}
+            onToggle={(c) => set({ culturalTags: toggleString(selected.culturalTags, c.label) })}
+          />
         </AccordionSection>
       </div>
 

@@ -20,18 +20,6 @@ function normalizeId(v: unknown): string {
   return String(v ?? "").trim().toLowerCase();
 }
 
-function pickMeaningfulText(...values: Array<unknown>): string | undefined {
-  for (const value of values) {
-    const raw = String(value ?? "").trim();
-    if (!raw) continue;
-    const lowered = raw.toLowerCase();
-    if (lowered === "không có tiêu đề" || lowered === "untitled") continue;
-    if (raw.toUpperCase().startsWith("ID:")) continue;
-    return raw;
-  }
-  return undefined;
-}
-
 /** Địa lý cấp tỉnh → nhãn vùng/miền; không dùng tên phường/xã/huyện cho “Vùng miền”. */
 function macroRegionLabelFromGeo(
   lookups: SubmissionLookupMaps | undefined,
@@ -56,11 +44,11 @@ function macroRegionLabelFromGeo(
 
 /**
  * Maps backend SubmissionStatus (int) → UI enum.
- * Align with `ContributionsPage` STATUS_LABELS / API: 0 nháp, 1 đang xử lý, 2 đã duyệt, 3 từ chối, 4 yêu cầu cập nhật.
+ * Current backend payload for moderation queue uses `status = 1` as Pending.
  */
 const SUBMISSION_STATUS_INT: Record<number, ModerationStatus> = {
   0: ModerationStatus.PENDING_REVIEW,
-  1: ModerationStatus.IN_REVIEW,
+  1: ModerationStatus.PENDING_REVIEW,
   2: ModerationStatus.APPROVED,
   3: ModerationStatus.REJECTED,
   4: ModerationStatus.TEMPORARILY_REJECTED,
@@ -142,39 +130,10 @@ export function mapSubmissionToLocalRecording(
   const recordingEntityId =
     rec?.id != null && String(rec.id).trim() ? String(rec.id).trim() : "";
   const id = recordingEntityId || submissionId;
-  const recBasicInfo = (rec?.basicInfo && typeof rec.basicInfo === "object")
-    ? (rec.basicInfo as Record<string, unknown>)
-    : undefined;
-  const xBasicInfo = (x.basicInfo && typeof x.basicInfo === "object")
-    ? (x.basicInfo as Record<string, unknown>)
-    : undefined;
-  const title = pickMeaningfulText(
-    rec?.title,
-    rec?.Title,
-    rec?.recordingTitle,
-    rec?.recordingName,
-    rec?.songName,
-    rec?.name,
-    recBasicInfo?.title,
-    recBasicInfo?.Title,
-    recBasicInfo?.recordingTitle,
-    recBasicInfo?.recordingName,
-    recBasicInfo?.songName,
-    recBasicInfo?.name,
-    x.title,
-    x.Title,
-    x.recordingTitle,
-    x.recordingName,
-    x.songName,
-    x.name,
-    x.submissionTitle,
-    xBasicInfo?.title,
-    xBasicInfo?.Title,
-    xBasicInfo?.recordingTitle,
-    xBasicInfo?.recordingName,
-    xBasicInfo?.songName,
-    xBasicInfo?.name,
-  ) ?? "Không có tiêu đề";
+  const title =
+    (rec?.title as string | undefined) ||
+    (x.title as string | undefined) ||
+    "Không có tiêu đề";
   const audioFileUrl =
     (rec?.audioFileUrl as string | undefined) ??
     (x.audioFileUrl as string | undefined) ??
