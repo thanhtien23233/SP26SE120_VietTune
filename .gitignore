@@ -49,8 +49,26 @@ lerna-debug.log*
 # Agent assets/workflows chỉ dùng local
 .agent/
 
-# Docs chỉ dùng cục bộ
-docs/
+# Docs: local scratch by default; version top-level PLAN-*.md only
+docs/*
+!docs/PLAN-*.md
+
+# Local scratch / script output (repo root)
+/lint_output.txt
+/out.txt
+/out2.txt
+/out_utf8.txt
+/tmp_*.json
+/paths.txt
+/paths2.txt
+/schema_names.txt
+/schemas.txt
+/schemas_list.txt
+/schemas_submission.txt
+/schemas_versions.txt
+/swagger_summary.txt
+/paths.json
+/playwright-report-prod/
 
 # Java/Spring Boot (backend)
 backend/target/
