@@ -5,7 +5,7 @@ import { authService } from "@/services/authService";
 import { useAuthStore } from "@/stores/authStore";
 import Input from "@/components/common/Input";
 import { LoginForm, ConfirmAccountForm } from "@/types";
-import { notify } from "@/stores/notificationStore";
+import { uiToast, notifyLine } from "@/uiToast";
 import logo from "@/components/image/VietTune logo.png";
 import { sessionGetItem, sessionRemoveItem } from "@/services/storageService";
 import { ZitherStrings } from "@/components/image/pattern/BackgroundPatterns";
@@ -51,6 +51,7 @@ export default function LoginPage() {
       if (response.success && response.data) {
         setUser(response.data.user);
         void sessionRemoveItem("fromLogout");
+        uiToast.success("auth.login.success");
         const nextPath = resolvePostLoginPath(response.data.user, redirectTo);
         navigate(nextPath);
       }
@@ -64,7 +65,7 @@ export default function LoginPage() {
       if (errorMessage.toLowerCase().includes("xác nhận email")) {
         setShowOtpModal(true);
       } else {
-        notify.error("Lỗi đăng nhập", errorMessage);
+        uiToast.error(notifyLine("Lỗi đăng nhập", errorMessage));
       }
     } finally {
       setIsLoading(false);
@@ -79,7 +80,7 @@ export default function LoginPage() {
         result && typeof result === "object" && "message" in result && typeof (result as { message?: unknown }).message === "string"
           ? (result as { message: string }).message
           : "Xác thực tài khoản thành công.";
-      notify.success("Thành công", msg);
+      uiToast.success(notifyLine("Thành công", msg));
       setShowOtpModal(false);
       resetOtpForm();
       
@@ -94,7 +95,7 @@ export default function LoginPage() {
           ? (error as { response?: { data?: { message?: string } } }).response
             ?.data?.message || "Xác thực thất bại. Vui lòng kiểm tra lại mã OTP."
           : "Xác thực thất bại. Vui lòng thử lại.";
-      notify.error("Lỗi", errorMessage);
+      uiToast.error(notifyLine("Lỗi", errorMessage));
     } finally {
       setIsOtpLoading(false);
     }

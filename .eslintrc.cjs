@@ -15,4 +15,30 @@ module.exports = {
       { allowConstantExport: true },
     ],
   },
+  overrides: [
+    {
+      files: ['src/**/*.{ts,tsx}'],
+      excludedFiles: ['src/App.tsx', 'src/uiToast/**/*'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            paths: [
+              {
+                name: 'react-hot-toast',
+                message:
+                  'Dùng @/uiToast (Toaster chỉ trong App.tsx; toast implementation chỉ trong src/uiToast).',
+              },
+              {
+                name: '@/stores/notificationStore',
+                importNames: ['notify'],
+                message:
+                  'Dùng @/uiToast. Giữ store cho NotificationProvider / useNotificationStore nếu cần dialog stack.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
 }

@@ -48,4 +48,8 @@
 - CORS configuration for frontend integration
 - Email service integration for notifications
 
+### E2E (Playwright)
+
+- Local / CI / staging (`PW_BASE_URL`, `E2E_CONTRIBUTOR_*`): **[docs/E2E-contributor-runbook.md](docs/E2E-contributor-runbook.md)** và [docs/PLAN-e2e-contributor-workflow.md](docs/PLAN-e2e-contributor-workflow.md).
+
 #### Copyright © 2026 VietTune

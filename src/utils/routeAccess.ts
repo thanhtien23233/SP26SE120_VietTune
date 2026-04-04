@@ -109,11 +109,35 @@ export function getDefaultPostLoginPath(user: User): string {
   }
 }
 
+/**
+ * Returns true if the given path prefix is accessible by this role.
+ * Prevents a leftover ?redirect=/moderation from redirecting a CONTRIBUTOR there.
+ */
+function isRedirectAllowedForRole(path: string, role: UserRole): boolean {
+  const p = path.toLowerCase();
+  // Admin-only routes
+  if (p.startsWith("/admin")) return role === UserRole.ADMIN;
+  // Expert-only routes
+  if (p.startsWith("/moderation") || p.startsWith("/approved-recordings")) {
+    return role === UserRole.EXPERT || role === UserRole.ADMIN;
+  }
+  // Researcher-only routes
+  if (p.startsWith("/researcher")) {
+    return role === UserRole.RESEARCHER || role === UserRole.ADMIN;
+  }
+  // All other internal paths are allowed (public + contributor)
+  return true;
+}
+
 export function resolvePostLoginPath(
   user: User,
   requestedRedirect: string | null
 ): string {
-  if (requestedRedirect && isSafeInternalPath(requestedRedirect)) {
+  if (
+    requestedRedirect &&
+    isSafeInternalPath(requestedRedirect) &&
+    isRedirectAllowedForRole(requestedRedirect, user.role)
+  ) {
     return requestedRedirect;
   }
   return getDefaultPostLoginPath(user);

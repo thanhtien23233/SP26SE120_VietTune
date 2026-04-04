@@ -1,6 +1,6 @@
 import { api } from "./api";
 import { User, LoginForm, RegisterForm, ApiResponse, UserRole } from "@/types";
-import { notify } from "@/stores/notificationStore";
+import { uiToast } from "@/uiToast";
 import {
   getItem,
   setItem,
@@ -66,72 +66,14 @@ export const authService = {
 
   // Register
   register: async (data: RegisterForm) => {
-    const newUserId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const newUser: User = {
-      id: newUserId,
-      username: data.username,
-      email: data.email,
-      fullName: data.fullName,
-      role: UserRole.CONTRIBUTOR,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    const response = await api.post<ApiResponse<unknown>>("/auth/register", data);
+    return {
+      success: true,
+      data: response.data,
+      message: "Registration successful",
     };
-
-    try {
-      const response = await api.post<ApiResponse<unknown>>(
-        "/auth/register",
-        data,
-      );
-
-      // Save to users_overrides so it persists
-      try {
-        const oRaw = getItem("users_overrides");
-        const overrides = oRaw
-          ? (JSON.parse(oRaw) as Record<string, User>)
-          : {};
-        overrides[newUserId] = newUser;
-        await setItem("users_overrides", JSON.stringify(overrides));
-      } catch (err) {
-        console.warn("Failed to save new user to overrides", err);
-      }
-
-      return {
-        success: true,
-        data: response.data,
-        message: "Registration successful",
-      };
-    } catch (error: unknown) {
-      // Demo mode: when API is unavailable, create user locally and return so caller can log in
-      const axiosLike = error as {
-        response?: { data?: { message?: string } };
-        message?: string;
-      };
-      const errorMessage =
-        axiosLike.response?.data?.message ||
-        axiosLike.message ||
-        "Đăng ký thất bại";
-      console.warn(`Register API failed (${errorMessage}), creating user locally for demo:`, error);
-      try {
-        const oRaw = getItem("users_overrides");
-        const overrides = oRaw
-          ? (JSON.parse(oRaw) as Record<string, User>)
-          : {};
-        overrides[newUserId] = newUser;
-        await setItem("users_overrides", JSON.stringify(overrides));
-        const token = `demo-token-${newUserId}`;
-        await setItem("access_token", token);
-        await setItem("user", JSON.stringify(newUser));
-      } catch (err) {
-        console.warn("Failed to create local user:", err);
-        throw error;
-      }
-      return {
-        success: true,
-        data: { user: newUser },
-        message: "Đăng ký thành công (chế độ demo, chưa kết nối backend).",
-      };
-    }
   },
+
 
   // Register Researcher
   registerResearcher: async (data: import("@/types").RegisterResearcherForm) => {
@@ -248,11 +190,8 @@ export const authService = {
 
             // Notify user that profile has been synced
             try {
-              notify.success(
-                "Thành công",
-                "Cập nhật hồ sơ đã được đồng bộ với server.",
-              );
-            } catch (err) {
+              uiToast.success("auth.profile.sync_success");
+            } catch {
               /* noop */
             }
           }
@@ -277,10 +216,17 @@ export const authService = {
     });
   },
 
-  // Get stored user
+  // Get stored user — safe JSON parse to avoid app crash on corrupt storage
   getStoredUser: (): User | null => {
     const userStr = getItem("user");
-    return userStr ? JSON.parse(userStr) : null;
+    if (!userStr) return null;
+    try {
+      return JSON.parse(userStr) as User;
+    } catch {
+      console.warn("[authService] Corrupt user data in storage, clearing.");
+      void removeItem("user");
+      return null;
+    }
   },
 
   // Check if authenticated
@@ -288,8 +234,11 @@ export const authService = {
     return !!getItem("access_token");
   },
 
-  // Demo login helper (for local demo/testing only)
+  // Demo login helper — available in DEV only to prevent misuse in production
   loginDemo: async (demoKey: string) => {
+    if (!import.meta.env.DEV) {
+      throw new Error("loginDemo is not available in production.");
+    }
     // demoKey: 'contributor', 'expert_a', 'expert_b', 'expert_c'
     const mapping: Record<string, Partial<User>> = {
       contributor: {

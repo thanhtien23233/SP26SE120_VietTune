@@ -26,6 +26,8 @@ import SearchableDropdown from "@/components/common/SearchableDropdown";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import AudioPlayer from "@/components/features/AudioPlayer";
 import VideoPlayer from "@/components/features/VideoPlayer";
+import KnowledgeGraphViewer from "@/components/knowledge-graph/KnowledgeGraphViewer";
+import { useKnowledgeGraphData } from "@/hooks/useKnowledgeGraphData";
 import { INTELLIGENCE_NAME, REGION_NAMES } from "@/config/constants";
 import { API_BASE_URL } from "@/config/constants";
 import {
@@ -44,13 +46,12 @@ import { getItemAsync, setItem } from "@/services/storageService";
 import { AI_RESPONSES_REVIEW_KEY } from "@/pages/ModerationPage";
 import { isYouTubeUrl } from "@/utils/youtube";
 import { Recording, VerificationStatus } from "@/types";
-import { fetchVerifiedSubmissionsAsRecordings } from "@/services/researcherArchiveService";
 import { useAuth } from "@/contexts/AuthContext";
 import axios from "axios";
 import { normalizeSearchText } from "@/utils/searchText";
 
 type TabId = "search" | "qa" | "graph" | "compare";
-type ResearcherCatalogSource = "api-filter" | "client-fallback" | "empty";
+type ResearcherCatalogSource = "api-filter" | "empty";
 
 type ResearcherFilterDropdownKey = "ethnic" | "instrument" | "ceremony" | "region" | "commune";
 
@@ -236,50 +237,6 @@ function scoreRecording(r: Recording, tokens: string[]): number {
   return score;
 }
 
-function applySearchQueryAndFilters(list: Recording[], searchQuery: string, f: SearchFiltersState): Recording[] {
-  const trimmed = searchQuery.trim();
-  let next = list;
-  if (trimmed) {
-    const tokens = tokenize(trimmed);
-    next = next
-      .map((r) => ({ r, score: scoreRecording(r, tokens) }))
-      .filter((x) => x.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map((x) => x.r);
-  }
-  return applyFilters(next, f);
-}
-
-function applyFilters(list: Recording[], f: SearchFiltersState): Recording[] {
-  return list.filter((r) => {
-    if (f.ethnicGroup) {
-      const name = getEthnicityLabel(r);
-      if (name !== f.ethnicGroup) return false;
-    }
-    if (f.region) {
-      const regionLabel = getRegionLabel(r);
-      if (regionLabel !== f.region) return false;
-    }
-    if (f.instrument) {
-      const labels = getInstrumentLabel(r)
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const has = labels.includes(f.instrument);
-      if (!has) return false;
-    }
-    if (f.ceremony) {
-      const ceremony = getCeremonyLabel(r, [f.ceremony]);
-      const has = ceremony === f.ceremony || ceremony.includes(f.ceremony);
-      if (!has) return false;
-    }
-    if (f.commune) {
-      const communeName = getCommuneName(r).toLowerCase();
-      if (!communeName || !communeName.includes(f.commune.toLowerCase())) return false;
-    }
-    return true;
-  });
-}
 
 function getCommuneName(r: Recording): string {
   const maybeWithCommune = r as Recording & {
@@ -360,8 +317,8 @@ function buildCitationCandidates(question: string, recordings: Recording[]): Cha
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
     .map(({ r }) => {
-      const ethnicity = r.ethnicity?.nameVietnamese ?? r.ethnicity?.name ?? "Không rõ dân tộc";
-      const region = r.region ? REGION_NAMES[r.region as keyof typeof REGION_NAMES] : "Không rõ vùng";
+      const ethnicity = getEthnicityLabel(r) || "Không rõ dân tộc";
+      const region = getRegionLabel(r) || "Không rõ vùng";
       return {
         recordingId: r.id,
         label: `${r.title} — ${ethnicity} — ${region}`,
@@ -457,30 +414,11 @@ export default function ResearcherPortalPage() {
     };
   }, []);
 
-  // Knowledge graph: ethnicities, instruments, and edges from approved recordings (nhạc cụ nào của dân tộc nào)
-  const graphData = useMemo(() => {
-    const edgeSet = new Set<string>();
-    const ethSet = new Set<string>();
-    const instSet = new Set<string>();
-    for (const r of approvedRecordings) {
-      const ethName = r.ethnicity?.nameVietnamese ?? r.ethnicity?.name ?? "";
-      if (!ethName) continue;
-      ethSet.add(ethName);
-      for (const inst of r.instruments ?? []) {
-        const iname = inst.nameVietnamese ?? inst.name ?? "";
-        if (!iname) continue;
-        instSet.add(iname);
-        edgeSet.add(`${ethName}\t${iname}`);
-      }
-    }
-    const ethnicities = Array.from(ethSet).sort((a, b) => a.localeCompare(b, "vi"));
-    const instruments = Array.from(instSet).sort((a, b) => a.localeCompare(b, "vi"));
-    const edges = Array.from(edgeSet).map((key) => {
-      const [e, i] = key.split("\t");
-      return { ethnicity: e, instrument: i };
-    });
-    return { ethnicities, instruments, edges };
-  }, [approvedRecordings]);
+  // Knowledge graph data mapper từ bản thu đã kiểm duyệt
+  const graphData = useKnowledgeGraphData(approvedRecordings, ethnicRefData, instrumentRefData, ceremonyRefData);
+
+  const ethnicitiesList = useMemo(() => Array.from(new Set(graphData.nodes.filter(n => n.type === 'ethnic_group').map(n => n.name))).sort((a, b) => a.localeCompare(b, "vi")), [graphData.nodes]);
+  const instrumentsList = useMemo(() => Array.from(new Set(graphData.nodes.filter(n => n.type === 'instrument').map(n => n.name))).sort((a, b) => a.localeCompare(b, "vi")), [graphData.nodes]);
 
   // Clear selected node when switching graph view to avoid stale "Bản thu liên quan".
   useEffect(() => {
@@ -516,78 +454,37 @@ export default function ResearcherPortalPage() {
   const loadResearcherCatalog = useCallback(async () => {
     setSearchLoading(true);
     const q = buildRecordingSearchQuery();
-    const hasServerFilters = Boolean(
-      q.q || q.ethnicGroupId || q.instrumentId || q.ceremonyId || q.regionCode || q.communeId,
-    );
-    const logTelemetry = (
-      source: ResearcherCatalogSource,
-      count: number,
-      extra?: Record<string, unknown>,
-    ) => {
+    
+    const logTelemetry = (source: string, count: number, extra: Record<string, unknown> = {}) => {
       if (!import.meta.env.DEV) return;
       console.info("[ResearcherSearch]", {
         source,
         count,
         query: q,
-        hasServerFilters,
         ...extra,
       });
     };
     try {
-      let clientList = await fetchVerifiedSubmissionsAsRecordings();
-      clientList = applySearchQueryAndFilters(clientList, searchQuery, filters);
-
-      let apiList: Recording[] = [];
-      if (hasServerFilters) {
-        try {
-          apiList = await fetchRecordingsSearchByFilter(q);
-        } catch (apiErr) {
-          console.warn("GET /Recording/search-by-filter failed; continuing with client-first fallback.", apiErr);
-          apiList = [];
-        }
-      }
-      if (apiList.length > 0) {
+      const apiList = await fetchRecordingsSearchByFilter(q);
+      
+      if (apiList && apiList.length > 0) {
         setApprovedRecordings(apiList);
         setCatalogSource("api-filter");
-        logTelemetry("api-filter", apiList.length, { clientFallbackCount: clientList.length });
-      } else if (clientList.length > 0) {
-        setApprovedRecordings(clientList);
-        setCatalogSource("client-fallback");
-        logTelemetry("client-fallback", clientList.length, { apiCount: apiList.length });
+        logTelemetry("api-filter", apiList.length, { status: "success" });
       } else {
         setApprovedRecordings([]);
         setCatalogSource("empty");
-        logTelemetry("empty", 0, { apiCount: apiList.length, clientFallbackCount: clientList.length });
+        logTelemetry("empty", 0, { status: "no-results" });
       }
     } catch (err) {
-      console.warn("Researcher catalog load failed; applying empty fallback.", err);
-      try {
-        let list = await fetchVerifiedSubmissionsAsRecordings();
-        list = applySearchQueryAndFilters(list, searchQuery, filters);
-        if (list.length > 0) {
-          setApprovedRecordings(list);
-          setCatalogSource("client-fallback");
-          if (import.meta.env.DEV) {
-            console.info("[ResearcherSearch]", {
-              source: "client-fallback",
-              count: list.length,
-              query: q,
-              failedAt: "outer-catch",
-            });
-          }
-        } else {
-          setApprovedRecordings([]);
-          setCatalogSource("empty");
-        }
-      } catch (fallbackErr) {
-        console.error("Fallback catalog load failed:", fallbackErr);
-        setApprovedRecordings([]);
-        setCatalogSource("empty");
-      }
+      console.error("Researcher catalog load API failed:", err);
+      setApprovedRecordings([]);
+      setCatalogSource("empty");
+      logTelemetry("error", 0, { status: "failed", error: String(err) });
     } finally {
       setSearchLoading(false);
     }
-  }, [buildRecordingSearchQuery, searchQuery, filters]);
+  }, [buildRecordingSearchQuery]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -809,8 +706,8 @@ export default function ResearcherPortalPage() {
   ];
 
   return (
-    <div className="min-h-screen min-w-0">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+    <div className="min-h-screen min-w-0 bg-gradient-to-b from-cream-50 via-[#F9F5EF] to-secondary-50/35">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-6 sm:mb-8">
           <h1 className="text-xl sm:text-3xl font-bold text-neutral-900 min-w-0">
             Cổng nghiên cứu
@@ -818,13 +715,12 @@ export default function ResearcherPortalPage() {
           <BackButton />
         </div>
 
-        {/* Tabs — VietTune UI: rounded-2xl, #FFFCF5, border-neutral-200/80 */}
+        {/* Tabs */}
         <div
-          className="border border-neutral-200/80 rounded-2xl overflow-hidden shadow-lg backdrop-blur-sm mb-6 sm:mb-8 transition-all duration-300 hover:shadow-xl min-w-0 overflow-x-hidden"
-          style={{ backgroundColor: "#FFFCF5" }}
+          className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] to-secondary-50/55 shadow-lg backdrop-blur-sm mb-6 sm:mb-8 transition-all duration-300 hover:shadow-xl min-w-0 overflow-x-hidden"
         >
           <nav
-            className="flex flex-wrap gap-2 p-4 sm:p-6 lg:p-8 border-b border-neutral-200/80 bg-white/50"
+            className="flex flex-wrap gap-2 p-4 sm:p-6 lg:p-8 border-b border-secondary-200/50 bg-white/30"
             aria-label="Cổng nghiên cứu"
           >
             {tabs.map((tab) => (
@@ -832,9 +728,9 @@ export default function ResearcherPortalPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 border cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${activeTab === tab.id
-                  ? "bg-primary-600 text-white border-primary-600 shadow-md"
-                  : "text-neutral-700 bg-white border-neutral-200/80 hover:border-primary-300 hover:bg-primary-50/80"
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 border border-transparent cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500 ${activeTab === tab.id
+                  ? "bg-gradient-to-br from-white to-secondary-50 text-primary-900 shadow-md ring-2 ring-secondary-300/70"
+                  : "text-neutral-700 hover:bg-secondary-50/90 hover:text-neutral-900"
                   }`}
                 aria-current={activeTab === tab.id ? "page" : undefined}
               >
@@ -847,7 +743,7 @@ export default function ResearcherPortalPage() {
           {/* Tab: Tìm kiếm nâng cao */}
           {activeTab === "search" && (
             <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-              <div className="rounded-2xl border border-primary-200/80 bg-white shadow-md p-4 sm:p-6">
+              <div className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 shadow-lg backdrop-blur-sm p-4 sm:p-6">
                 <div className="mb-4">
                   <h2 className="text-lg sm:text-xl font-semibold text-primary-800 flex items-center gap-2">
                     <Search className="w-5 h-5 text-primary-600" strokeWidth={2.5} />
@@ -868,7 +764,7 @@ export default function ResearcherPortalPage() {
                         if (e.key === "Enter") handleSearchClick();
                       }}
                       placeholder='Ví dụ: "Tìm bài hát mùa màng dùng đàn bầu ở Tây Nam Bộ"'
-                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-primary-200/80 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all text-neutral-900 placeholder-neutral-500 bg-white"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-secondary-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all text-neutral-900 placeholder-neutral-500 bg-white"
                       aria-label="Tìm kiếm ngữ nghĩa"
                     />
                   </div>
@@ -876,7 +772,7 @@ export default function ResearcherPortalPage() {
                     type="button"
                     onClick={handleSearchClick}
                     disabled={searchLoading}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-80 disabled:cursor-wait text-white font-semibold shadow-md hover:shadow-lg transition-all cursor-pointer min-w-[132px]"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 disabled:opacity-80 disabled:cursor-wait text-white font-semibold shadow-xl shadow-primary-600/40 hover:shadow-2xl transition-all cursor-pointer min-w-[132px]"
                     aria-busy={searchLoading}
                   >
                     <Search className="w-5 h-5 flex-shrink-0" strokeWidth={2.5} />
@@ -1005,14 +901,14 @@ export default function ResearcherPortalPage() {
                   </span>
                   {!searchLoading && (
                     <span className="text-[11px] text-neutral-500">
-                      Nguồn: {catalogSource === "api-filter" ? "API filter" : catalogSource === "client-fallback" ? "Client fallback" : "Không có dữ liệu"}
+                      Nguồn: {catalogSource === "api-filter" ? "API filter" : "Không có dữ liệu"}
                     </span>
                   )}
                   <button
                     type="button"
                     onClick={handleExportDataset}
                     disabled={searchLoading || approvedRecordings.length === 0}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-primary-300/80 bg-primary-50/90 text-primary-700 hover:bg-primary-100/90 font-medium transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-secondary-300/70 bg-gradient-to-br from-secondary-100 to-secondary-200/70 text-sm font-semibold text-primary-900 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
                   >
                     <Download className="h-4 w-4" strokeWidth={2.5} />
                     Xuất dataset (JSON)
@@ -1052,28 +948,28 @@ export default function ResearcherPortalPage() {
                         return (
                           <div
                             key={result.id ?? `${result.title ?? "recording"}-${resultIdx}`}
-                            className="rounded-xl border-2 border-primary-200/80 bg-white p-4 sm:p-5 shadow-md hover:shadow-lg transition-all"
+                            className="group relative overflow-hidden rounded-2xl border border-secondary-200/60 bg-white/70 backdrop-blur-md p-5 sm:p-6 shadow-sm hover:shadow-lg hover:border-secondary-300 transition-all duration-300 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1.5 before:bg-gradient-to-b before:from-primary-400 before:to-secondary-500"
                           >
-                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5 sm:gap-6">
                               <div className="flex-1 min-w-0">
-                                <div className="flex flex-wrap items-center gap-2 mb-3">
-                                  <h3 className="text-lg font-semibold text-primary-800">
+                                <div className="flex flex-wrap items-center gap-2.5 mb-3.5">
+                                  <h3 className="text-xl font-bold text-neutral-900 group-hover:text-primary-700 transition-colors leading-tight">
                                     {result.title}
                                   </h3>
                                   {result.verificationStatus === VerificationStatus.VERIFIED && (
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
                                       <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
                                       Đã xác minh
                                     </span>
                                   )}
                                   {missingMetadataCount > 0 && (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
                                       Thiếu metadata
                                     </span>
                                   )}
                                 </div>
 
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-2 mt-4">
                                   {(metadataPairs.length > 0
                                     ? metadataPairs
                                     : [
@@ -1085,32 +981,32 @@ export default function ResearcherPortalPage() {
                                       ]).map((item) => (
                                     <span
                                       key={`${result.id}-${item.label}`}
-                                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs ${
+                                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors ${
                                         item.value === "Chưa cập nhật"
-                                          ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                                          : "border-primary-200/80 bg-primary-50/60 text-primary-800"
+                                          ? "border-neutral-200/60 bg-neutral-50/50 text-neutral-500 hover:bg-neutral-100"
+                                          : "border-neutral-200/70 bg-neutral-50/80 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100/80"
                                       }`}
                                       title={`${item.label}: ${item.value}`}
                                     >
-                                      <strong className="font-semibold">{item.label}:</strong>
-                                      <span className="max-w-[280px] truncate">{item.value}</span>
+                                      <span className="text-neutral-500">{item.label}:</span>
+                                      <span className="max-w-[280px] truncate font-semibold text-neutral-800">{item.value}</span>
                                     </span>
                                   ))}
                                 </div>
                               </div>
-                              <div className="flex flex-col gap-2 sm:flex-shrink-0">
+                              <div className="flex flex-row sm:flex-col items-center sm:items-stretch gap-2.5 sm:flex-shrink-0 pt-2 sm:pt-0">
                                 <button
                                   type="button"
                                   onClick={() => handlePlay(result)}
-                                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
+                                  className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm shadow-md shadow-primary-600/20 transition-all cursor-pointer"
                                 >
-                                  <Play className="w-4 h-4" strokeWidth={2.5} />
+                                  <Play className="w-4 h-4 fill-white" strokeWidth={2} />
                                   Phát
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleDetail(result)}
-                                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-secondary-500 hover:bg-secondary-600 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
+                                  className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 font-semibold text-sm shadow-sm transition-all cursor-pointer"
                                 >
                                   <FileText className="w-4 h-4" strokeWidth={2.5} />
                                   Chi tiết
@@ -1221,8 +1117,8 @@ export default function ResearcherPortalPage() {
           {activeTab === "qa" && (
             <div className="p-4 sm:p-6 lg:p-8">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 flex flex-col rounded-2xl border-2 border-primary-200/80 bg-white shadow-lg overflow-hidden min-h-[500px] max-h-[700px]">
-                  <div className="bg-gradient-to-r from-primary-700 to-primary-600 text-white px-4 sm:px-6 py-4 border-b-2 border-primary-800">
+                <div className="lg:col-span-2 flex flex-col rounded-2xl border border-secondary-200/50 bg-gradient-to-b from-[#FFFCF5] to-secondary-50/55 shadow-lg backdrop-blur-sm overflow-hidden min-h-[500px] max-h-[700px]">
+                  <div className="bg-gradient-to-r from-primary-700 to-primary-600 text-white px-4 sm:px-6 py-4 border-b border-primary-800">
                     <h2 className="text-lg font-semibold">VietTune Intelligence</h2>
                     <p className="text-secondary-200 text-sm mt-0.5">
                       Hệ thống được đào tạo trên cơ sở tri thức đã xác minh
@@ -1231,9 +1127,6 @@ export default function ResearcherPortalPage() {
                   <div
                     ref={chatListRef}
                     className="flex-1 overflow-y-auto p-4 space-y-4"
-                    style={{
-                      background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)",
-                    }}
                   >
                     {chatMessages.map((msg, idx) => (
                       <div
@@ -1243,7 +1136,7 @@ export default function ResearcherPortalPage() {
                         <div
                           className={`max-w-[85%] rounded-2xl px-4 py-3 ${msg.role === "user"
                             ? "bg-primary-600 text-white shadow-md"
-                            : "bg-white border-2 border-secondary-200/80 text-neutral-700 shadow-sm"
+                            : "bg-white border border-secondary-200/50 text-neutral-700 shadow-sm"
                             }`}
                         >
                           {msg.role === "assistant" && (
@@ -1283,7 +1176,7 @@ export default function ResearcherPortalPage() {
                     ))}
                     {isTyping && (
                       <div className="flex justify-start">
-                        <div className="rounded-2xl px-4 py-3 bg-white border-2 border-secondary-200/80 shadow-sm flex gap-1.5">
+                        <div className="rounded-2xl px-4 py-3 bg-white border border-secondary-200/50 shadow-sm flex gap-1.5">
                           <span
                             className="w-2 h-2 rounded-full bg-neutral-400 animate-bounce"
                             style={{ animationDelay: "0ms" }}
@@ -1308,7 +1201,7 @@ export default function ResearcherPortalPage() {
                         onChange={(e) => setChatInput(e.target.value)}
                         onKeyDown={handleQaKeyDown}
                         placeholder="Hỏi về nhạc cụ, phong cách biểu diễn, lịch sử,..."
-                        className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border-2 border-primary-200/80 focus:border-primary-500 outline-none text-neutral-900 placeholder-neutral-500"
+                        className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-secondary-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all text-neutral-900 placeholder-neutral-500 bg-white"
                         aria-label="Tin nhắn"
                       />
                       <button
@@ -1317,7 +1210,7 @@ export default function ResearcherPortalPage() {
                           void handleSendMessage();
                         }}
                         disabled={!chatInput.trim() || isTyping}
-                        className="p-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:pointer-events-none text-white transition-colors cursor-pointer"
+                        className="p-2.5 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 shadow-md disabled:opacity-50 disabled:pointer-events-none text-white transition-all cursor-pointer"
                         aria-label="Gửi"
                       >
                         <Send className="w-5 h-5" strokeWidth={2.5} />
@@ -1328,8 +1221,7 @@ export default function ResearcherPortalPage() {
 
                 <div className="flex flex-col gap-4">
                   <div
-                    className="rounded-2xl border-2 border-primary-200/80 bg-white p-4 shadow-md"
-                    style={{ backgroundColor: "#FFFCF5" }}
+                    className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 shadow-lg backdrop-blur-sm p-4"
                   >
                     <h3 className="flex items-center gap-2 text-base font-semibold text-primary-800 mb-3">
                       <Lightbulb className="w-5 h-5 text-secondary-600" strokeWidth={2.5} />
@@ -1382,8 +1274,7 @@ export default function ResearcherPortalPage() {
           {activeTab === "graph" && (
             <div className="p-4 sm:p-6 lg:p-8 space-y-6">
               <div
-                className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6"
-                style={{ backgroundColor: "#FFFCF5" }}
+                className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 shadow-lg backdrop-blur-sm p-4 sm:p-6"
               >
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                   <h2 className="text-lg sm:text-xl font-semibold text-primary-800">
@@ -1425,56 +1316,18 @@ export default function ResearcherPortalPage() {
 
                 {graphView === "overview" && (
                   <div
-                    className="relative rounded-xl border-2 border-secondary-200/80 overflow-hidden flex items-center justify-center"
-                    style={{
-                      height: "min(600px, 70vh)",
-                      background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)",
-                    }}
+                    className="relative w-full overflow-hidden"
+                    style={{ height: "min(600px, 70vh)" }}
                   >
-                    <svg
-                      width="100%"
-                      height="100%"
-                      viewBox="0 0 800 600"
-                      className="max-h-[600px]"
-                      aria-hidden
-                    >
-                      <g transform="translate(400, 300)">
-                        <circle cx="0" cy="0" r="60" fill="#9B2C2C" opacity="0.2">
-                          <animate attributeName="r" values="60;65;60" dur="2s" repeatCount="indefinite" />
-                        </circle>
-                        <circle cx="0" cy="0" r="50" fill="#9B2C2C" />
-                        <text x="0" y="-5" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold">Âm nhạc</text>
-                        <text x="0" y="10" textAnchor="middle" fill="white" fontSize="10">Truyền thống</text>
-                      </g>
-                      <line x1="400" y1="300" x2="200" y2="150" stroke="#9B2C2C" strokeWidth="2" opacity="0.3" />
-                      <circle cx="200" cy="150" r="45" fill="#9B2C2C" opacity="0.9" className="cursor-pointer" />
-                      <text x="200" y="145" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">Dân tộc</text>
-                      <text x="200" y="160" textAnchor="middle" fill="white" fontSize="10">{ETHNICITIES.length}</text>
-                      <line x1="400" y1="300" x2="600" y2="150" stroke="#d97706" strokeWidth="2" opacity="0.3" />
-                      <circle cx="600" cy="150" r="45" fill="#d97706" opacity="0.9" className="cursor-pointer" />
-                      <text x="600" y="145" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">Nhạc cụ</text>
-                      <text x="600" y="160" textAnchor="middle" fill="white" fontSize="10">200+</text>
-                      <line x1="400" y1="300" x2="200" y2="450" stroke="#b45309" strokeWidth="2" opacity="0.3" />
-                      <circle cx="200" cy="450" r="45" fill="#b45309" opacity="0.9" className="cursor-pointer" />
-                      <text x="200" y="445" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">Nghi lễ</text>
-                      <text x="200" y="460" textAnchor="middle" fill="white" fontSize="10">{EVENT_TYPES.length}+</text>
-                      <line x1="400" y1="300" x2="600" y2="450" stroke="#ca8a04" strokeWidth="2" opacity="0.3" />
-                      <circle cx="600" cy="450" r="45" fill="#ca8a04" opacity="0.9" className="cursor-pointer" />
-                      <text x="600" y="445" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">Vùng miền</text>
-                      <text x="600" y="460" textAnchor="middle" fill="white" fontSize="10">{REGIONS.length}</text>
-                      <line x1="400" y1="300" x2="100" y2="300" stroke="#16a34a" strokeWidth="2" opacity="0.3" />
-                      <circle cx="100" cy="300" r="45" fill="#16a34a" opacity="0.9" className="cursor-pointer" />
-                      <text x="100" y="295" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">Bài hát</text>
-                      <text x="100" y="310" textAnchor="middle" fill="white" fontSize="10">5000+</text>
-                      <line x1="400" y1="300" x2="700" y2="300" stroke="#2563eb" strokeWidth="2" opacity="0.3" />
-                      <circle cx="700" cy="300" r="45" fill="#2563eb" opacity="0.9" className="cursor-pointer" />
-                      <text x="700" y="295" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">Nghệ nhân</text>
-                      <text x="700" y="310" textAnchor="middle" fill="white" fontSize="10">800+</text>
-                    </svg>
-                    <div className="absolute bottom-4 left-4 rounded-lg bg-white border-2 border-primary-200/80 shadow-md p-3 text-sm">
-                      <p className="font-semibold text-primary-800 mb-1">Hướng dẫn:</p>
-                      <p className="text-neutral-600 text-xs">• Chọn <strong>Nhạc cụ</strong> hoặc <strong>Dân tộc</strong> để xem đồ thị nối nhạc cụ với dân tộc tương ứng</p>
-                    </div>
+                    <KnowledgeGraphViewer 
+                        data={graphData} 
+                        onNodeClick={(node) => {
+                           if (node.type === 'instrument' || node.type === 'ethnic_group') {
+                               setSelectedGraphNode({ type: node.type === 'ethnic_group' ? 'ethnicity' : 'instrument', name: node.name });
+                               setGraphView(node.type === 'instrument' ? 'instruments' : 'ethnicity');
+                           }
+                        }} 
+                    />
                   </div>
                 )}
 
@@ -1482,11 +1335,11 @@ export default function ResearcherPortalPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                     {/* Danh sách: Nhạc cụ hoặc Dân tộc */}
                     <div className="rounded-xl border-2 border-secondary-200/80 bg-white p-4 shadow-sm max-h-[min(500px,60vh)] overflow-y-auto">
-                      <h3 className="text-sm font-semibold text-primary-800 mb-2 sticky top-0 bg-white py-1">
-                        {graphView === "instruments" ? `Danh sách nhạc cụ (${graphData.instruments.length})` : `Danh sách dân tộc (${graphData.ethnicities.length})`}
+                      <h3 className="text-sm font-semibold text-primary-800 mb-2 sticky top-0 bg-white py-1 z-10">
+                        {graphView === "instruments" ? `Danh sách nhạc cụ (${instrumentsList.length})` : `Danh sách dân tộc (${ethnicitiesList.length})`}
                       </h3>
                       <ul className="space-y-1 text-sm text-neutral-700">
-                        {(graphView === "instruments" ? graphData.instruments : graphData.ethnicities).map((name, idx) => (
+                        {(graphView === "instruments" ? instrumentsList : ethnicitiesList).map((name, idx) => (
                           <li key={idx}>
                             <button
                               type="button"
@@ -1507,79 +1360,29 @@ export default function ResearcherPortalPage() {
                           </li>
                         ))}
                       </ul>
-                      {((graphView === "instruments" && graphData.instruments.length === 0) || (graphView === "ethnicity" && graphData.ethnicities.length === 0)) && (
+                      {((graphView === "instruments" && instrumentsList.length === 0) || (graphView === "ethnicity" && ethnicitiesList.length === 0)) && (
                         <p className="text-neutral-500 text-xs">Chưa có dữ liệu từ bản thu đã kiểm duyệt.</p>
                       )}
                     </div>
                     {/* Đồ thị hai cột: Dân tộc – Nhạc cụ, nối theo cạnh (nhạc cụ của dân tộc nào) */}
                     <div
-                      className="lg:col-span-3 relative rounded-xl border-2 border-secondary-200/80 overflow-hidden flex items-center justify-center"
-                      style={{
-                        height: "min(500px, 60vh)",
-                        background: "linear-gradient(135deg, #FFFCF5 0%, #FFF1F3 100%)",
-                      }}
+                      className="lg:col-span-3 relative w-full overflow-hidden"
+                      style={{ height: "min(500px, 60vh)" }}
                     >
-                      {graphData.ethnicities.length === 0 || graphData.instruments.length === 0 ? (
+                      {graphData.nodes.length === 0 ? (
                         <p className="text-neutral-600 text-center px-4">
-                          Chưa đủ dữ liệu để vẽ đồ thị. Cần có bản thu đã kiểm duyệt có cả dân tộc và nhạc cụ.
+                          Chưa đủ dữ liệu để vẽ đồ thị. 
                         </p>
                       ) : (
-                        <svg
-                          width="100%"
-                          height="100%"
-                          viewBox="0 0 800 500"
-                          className="max-h-[500px]"
-                          aria-label="Biểu đồ nhạc cụ và dân tộc"
-                        >
-                          {/* Layout: cột trái x=100 (dân tộc), cột phải x=700 (nhạc cụ). Spread theo chiều dọc. */}
-                          {(() => {
-                            const leftX = 100;
-                            const rightX = 700;
-                            const paddingY = 40;
-                            const nEth = graphData.ethnicities.length;
-                            const nInst = graphData.instruments.length;
-                            const ethY = (i: number) => paddingY + (nEth <= 1 ? 250 : (i / (nEth - 1)) * (500 - 2 * paddingY));
-                            const instY = (i: number) => paddingY + (nInst <= 1 ? 250 : (i / (nInst - 1)) * (500 - 2 * paddingY));
-                            const ethIdx = Object.fromEntries(graphData.ethnicities.map((e, i) => [e, i]));
-                            const instIdx = Object.fromEntries(graphData.instruments.map((e, i) => [e, i]));
-                            return (
-                              <>
-                                {/* Cạnh nối dân tộc – nhạc cụ */}
-                                <g stroke="#9B2C2C" strokeWidth="1.5" opacity="0.4">
-                                  {graphData.edges.map(({ ethnicity, instrument }, k) => {
-                                    const ei = ethIdx[ethnicity];
-                                    const ii = instIdx[instrument];
-                                    if (ei == null || ii == null) return null;
-                                    const y1 = ethY(ei);
-                                    const y2 = instY(ii);
-                                    return <line key={k} x1={leftX} y1={y1} x2={rightX} y2={y2} />;
-                                  })}
-                                </g>
-                                {/* Node dân tộc (trái) */}
-                                {graphData.ethnicities.map((name, i) => (
-                                  <g key={`eth-${i}`}>
-                                    <circle cx={leftX} cy={ethY(i)} r="20" fill="#9B2C2C" className="cursor-pointer" />
-                                    <text x={leftX} y={ethY(i) + 28} textAnchor="middle" fill="#374151" fontSize="10">{name.length > 12 ? name.slice(0, 11) + "…" : name}</text>
-                                  </g>
-                                ))}
-                                {/* Node nhạc cụ (phải) */}
-                                {graphData.instruments.map((name, i) => (
-                                  <g key={`inst-${i}`}>
-                                    <circle cx={rightX} cy={instY(i)} r="20" fill="#d97706" className="cursor-pointer" />
-                                    <text x={rightX} y={instY(i) + 28} textAnchor="middle" fill="#374151" fontSize="10">{name.length > 14 ? name.slice(0, 13) + "…" : name}</text>
-                                  </g>
-                                ))}
-                                {/* Chú thích */}
-                                <text x={leftX} y="20" textAnchor="middle" fill="#9B2C2C" fontSize="11" fontWeight="bold">Dân tộc</text>
-                                <text x={rightX} y="20" textAnchor="middle" fill="#b45309" fontSize="11" fontWeight="bold">Nhạc cụ</text>
-                              </>
-                            );
-                          })()}
-                        </svg>
+                        <KnowledgeGraphViewer 
+                            data={graphData} 
+                            onNodeClick={(node) => {
+                               if (node.type === 'instrument' || node.type === 'ethnic_group') {
+                                   setSelectedGraphNode({ type: node.type === 'ethnic_group' ? 'ethnicity' : 'instrument', name: node.name });
+                               }
+                            }} 
+                        />
                       )}
-                      <div className="absolute bottom-2 left-2 right-2 rounded bg-white/90 border border-primary-200/80 shadow p-2 text-xs text-neutral-600 text-center">
-                        Đoạn thẳng nối nhạc cụ với dân tộc tương ứng (từ bản thu đã kiểm duyệt).
-                      </div>
                     </div>
                   </div>
                 )}
@@ -1588,7 +1391,7 @@ export default function ResearcherPortalPage() {
               {(graphView === "instruments" || graphView === "ethnicity") &&
                 selectedGraphNode &&
                 selectedGraphNode.type === (graphView === "instruments" ? "instrument" : "ethnicity") && (
-                <div className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6">
+                <div className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 shadow-lg backdrop-blur-sm p-4 sm:p-6">
                   <h3 className="text-base sm:text-lg font-semibold text-primary-800 mb-3">
                     Bản thu liên quan: {selectedGraphNode.name}
                   </h3>
@@ -1617,9 +1420,9 @@ export default function ResearcherPortalPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: "Dân tộc (trong đồ thị)", value: String(graphData.ethnicities.length), className: "bg-gradient-to-br from-primary-50 to-red-50 border-primary-200/80", valueColor: "text-primary-800" },
-                  { label: "Nhạc cụ (trong đồ thị)", value: String(graphData.instruments.length), className: "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/80", valueColor: "text-amber-900" },
-                  { label: "Mối quan hệ (cạnh)", value: String(graphData.edges.length), className: "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200/80", valueColor: "text-emerald-800" },
+                  { label: "Dân tộc (trong đồ thị)", value: String(ethnicitiesList.length), className: "bg-gradient-to-br from-primary-50 to-red-50 border-primary-200/80", valueColor: "text-primary-800" },
+                  { label: "Nhạc cụ (trong đồ thị)", value: String(instrumentsList.length), className: "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/80", valueColor: "text-amber-900" },
+                  { label: "Mối quan hệ (cạnh)", value: String(graphData.links.length), className: "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200/80", valueColor: "text-emerald-800" },
                   { label: "Nguồn", value: "Bản thu đã kiểm duyệt", className: "bg-gradient-to-br from-sky-50 to-blue-50 border-sky-200/80", valueColor: "text-sky-800" },
                 ].map((stat, idx) => (
                   <div key={idx} className={`rounded-xl border-2 p-4 shadow-sm ${stat.className}`}>
@@ -1699,7 +1502,7 @@ export default function ResearcherPortalPage() {
             );
             return (
               <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-                <div className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6" style={{ backgroundColor: "#FFFCF5" }}>
+                <div className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 shadow-lg backdrop-blur-sm p-4 sm:p-6">
                   <h2 className="text-lg sm:text-xl font-semibold text-primary-800 mb-2">So sánh phân tích</h2>
                   <p className="text-sm text-neutral-600 mb-6">Chọn hai bản thu để xem metadata và nghe song song (mở modal phát từng bản).</p>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1715,8 +1518,7 @@ export default function ResearcherPortalPage() {
                 </div>
 
                 <div
-                  className="rounded-2xl border-2 border-primary-200/80 bg-white shadow-md p-4 sm:p-6"
-                  style={{ backgroundColor: "#FFFCF5" }}
+                  className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-[#FFFCF5] via-cream-50/80 to-secondary-50/50 shadow-lg backdrop-blur-sm p-4 sm:p-6"
                 >
                   <h3 className="text-lg font-semibold text-primary-800 mb-3">
                     So sánh phiên âm / lời hát
@@ -1725,14 +1527,14 @@ export default function ResearcherPortalPage() {
                     <p className="text-sm text-neutral-600 mb-6">Hai bản thu chưa có transcript/lyrics để so sánh.</p>
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-                      <div className="rounded-xl border border-primary-200/80 bg-white p-3">
+                      <div className="rounded-xl border border-secondary-200/70 bg-gradient-to-b from-[#FFFCF5] via-cream-50/80 to-secondary-50/45 p-3">
                         <p className="text-xs font-semibold text-primary-700 mb-2">Bản #1</p>
                         <div
                           className="text-sm leading-7 text-neutral-700"
                           dangerouslySetInnerHTML={{ __html: transcriptDiff.leftHtml || "Chưa có dữ liệu" }}
                         />
                       </div>
-                      <div className="rounded-xl border border-primary-200/80 bg-white p-3">
+                      <div className="rounded-xl border border-secondary-200/70 bg-gradient-to-b from-[#FFFCF5] via-cream-50/80 to-secondary-50/45 p-3">
                         <p className="text-xs font-semibold text-primary-700 mb-2">Bản #2</p>
                         <div
                           className="text-sm leading-7 text-neutral-700"

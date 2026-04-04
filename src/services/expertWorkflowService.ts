@@ -15,6 +15,8 @@ import {
 import { getLocalRecordingMetaList } from "@/services/recordingStorage";
 import { getItemAsync, setItem } from "@/services/storageService";
 import type { LocalRecording } from "@/types";
+import type { MutationResult } from "@/types/mutationResult";
+import { mutationOk } from "@/types/mutationResult";
 import { ModerationStatus } from "@/types";
 
 // Phase 1 Spike: storage key — replace with server session / assign API in Phase 2.
@@ -430,24 +432,16 @@ export const expertWorkflowService = {
     await applyRejectToMap(submissionId, expertId, expertUsername, type, rejectionNote, notes, opts);
   },
 
-  /** Phase 2: PUT approve-submission; Phase 1: no-op success. */
-  async syncApproveToServer(submissionId: string): Promise<boolean> {
-    if (!EXPERT_API_PHASE2) return true;
-    try {
-      return await approveSubmissionOnServer(submissionId);
-    } catch {
-      return false;
-    }
+  /** Phase 2: PUT approve-submission; Phase 1: no-op success. Luôn trả MutationResult (không nuốt lỗi). */
+  async syncApproveToServer(submissionId: string): Promise<MutationResult> {
+    if (!EXPERT_API_PHASE2) return mutationOk();
+    return approveSubmissionOnServer(submissionId);
   },
 
   /** Phase 2: PUT reject-submission; Phase 1: no-op success. */
-  async syncRejectToServer(submissionId: string): Promise<boolean> {
-    if (!EXPERT_API_PHASE2) return true;
-    try {
-      return await rejectSubmissionOnServer(submissionId);
-    } catch {
-      return false;
-    }
+  async syncRejectToServer(submissionId: string): Promise<MutationResult> {
+    if (!EXPERT_API_PHASE2) return mutationOk();
+    return rejectSubmissionOnServer(submissionId);
   },
 
   /** Sequential: server (Phase 2) then local map — for non-optimistic callers. */
@@ -460,8 +454,8 @@ export const expertWorkflowService = {
   ): Promise<boolean> {
     try {
       if (EXPERT_API_PHASE2) {
-        const okServer = await approveSubmissionOnServer(submissionId);
-        if (!okServer) return false;
+        const serverRes = await approveSubmissionOnServer(submissionId);
+        if (!serverRes.ok) return false;
       }
       await applyApproveToMap(submissionId, expertId, expertUsername, verificationData, notes);
       return true;
@@ -481,8 +475,8 @@ export const expertWorkflowService = {
   ): Promise<boolean> {
     try {
       if (EXPERT_API_PHASE2) {
-        const okServer = await rejectSubmissionOnServer(submissionId);
-        if (!okServer) return false;
+        const serverRes = await rejectSubmissionOnServer(submissionId);
+        if (!serverRes.ok) return false;
       }
       await applyRejectToMap(submissionId, expertId, expertUsername, type, rejectionNote, notes, opts);
       return true;

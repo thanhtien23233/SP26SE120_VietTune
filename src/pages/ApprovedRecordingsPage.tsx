@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
-import { ModerationStatus } from "@/types";
+
+
 import AudioPlayer from "@/components/features/AudioPlayer";
 import VideoPlayer from "@/components/features/VideoPlayer";
 import { isYouTubeUrl } from "@/utils/youtube";
@@ -11,7 +12,8 @@ import { buildTagsFromLocal } from "@/utils/recordingTags";
 import BackButton from "@/components/common/BackButton";
 import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import ForbiddenPage from "@/pages/ForbiddenPage";
-import { getLocalRecordingMetaList, getLocalRecordingFull, removeLocalRecording } from "@/services/recordingStorage";
+import { removeLocalRecording } from "@/services/recordingStorage";
+import { fetchApprovedSubmissionsForExpert } from "@/services/expertModerationApi";
 import { recordingRequestService } from "@/services/recordingRequestService";
 import {
     Recording,
@@ -42,17 +44,9 @@ export default function ApprovedRecordingsPage() {
 
     const load = useCallback(async () => {
         try {
-            const metaList = await getLocalRecordingMetaList();
-            const migrated = migrateVideoDataToVideoData(metaList as LocalRecording[]);
-            const approvedMeta = migrated.filter(
-                (r) =>
-                    r.moderation &&
-                    typeof r.moderation === "object" &&
-                    "status" in r.moderation &&
-                    (r.moderation as { status?: string }).status === ModerationStatus.APPROVED
-            );
-            const fullList = await Promise.all(approvedMeta.map((r) => getLocalRecordingFull(r.id ?? "")));
-            setItems(fullList.filter((r): r is LocalRecording => r != null));
+            const list = await fetchApprovedSubmissionsForExpert();
+            const migrated = migrateVideoDataToVideoData(list as LocalRecording[]);
+            setItems(migrated.filter((r): r is LocalRecording => r != null));
         } catch (err) {
             console.error(err);
             setItems([]);
@@ -61,8 +55,6 @@ export default function ApprovedRecordingsPage() {
 
     useEffect(() => {
         load();
-        const interval = setInterval(load, 3000);
-        return () => clearInterval(interval);
     }, [load]);
 
     const [deleteTarget, setDeleteTarget] = useState<{ type: "direct"; id: string; title: string } | { type: "request"; req: DeleteRecordingRequest } | null>(null);
@@ -71,22 +63,19 @@ export default function ApprovedRecordingsPage() {
     const [editSubmissions, setEditSubmissions] = useState<EditSubmissionForReview[]>([]);
     const [approveEditTarget, setApproveEditTarget] = useState<EditSubmissionForReview | null>(null);
 
+    // Single combined polling interval — replaces 3 separate intervals (3s, 4s, 4s) → 1 interval at 30s
     useEffect(() => {
         if (!user?.id) return;
-        recordingRequestService.getForwardedDeleteRequestsForExpert(user.id).then(setForwardedDeletes);
-        const t = setInterval(() => {
+        const fetchAll = () => {
+            void load();
             recordingRequestService.getForwardedDeleteRequestsForExpert(user.id).then(setForwardedDeletes);
-        }, 4000);
-        return () => clearInterval(t);
-    }, [user?.id]);
-
-    useEffect(() => {
-        recordingRequestService.getPendingEditSubmissionsForExpert().then(setEditSubmissions);
-        const t = setInterval(() => {
             recordingRequestService.getPendingEditSubmissionsForExpert().then(setEditSubmissions);
-        }, 4000);
+        };
+        // Initial load
+        fetchAll();
+        const t = setInterval(fetchAll, 30_000);
         return () => clearInterval(t);
-    }, []);
+    }, [load, user?.id]);
 
     const handleDeleteConfirm = async () => {
         if (!deleteTarget) return;

@@ -12,3 +12,7 @@ export const EXPERT_QUEUE_SOURCE: ExpertQueueSource =
   String(import.meta.env.VITE_EXPERT_QUEUE_SOURCE || "by-status").toLowerCase() === "admin"
     ? "admin"
     : "by-status";
+
+/** Dev helper: force mock queue instead of calling backend queue APIs. */
+export const EXPERT_QUEUE_USE_MOCK =
+  String(import.meta.env.VITE_EXPERT_QUEUE_USE_MOCK || "").toLowerCase() === "true";

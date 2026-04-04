@@ -18,7 +18,7 @@ import { uploadFileToSupabase } from "@/services/uploadService";
 import { recordingService } from "@/services/recordingService";
 import type { RecordingDto } from "@/services/recordingDto";
 import { submissionService } from "@/services/submissionService";
-import { notify } from "@/stores/notificationStore";
+import { uiToast } from "@/uiToast";
 import { isAxiosError } from "axios";
 import { api } from "@/services/api";
 import { PROVINCE_REGION_CODE_TO_NAME as REGION_CODE_TO_NAME, macroRegionDisplayNameFromProvinceRegionCode as getRegionName } from "@/config/provinceRegionCodes";
@@ -2427,7 +2427,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           aiRes = (payload.data ?? aiResult.value) as AiAnalysisResult;
         } else {
           console.warn("AI Analysis failed:", aiResult.status === "rejected" ? aiResult.reason : "No value");
-          notify.error("Phân tích AI thất bại", "Vẫn tiếp tục tải lên bình thường.");
+          uiToast.warning("upload.ai.partial_fail");
         }
       } else {
         publicUrl = await uploadFileToSupabase(file);
@@ -2441,7 +2441,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
         const uploaderId = currentUser?.id ? currentUser.id.toString() : "1";
 
         const res = await recordingService.createSubmission({
-          audioFileUrl: mediaType === "audio" ? publicUrl : undefined,
+          audioFileUrl: publicUrl,
           videoFileUrl: mediaType === "video" ? publicUrl : undefined,
           uploadedById: uploaderId
         });
@@ -2461,7 +2461,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       }
 
       if (aiRes) {
-        notify.success("Phân tích AI thành công", "Đã tự động điền các thông tin gợi ý.");
+        uiToast.success("upload.ai.success_detail");
         if (aiRes.title) setTitle(aiRes.title);
         if (aiRes.composer) {
           setComposer(aiRes.composer);
@@ -3155,7 +3155,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       const payload: RecordingDto = {
         title: title || undefined,
         description: description || undefined,
-        audioFileUrl: mediaType === "audio" ? finalMediaUrl : undefined,
+        audioFileUrl: finalMediaUrl,
         videoFileUrl: mediaType === "video" ? finalMediaUrl : undefined,
         audioFormat: audioFormat || undefined,
         durationSeconds: durationSeconds,
@@ -3201,7 +3201,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
       } else {
         // Just Save Draft
         setIsSubmitting(false);
-        notify.success("Thành công", isEditMode ? "Đã cập nhật bản chỉnh sửa." : "Đã lưu bản nháp thành công.");
+        uiToast.success(isEditMode ? "upload.save.success_edit" : "upload.save.success_draft");
       }
 
     } catch (error: unknown) {
