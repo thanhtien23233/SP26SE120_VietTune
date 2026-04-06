@@ -130,6 +130,7 @@ builder.Services.AddScoped<IKBCitationRepository, KBCitationRepository>();
 // ✅ REPOSITORIES - Q&A System
 builder.Services.AddScoped<IQAConversationRepository, QAConversationRepository>();
 builder.Services.AddScoped<IQAMessageRepository, QAMessageRepository>();
+builder.Services.AddScoped<IRagChatRepository, RagChatRepository>();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
@@ -179,6 +180,7 @@ builder.Services.Configure<GeminiOptions>(
     builder.Configuration.GetSection(GeminiOptions.SectionName));
 
 builder.Services.AddHttpClient<IOpenAIEmbeddingService, GeminiEmbeddingService>();
+builder.Services.AddHttpClient("GeminiApi");
 builder.Services.AddScoped<IEmbeddingTextBuilder, EmbeddingTextBuilder>();
 builder.Services.AddScoped<IVectorEmbeddingService, VectorEmbeddingService>();
 builder.Services.AddScoped<ISemanticSearchService, SemanticSearchService>();
@@ -193,6 +195,9 @@ builder.Services.AddScoped<IKBCitationService, KBCitationService>();
 // ✅ SERVICES - Q&A System
 builder.Services.AddScoped<IQAConversationService, QAConversationService>();
 builder.Services.AddScoped<IQAMessageService, QAMessageService>();
+builder.Services.AddScoped<IRagChatService, RagChatService>();
+builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
+builder.Services.AddScoped<IKnowledgeRetrievalService, KnowledgeRetrievalService>();
 
 // ✅ SERVICES - User & Audit
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
