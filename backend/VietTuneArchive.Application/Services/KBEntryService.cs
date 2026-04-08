@@ -18,11 +18,13 @@ namespace VietTuneArchive.Application.Services
     public class KBEntryService : IKBEntryService
     {
         private readonly IKBEntryRepository _repo;
+        private readonly IEmbeddingService _embeddingService;
         private readonly string[] _validCategories = { "Instrument", "Ceremony", "MusicalTerm", "EthnicGroup", "VocalStyle" };
 
-        public KBEntryService(IKBEntryRepository repo)
+        public KBEntryService(IKBEntryRepository repo, IEmbeddingService embeddingService)
         {
             _repo = repo;
+            _embeddingService = embeddingService;
         }
 
         public async Task<PagedResponse<KBEntryListItemResponse>> GetEntriesAsync(KBEntryQueryParams queryParams)
@@ -145,6 +147,13 @@ namespace VietTuneArchive.Application.Services
             entry.Status = request.Status;
             entry.UpdatedAt = DateTime.UtcNow;
             await _repo.UpdateAsync(entry);
+
+            // Auto-generate embedding when published
+            if (entry.Status == 1)
+            {
+                // We run it synchronously or await it to ensure it is populated immediately.
+                await _embeddingService.GenerateEmbeddingForKBEntryAsync(entry.Id);
+            }
         }
 
         public async Task DeleteEntryAsync(Guid entryId)

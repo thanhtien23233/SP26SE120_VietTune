@@ -25,12 +25,14 @@ namespace VietTuneArchive.Application.Services
             var docs = new List<RetrievedDocument>();
             var lowerQuery = question.ToLower();
 
-            // 1. Semantic Search for Recordings
+            float[] questionVector = null;
+            // 1. Semantic Search for Recordings and KBEntries
             try
             {
-                var questionVector = await _embeddingService.GetEmbeddingAsync(question);
-                var similarRecordings = await _embeddingService.SearchSimilarRecordingsAsync(questionVector, 5);
+                questionVector = await _embeddingService.GetEmbeddingAsync(question);
                 
+                // 1a. Similar Recordings
+                var similarRecordings = await _embeddingService.SearchSimilarRecordingsAsync(questionVector, 5);
                 foreach (var recMatch in similarRecordings)
                 {
                     var rec = await _context.Recordings
@@ -50,28 +52,52 @@ namespace VietTuneArchive.Application.Services
                         });
                     }
                 }
-            }
-            catch
-            {
-                // Fallback to text search if embedding fails
-            }
 
-            // 2. Full-text search in KBEntries
-            var kbEntries = await _context.KBEntries
-                .Where(kb => kb.Status == 1 && (kb.Title.ToLower().Contains(lowerQuery) || kb.Content.ToLower().Contains(lowerQuery)))
-                .Take(5)
-                .ToListAsync();
-
-            foreach (var kb in kbEntries)
-            {
-                docs.Add(new RetrievedDocument
+                // 1b. Similar KBEntries
+                var similarKBs = await _embeddingService.SearchSimilarKBEntriesAsync(questionVector, 5);
+                foreach (var kbMatch in similarKBs)
                 {
-                    SourceType = "KBEntry",
-                    SourceId = kb.Id,
-                    Title = kb.Title,
-                    Content = kb.Content.Substring(0, Math.Min(kb.Content.Length, 500)),
-                    RelevanceScore = 0.8
-                });
+                    var kb = await _context.KBEntries.FirstOrDefaultAsync(k => k.Id == kbMatch.EntryId && k.Status == 1);
+                    if (kb != null)
+                    {
+                        docs.Add(new RetrievedDocument
+                        {
+                            SourceType = "KBEntry",
+                            SourceId = kb.Id,
+                            Title = kb.Title,
+                            Content = kb.Content.Length > 500 ? kb.Content.Substring(0, 500) : kb.Content,
+                            RelevanceScore = kbMatch.Score
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Embedding search failed: {ex.Message}");
+            }
+
+            // 2. Fallback: Keyword-based search in KBEntries (if semantic search didn't find enough)
+            if (docs.Count(d => d.SourceType == "KBEntry") < 3)
+            {
+                var existingKbIds = docs.Where(d => d.SourceType == "KBEntry").Select(d => d.SourceId).ToList();
+                
+                var kbEntries = await _context.KBEntries
+                    .Where(kb => kb.Status == 1 && !existingKbIds.Contains(kb.Id) && 
+                                (kb.Title.ToLower().Contains(lowerQuery) || lowerQuery.Contains(kb.Title.ToLower())))
+                    .Take(3)
+                    .ToListAsync();
+
+                foreach (var kb in kbEntries)
+                {
+                    docs.Add(new RetrievedDocument
+                    {
+                        SourceType = "KBEntry",
+                        SourceId = kb.Id,
+                        Title = kb.Title,
+                        Content = kb.Content.Substring(0, Math.Min(kb.Content.Length, 500)),
+                        RelevanceScore = 0.5 // Lower score for keyword match fallback
+                    });
+                }
             }
 
             // 3. Instruments

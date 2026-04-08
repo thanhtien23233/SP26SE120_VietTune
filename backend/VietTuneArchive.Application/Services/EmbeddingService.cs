@@ -199,8 +199,42 @@ namespace VietTuneArchive.Application.Services
 
         public async Task<int> BackfillAllMissingEmbeddingsAsync()
         {
-            // Implementation logic here
-            return 0;
+            int count = 0;
+
+            // 1. Recordings
+            var recordings = await _recordingRepository.GetAllAsync();
+            var existingRecordings = await _vectorEmbeddingRepository.GetAsync(v => v.RecordingId != null);
+            var embeddedRecIds = existingRecordings.Select(v => v.RecordingId.Value).ToHashSet();
+
+            foreach (var rec in recordings)
+            {
+                if (!embeddedRecIds.Contains(rec.Id))
+                {
+                    await GenerateEmbeddingForRecordingAsync(rec.Id);
+                    count++;
+                }
+            }
+
+            // 2. KBEntries
+            var (kbItems, _) = await _kbEntryRepository.GetAllAsync(new VietTuneArchive.Domain.Entities.DTO.KnowledgeBase.KBEntryQueryParams 
+            { 
+                Status = 1, 
+                PageSize = 10000 
+            });
+            
+            var existingKbs = await _vectorEmbeddingRepository.GetAsync(v => v.KBEntryId != null);
+            var embeddedKbIds = existingKbs.Select(v => v.KBEntryId.Value).ToHashSet();
+
+            foreach (var kb in kbItems)
+            {
+                if (!embeddedKbIds.Contains(kb.Id))
+                {
+                    await GenerateEmbeddingForKBEntryAsync(kb.Id);
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private double CosineSimilarity(float[] a, float[] b)
