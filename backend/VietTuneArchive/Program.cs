@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -53,7 +54,10 @@ builder.Services.AddSwaggerGen(c =>
 {
     try
     {
-        c.SwaggerDoc("v1", new() { Title = "VietTuneArchive", Version = "v1" });
+        c.SwaggerDoc(builder.Configuration["Swagger:Version"] ?? "v1", new() { 
+            Title = builder.Configuration["Swagger:Title"] ?? "VietTuneArchive", 
+            Version = builder.Configuration["Swagger:Version"] ?? "v1" 
+        });
         c.AddSecurityDefinition("Bearer", new()
         {
             Description = "JWT Bearer",
@@ -198,6 +202,20 @@ builder.Services.AddScoped<IQAMessageService, QAMessageService>();
 builder.Services.AddScoped<IRagChatService, RagChatService>();
 builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
 builder.Services.AddScoped<IKnowledgeRetrievalService, KnowledgeRetrievalService>();
+builder.Services.AddScoped<ILocalLlmService, LocalLlmService>();
+
+// HttpClient cho Python AI microservice (RAG)
+builder.Services.AddHttpClient("AiService", client =>
+{
+    var config = builder.Configuration.GetSection("RagChat");
+    var baseUrl = config["AiServiceBaseUrl"];
+    if (string.IsNullOrEmpty(baseUrl))
+    {
+        throw new InvalidOperationException("RagChat:AiServiceBaseUrl is not configured in appsettings.json");
+    }
+    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(int.Parse(config["RequestTimeoutSeconds"] ?? "120"));
+});
 
 // ✅ SERVICES - User & Audit
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
@@ -222,23 +240,36 @@ builder.Services.AddSignalR();
 builder.Services.AddCors(o => 
 {
     o.AddPolicy("AllowReactApp", p =>
-        p.WithOrigins("http://localhost:3000", "http://localhost:5173", "https://viettunearchiveapi-fufkgcayeydnhdeq.japanwest-01.azurewebsites.net")
-         .AllowAnyHeader()
+    {
+        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+        if (origins != null && origins.Length > 0)
+        {
+            p.WithOrigins(origins);
+        }
+        else
+        {
+            p.AllowAnyOrigin();
+        }
+        p.AllowAnyHeader()
          .AllowAnyMethod()
-         .AllowCredentials());
+         .AllowCredentials();
+    });
 });
 
 var app = builder.Build();
-app.UseExceptionHandler("/error");
-app.MapGet("/error", () => Results.Problem("An error occurred", statusCode: StatusCodes.Status500InternalServerError));
+var errorPath = builder.Configuration["AppPaths:ErrorPath"] ?? "/error";
+app.UseExceptionHandler(errorPath);
+app.MapGet(errorPath, () => Results.Problem("An error occurred", statusCode: StatusCodes.Status500InternalServerError));
 
 if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "VietTuneArchive v1");
-        c.RoutePrefix = "swagger";
+        var version = builder.Configuration["Swagger:Version"] ?? "v1";
+        var title = builder.Configuration["Swagger:Title"] ?? "VietTuneArchive";
+        c.SwaggerEndpoint($"/swagger/{version}/swagger.json", $"{title} {version}");
+        c.RoutePrefix = builder.Configuration["Swagger:RoutePrefix"] ?? "swagger";
     });
 }
 
@@ -247,6 +278,6 @@ app.UseCors("AllowReactApp");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHub<NotificationHub>("/notificationHub");
+app.MapHub<NotificationHub>(builder.Configuration["SignalR:HubPath"] ?? "/notificationHub");
 
 app.Run();

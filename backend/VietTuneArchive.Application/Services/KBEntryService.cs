@@ -8,6 +8,7 @@ using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Domain.Entities;
 using VietTuneArchive.Domain.IRepositories;
 using VietTuneArchive.Domain.Entities.DTO.KnowledgeBase;
+using VietTuneArchive.Application.Responses;
 
 namespace VietTuneArchive.Application.Services
 {
@@ -30,8 +31,8 @@ namespace VietTuneArchive.Application.Services
             var items = result.Items.Select(MapToListResponse).ToList();
             return new PagedResponse<KBEntryListItemResponse>
             {
-                Items = items,
-                TotalCount = result.TotalCount,
+                Data = items,
+                Total = result.TotalCount,
                 Page = queryParams.Page,
                 PageSize = queryParams.PageSize
             };

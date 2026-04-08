@@ -29,7 +29,7 @@ namespace VietTuneArchive.Application.Services
             try
             {
                 var questionVector = await _embeddingService.GetEmbeddingAsync(question);
-                var similarRecordings = await _embeddingService.SearchSimilarAsync(questionVector, 5);
+                var similarRecordings = await _embeddingService.SearchSimilarRecordingsAsync(questionVector, 5);
                 
                 foreach (var recMatch in similarRecordings)
                 {

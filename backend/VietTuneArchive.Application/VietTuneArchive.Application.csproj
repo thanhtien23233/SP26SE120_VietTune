@@ -21,4 +21,8 @@
     <ProjectReference Include="..\VietTuneArchive.Domain\VietTuneArchive.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="DTOs\" />
+  </ItemGroup>
+
 </Project>

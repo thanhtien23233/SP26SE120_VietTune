@@ -99,5 +99,18 @@ namespace VietTuneArchive.Domain.Repositories
 
             return (data, total);
         }
+
+        public async Task<Recording?> GetByIdWithDetailsAsync(Guid recordingId)
+        {
+            return await _context.Recordings
+                .Include(r => r.EthnicGroup)
+                .Include(r => r.Ceremony)
+                .Include(r => r.VocalStyle)
+                .Include(r => r.MusicalScale)
+                .Include(r => r.RecordingInstruments)
+                    .ThenInclude(ri => ri.Instrument)
+                .Include(r => r.Annotations)
+                .FirstOrDefaultAsync(r => r.Id == recordingId);
+        }
     }
 }

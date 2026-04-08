@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using VietTuneArchive.Domain.Context;
 using VietTuneArchive.Domain.Entities;
 using VietTuneArchive.Domain.IRepositories;
-using VietTuneArchive.Application.DTOs.KnowledgeBase;
+using VietTuneArchive.Domain.Entities.DTO.KnowledgeBase;
 
 namespace VietTuneArchive.Domain.Repositories
 {

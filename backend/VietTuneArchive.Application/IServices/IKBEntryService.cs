@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using VietTuneArchive.Application.Responses;
 using VietTuneArchive.Domain.Entities.DTO.KnowledgeBase;
 
 namespace VietTuneArchive.Application.IServices
