@@ -42,7 +42,7 @@ namespace VietTuneArchive.API.Controllers
                 if (user == null)
                     return Unauthorized(new { message = "Email hoặc mật khẩu không chính xác." });
 
-                var token = GenerateJSONWebToken(user);
+                var token = _authService.GenerateJwtToken(user);
                 return Ok(new
                 {
                     Token = token,
@@ -147,27 +147,7 @@ namespace VietTuneArchive.API.Controllers
             return Ok("Mật khẩu đã được reset thành công. Bạn có thể đăng nhập ngay.");
         }
 
-        private string GenerateJSONWebToken(User userInfo)
-        {
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
-            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-            var token = new JwtSecurityToken(_config["Jwt:Issuer"]
-                    , _config["Jwt:Audience"]
-                    , new Claim[]
-                    {
-                    new(ClaimTypes.Name, userInfo.FullName),
-                    //new(ClaimTypes.Email, userInfo.Email),
-                    new(ClaimTypes.Role, userInfo.Role.ToString()),
-                    },
-                    expires: DateTime.Now.AddMinutes(1200),
-                    signingCredentials: credentials
-                );
-
-            var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-
-            return tokenString;
-        }
         public class ForgotPasswordModel
         {
             public string Email { get; set; } = string.Empty;

@@ -1,4 +1,4 @@
-﻿using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
@@ -7,6 +7,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.Common.Email;
 using VietTuneArchive.Application.IServices;
@@ -20,11 +21,13 @@ namespace VietTuneArchive.Application.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly EmailService _emailService;
+        private readonly IConfiguration _configuration;
 
-        public AuthService(IUserRepository userRepository, EmailService emailService)
+        public AuthService(IUserRepository userRepository, EmailService emailService, IConfiguration configuration)
         {
             _userRepository = userRepository;
             _emailService = emailService;
+            _configuration = configuration;
         }
         private string HashPassword(string password)
         {
@@ -78,13 +81,18 @@ namespace VietTuneArchive.Application.Services
             if (string.IsNullOrWhiteSpace(user.Role))
                 throw new ArgumentException("User role is required");
 
+            var jwtKey = _configuration["Jwt:Key"];
+            if (string.IsNullOrEmpty(jwtKey))
+                throw new Exception("Jwt:Key is not configured in appsettings.json");
 
-            var key = Encoding.ASCII.GetBytes(GenerateToken());
+            var key = Encoding.ASCII.GetBytes(jwtKey);
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new[]
                 {
                      new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                     new Claim("id", user.Id.ToString()), 
+                     new Claim(ClaimTypes.Name, user.FullName ?? ""),
                      new Claim(ClaimTypes.Role, user.Role)
                 }),
                 Expires = DateTime.UtcNow.AddMinutes(120),
