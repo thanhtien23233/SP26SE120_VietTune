@@ -244,15 +244,17 @@ builder.Services.AddCors(o =>
         var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
         if (origins != null && origins.Length > 0)
         {
-            p.WithOrigins(origins);
+            p.WithOrigins(origins)
+             .AllowAnyHeader()
+             .AllowAnyMethod()
+             .AllowCredentials();
         }
         else
         {
-            p.AllowAnyOrigin();
+            p.AllowAnyOrigin()
+             .AllowAnyHeader()
+             .AllowAnyMethod();
         }
-        p.AllowAnyHeader()
-         .AllowAnyMethod()
-         .AllowCredentials();
     });
 });
 
