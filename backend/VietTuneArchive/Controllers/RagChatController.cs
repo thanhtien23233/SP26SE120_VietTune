@@ -14,12 +14,20 @@ namespace VietTuneArchive.API.Controllers
     public class RagChatController : ControllerBase
     {
         private readonly IRagChatService _ragChatService;
-        private readonly IEmbeddingService _embeddingService;
+        private readonly IEmbeddingService _embeddingService; // Local Python 384-dim
+        private readonly IVectorEmbeddingService _geminiVectorService; // Gemini 768-dim
+        private readonly IKnowledgeRetrievalService _retrievalService;
 
-        public RagChatController(IRagChatService ragChatService, IEmbeddingService embeddingService)
+        public RagChatController(
+            IRagChatService ragChatService, 
+            IEmbeddingService embeddingService,
+            IVectorEmbeddingService geminiVectorService,
+            IKnowledgeRetrievalService retrievalService)
         {
             _ragChatService = ragChatService;
             _embeddingService = embeddingService;
+            _geminiVectorService = geminiVectorService;
+            _retrievalService = retrievalService;
         }
 
         private Guid GetUserId()
@@ -75,7 +83,15 @@ namespace VietTuneArchive.API.Controllers
         public async Task<IActionResult> BackfillEmbeddings()
         {
             var count = await _embeddingService.BackfillAllMissingEmbeddingsAsync();
-            return Ok(new { Message = $"Backfill completed. {count} items processed." });
+            return Ok(new { Message = $"Local (384-dim) Backfill completed. {count} items processed." });
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("embeddings/backfill-768")]
+        public async Task<IActionResult> BackfillGeminiEmbeddings()
+        {
+            var count = await _geminiVectorService.BackfillAll768Async();
+            return Ok(new { Message = $"Gemini (768-dim) Backfill completed. {count} items processed." });
         }
 
         [Authorize(Roles = "Admin")]

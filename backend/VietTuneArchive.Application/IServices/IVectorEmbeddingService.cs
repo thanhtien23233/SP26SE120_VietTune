@@ -35,6 +35,16 @@ namespace VietTuneArchive.Application.IServices
         /// Lấy thống kê: tổng recordings, đã có embedding, chưa có.
         /// </summary>
         Task<EmbeddingSyncStatus> GetSyncStatusAsync(CancellationToken ct = default);
+
+        /// <summary>
+        /// Backfill 768-dim embeddings for all recordings and KBEntries.
+        /// </summary>
+        Task<int> BackfillAll768Async(CancellationToken ct = default);
+
+        /// <summary>
+        /// Generate embedding for KBEntry using Gemini.
+        /// </summary>
+        Task<VectorEmbedding> GenerateAndSaveKBAsync(Guid entryId, CancellationToken ct = default);
     }
 
     public class EmbeddingSyncStatus

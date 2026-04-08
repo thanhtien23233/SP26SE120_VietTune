@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Domain.Context;
 
@@ -14,16 +16,22 @@ namespace VietTuneArchive.Application.Services
     public class SemanticSearchService : ISemanticSearchService
     {
         private readonly DBContext _db;
-        private readonly IEmbeddingService _embeddingService;
+        private readonly IEmbeddingService _localEmbeddingService;
+        private readonly IOpenAIEmbeddingService _geminiEmbeddingService;
+        private readonly GeminiOptions _geminiOptions;
         private readonly ILogger<SemanticSearchService> _logger;
 
         public SemanticSearchService(
             DBContext db,
-            IEmbeddingService embeddingService,
+            IEmbeddingService localEmbeddingService,
+            IOpenAIEmbeddingService geminiEmbeddingService,
+            IOptions<GeminiOptions> geminiOptions,
             ILogger<SemanticSearchService> logger)
         {
             _db = db;
-            _embeddingService = embeddingService;
+            _localEmbeddingService = localEmbeddingService;
+            _geminiEmbeddingService = geminiEmbeddingService;
+            _geminiOptions = geminiOptions.Value;
             _logger = logger;
         }
 
@@ -33,12 +41,13 @@ namespace VietTuneArchive.Application.Services
             float minScore = 0.5f,
             CancellationToken ct = default)
         {
-            // 1. Sinh embedding cho query (Sử dụng Python AI local model)
-            var queryVector = await _embeddingService.GetEmbeddingAsync(query);
+            // 1. Sinh embedding cho query (Sử dụng Python AI local model - 384 dim)
+            var queryVector = await _localEmbeddingService.GetEmbeddingAsync(query);
+            string modelVer = "all-MiniLM-L6-v2";
 
-            // 2. Load tất cả embeddings từ DB
+            // 2. Load embeddings từ DB khớp với model version
             var allEmbeddings = await _db.VectorEmbeddings
-                .Where(v => v.RecordingId != null)
+                .Where(v => v.RecordingId != null && v.ModelVersion == modelVer)
                 .Select(v => new { RecordingId = v.RecordingId.Value, v.EmbeddingJson })
                 .ToListAsync(ct);
 
@@ -70,6 +79,75 @@ namespace VietTuneArchive.Application.Services
                 .Include(r => r.Ceremony)
                 .Include(r => r.RecordingInstruments)
                     .ThenInclude(ri => ri.Instrument)
+                .Where(r => recordingIds.Contains(r.Id))
+                .ToDictionaryAsync(r => r.Id, ct);
+
+            // 6. Map kết quả
+            return topResults
+                .Where(t => recordings.ContainsKey(t.RecordingId))
+                .Select(t =>
+                {
+                    var rec = recordings[t.RecordingId];
+                    return new SemanticSearchResult
+                    {
+                        RecordingId = t.RecordingId,
+                        Title = rec.Title ?? "Untitled",
+                        SimilarityScore = t.Score,
+                        EthnicGroupName = rec.EthnicGroup?.Name,
+                        CeremonyName = rec.Ceremony?.Name,
+                        PerformerName = rec.PerformerName,
+                        InstrumentNames = rec.RecordingInstruments?
+                            .Select(ri => ri.Instrument?.Name ?? "")
+                            .Where(n => !string.IsNullOrEmpty(n))
+                            .ToList() ?? new()
+                    };
+                })
+                .ToList();
+        }
+
+        public async Task<List<SemanticSearchResult>> Search768Async(
+            string query,
+            int topK = 10,
+            float minScore = 0.5f,
+            CancellationToken ct = default)
+        {
+            // 1. Sinh embedding cho query (Sử dụng Gemini - 768 dim)
+            var queryVector = await _geminiEmbeddingService.GetEmbeddingAsync(query, "RETRIEVAL_QUERY", ct);
+            string modelVer = _geminiOptions.EmbeddingModel; // e.g. text-embedding-004
+
+            // 2. Load embeddings từ DB khớp với model version
+            var allEmbeddings = await _db.VectorEmbeddings
+                .Where(v => v.RecordingId != null && v.ModelVersion == modelVer)
+                .Select(v => new { RecordingId = v.RecordingId.Value, v.EmbeddingJson })
+                .ToListAsync(ct);
+
+            // 3. Tính cosine similarity
+            var scored = new List<(Guid RecordingId, float Score)>();
+            foreach (var item in allEmbeddings)
+            {
+                var vector = JsonSerializer.Deserialize<float[]>(item.EmbeddingJson);
+                if (vector == null) continue;
+
+                var score = CosineSimilarity(queryVector, vector);
+                if (score >= minScore)
+                    scored.Add((item.RecordingId, score));
+            }
+
+            // 4. Sắp xếp và lấy top K
+            var topResults = scored
+                .OrderByDescending(s => s.Score)
+                .Take(topK)
+                .ToList();
+
+            if (!topResults.Any())
+                return new List<SemanticSearchResult>();
+
+            // 5. Load recording details
+            var recordingIds = topResults.Select(r => r.RecordingId).ToList();
+            var recordings = await _db.Recordings
+                .Include(r => r.EthnicGroup)
+                .Include(r => r.Ceremony)
+                .Include(r => r.RecordingInstruments).ThenInclude(ri => ri.Instrument)
                 .Where(r => recordingIds.Contains(r.Id))
                 .ToDictionaryAsync(r => r.Id, ct);
 

@@ -16,6 +16,15 @@ namespace VietTuneArchive.Application.IServices
             int topK = 10,
             float minScore = 0.5f,
             CancellationToken ct = default);
+
+        /// <summary>
+        /// Tìm kiếm Recording sử dụng Gemini 768-dim embeddings.
+        /// </summary>
+        Task<List<SemanticSearchResult>> Search768Async(
+            string query,
+            int topK = 10,
+            float minScore = 0.5f,
+            CancellationToken ct = default);
     }
 
     public class SemanticSearchResult

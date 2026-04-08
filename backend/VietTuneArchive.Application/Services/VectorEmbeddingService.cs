@@ -151,6 +151,72 @@ namespace VietTuneArchive.Application.Services
             }
         }
 
+        public async Task<int> BackfillAll768Async(CancellationToken ct = default)
+        {
+            int synced = 0;
+            string modelVer = _options.EmbeddingModel;
+
+            // 1. Recordings missing 768-dim
+            var recordingIds = await _db.Recordings
+                .Where(r => r.Status == SubmissionStatus.Approved)
+                .Where(r => !_db.VectorEmbeddings.Any(v => v.RecordingId == r.Id && v.ModelVersion == modelVer))
+                .Select(r => r.Id)
+                .ToListAsync(ct);
+
+            foreach (var id in recordingIds)
+            {
+                try { await GenerateAndSaveAsync(id, ct); synced++; await Task.Delay(200, ct); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Failed 768-dim Recording {Id}", id); }
+            }
+
+            // 2. KBEntries missing 768-dim
+            var kbIds = await _db.KBEntries
+                .Where(kb => kb.Status == 1) // Published
+                .Where(kb => !_db.VectorEmbeddings.Any(v => v.KBEntryId == kb.Id && v.ModelVersion == modelVer))
+                .Select(kb => kb.Id)
+                .ToListAsync(ct);
+
+            foreach (var id in kbIds)
+            {
+                try { await GenerateAndSaveKBAsync(id, ct); synced++; await Task.Delay(200, ct); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Failed 768-dim KBEntry {Id}", id); }
+            }
+
+            return synced;
+        }
+
+        public async Task<VectorEmbedding> GenerateAndSaveKBAsync(Guid entryId, CancellationToken ct = default)
+        {
+            var kb = await _db.KBEntries.FirstOrDefaultAsync(k => k.Id == entryId, ct);
+            if (kb == null) throw new KeyNotFoundException($"KBEntry {entryId} not found.");
+
+            // Text for KBEntry: Title + Content (limited)
+            var text = $"{kb.Title}. {kb.Content}";
+            if (text.Length > 2000) text = text.Substring(0, 2000);
+
+            var embeddingVector = await _embeddingService.GetEmbeddingAsync(text, ct);
+
+            string modelVer = _options.EmbeddingModel;
+            var existing = await _db.VectorEmbeddings
+                .FirstOrDefaultAsync(v => v.KBEntryId == entryId && v.ModelVersion == modelVer, ct);
+            
+            if (existing != null) _db.VectorEmbeddings.Remove(existing);
+
+            var vectorEmbedding = new VectorEmbedding
+            {
+                Id = Guid.NewGuid(),
+                KBEntryId = entryId,
+                EmbeddingJson = JsonSerializer.Serialize(embeddingVector),
+                ModelVersion = modelVer,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.VectorEmbeddings.Add(vectorEmbedding);
+            await _db.SaveChangesAsync(ct);
+
+            return vectorEmbedding;
+        }
+
         public async Task<EmbeddingSyncStatus> GetSyncStatusAsync(
             CancellationToken ct = default)
         {
