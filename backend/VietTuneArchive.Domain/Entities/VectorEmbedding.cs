@@ -9,11 +9,16 @@ namespace VietTuneArchive.Domain.Entities
         [Key]
         public Guid Id { get; set; }
 
-        [Required]
-        public Guid RecordingId { get; set; }
+        public Guid? RecordingId { get; set; }
 
         [ForeignKey("RecordingId")]
         public Recording? Recording { get; set; }
+
+        public Guid? KBEntryId { get; set; }
+
+        // Optionally configure ForeignKey for KBEntryId in DbContext or here if needed, but the prompt says EF can infer or handle it if we create a relation, or we just leave it for ad-hoc mapping.
+        [ForeignKey("KBEntryId")]
+        public KBEntry? KBEntry { get; set; }
 
         [Required]
         public string EmbeddingJson { get; set; } // vector-float-array
