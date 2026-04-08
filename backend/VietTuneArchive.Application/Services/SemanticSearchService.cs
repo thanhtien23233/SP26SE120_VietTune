@@ -14,12 +14,12 @@ namespace VietTuneArchive.Application.Services
     public class SemanticSearchService : ISemanticSearchService
     {
         private readonly DBContext _db;
-        private readonly IOpenAIEmbeddingService _embeddingService;
+        private readonly IEmbeddingService _embeddingService;
         private readonly ILogger<SemanticSearchService> _logger;
 
         public SemanticSearchService(
             DBContext db,
-            IOpenAIEmbeddingService embeddingService,
+            IEmbeddingService embeddingService,
             ILogger<SemanticSearchService> logger)
         {
             _db = db;
@@ -33,8 +33,8 @@ namespace VietTuneArchive.Application.Services
             float minScore = 0.5f,
             CancellationToken ct = default)
         {
-            // 1. Sinh embedding cho query (Gemini: dùng taskType RETRIEVAL_QUERY)
-            var queryVector = await _embeddingService.GetEmbeddingAsync(query, "RETRIEVAL_QUERY", ct);
+            // 1. Sinh embedding cho query (Sử dụng Python AI local model)
+            var queryVector = await _embeddingService.GetEmbeddingAsync(query);
 
             // 2. Load tất cả embeddings từ DB
             var allEmbeddings = await _db.VectorEmbeddings

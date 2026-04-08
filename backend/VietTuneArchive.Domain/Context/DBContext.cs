@@ -433,7 +433,6 @@ namespace VietTuneArchive.Domain.Context
             modelBuilder.Entity<VectorEmbedding>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.RecordingId).IsRequired();
                 entity.Property(e => e.EmbeddingJson).IsRequired();
                 entity.Property(e => e.ModelVersion).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.CreatedAt).IsRequired();
