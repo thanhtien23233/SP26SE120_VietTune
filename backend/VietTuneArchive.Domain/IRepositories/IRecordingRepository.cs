@@ -14,5 +14,7 @@ namespace VietTuneArchive.Domain.IRepositories
             int page = 1,
             int pageSize = 10,
             string sortOrder = "desc");
+
+        Task<Recording?> GetByIdWithDetailsAsync(Guid recordingId);
     }
 }

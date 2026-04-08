@@ -71,11 +71,28 @@ namespace VietTuneArchive.API.Controllers
         }
 
         [Authorize(Roles = "Admin")]
-        [HttpPost("embeddings/generate/{recordingId}")]
-        public async Task<IActionResult> GenerateEmbedding(Guid recordingId, [FromQuery] string textContent)
+        [HttpPost("embeddings/backfill")]
+        public async Task<IActionResult> BackfillEmbeddings()
         {
-            await _embeddingService.GenerateAndStoreEmbeddingAsync(recordingId, textContent);
-            return Ok("Embedding generated and stored.");
+            var count = await _embeddingService.BackfillAllMissingEmbeddingsAsync();
+            return Ok(new { Message = $"Backfill completed. {count} items processed." });
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("embeddings/regenerate/{recordingId}")]
+        public async Task<IActionResult> RegenerateEmbedding(Guid recordingId)
+        {
+            await _embeddingService.GenerateEmbeddingForRecordingAsync(recordingId);
+            return Ok("Embedding re-generated.");
+        }
+
+        // Old endpoint preserved for compatibility if needed, but updated to use new logic
+        [Authorize(Roles = "Admin")]
+        [HttpPost("embeddings/generate/{recordingId}")]
+        public async Task<IActionResult> GenerateEmbedding(Guid recordingId)
+        {
+            await _embeddingService.GenerateEmbeddingForRecordingAsync(recordingId);
+            return Ok("Embedding generated.");
         }
     }
 }

@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VietTuneArchive.Application.IServices;
-using VietTuneArchive.Application.DTOs.KnowledgeBase;
+using VietTuneArchive.Domain.Entities.DTO.KnowledgeBase;
 
 namespace VietTuneArchive.API.Controllers
 {

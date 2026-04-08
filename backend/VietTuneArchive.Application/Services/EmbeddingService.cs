@@ -7,20 +7,28 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using VietTuneArchive.Application.IServices;
-using VietTuneArchive.Domain.Context;
 using VietTuneArchive.Domain.Entities;
+using VietTuneArchive.Domain.IRepositories;
 
 namespace VietTuneArchive.Application.Services
 {
     public class EmbeddingService : IEmbeddingService
     {
         private readonly HttpClient _httpClient;
-        private readonly VietTuneArchiveDbContext _context;
+        private readonly IRecordingRepository _recordingRepository;
+        private readonly IVectorEmbeddingRepository _vectorEmbeddingRepository;
+        private readonly IKBEntryRepository _kbEntryRepository;
 
-        public EmbeddingService(IHttpClientFactory httpClientFactory, VietTuneArchiveDbContext context)
+        public EmbeddingService(
+            IHttpClientFactory httpClientFactory, 
+            IRecordingRepository recordingRepository,
+            IVectorEmbeddingRepository vectorEmbeddingRepository,
+            IKBEntryRepository kbEntryRepository)
         {
             _httpClient = httpClientFactory.CreateClient("AiService");
-            _context = context;
+            _recordingRepository = recordingRepository;
+            _vectorEmbeddingRepository = vectorEmbeddingRepository;
+            _kbEntryRepository = kbEntryRepository;
         }
 
         public class EmbedResponse
@@ -38,15 +46,7 @@ namespace VietTuneArchive.Application.Services
 
         public async Task GenerateEmbeddingForRecordingAsync(Guid recordingId)
         {
-            var recording = await _context.Recordings
-                .Include(r => r.EthnicGroup)
-                .Include(r => r.Ceremony)
-                .Include(r => r.VocalStyle)
-                .Include(r => r.MusicalScale)
-                .Include(r => r.RecordingInstruments)
-                    .ThenInclude(ri => ri.Instrument)
-                .Include(r => r.Annotations)
-                .FirstOrDefaultAsync(r => r.Id == recordingId);
+            var recording = await _recordingRepository.GetByIdWithDetailsAsync(recordingId);
 
             if (recording == null) return;
 
@@ -91,18 +91,19 @@ namespace VietTuneArchive.Application.Services
             var fullText = string.Join(". ", textParts);
             float[] vector = await GetEmbeddingAsync(fullText);
 
-            var existing = await _context.VectorEmbeddings
-                .FirstOrDefaultAsync(v => v.RecordingId == recordingId);
+            var existing = await _vectorEmbeddingRepository
+                .GetFirstOrDefaultAsync(v => v.RecordingId == recordingId);
 
             if (existing != null)
             {
                 existing.EmbeddingJson = JsonSerializer.Serialize(vector);
                 existing.ModelVersion = "all-MiniLM-L6-v2";
                 existing.CreatedAt = DateTime.UtcNow;
+                await _vectorEmbeddingRepository.UpdateAsync(existing);
             }
             else
             {
-                _context.VectorEmbeddings.Add(new VectorEmbedding
+                await _vectorEmbeddingRepository.AddAsync(new VectorEmbedding
                 {
                     Id = Guid.NewGuid(),
                     RecordingId = recordingId,
@@ -111,15 +112,11 @@ namespace VietTuneArchive.Application.Services
                     CreatedAt = DateTime.UtcNow
                 });
             }
-
-            await _context.SaveChangesAsync();
         }
 
         public async Task GenerateEmbeddingForKBEntryAsync(Guid entryId)
         {
-            var entry = await _context.KBEntries
-                .Include(e => e.KBCitations)
-                .FirstOrDefaultAsync(e => e.Id == entryId);
+            var entry = await _kbEntryRepository.GetByIdAsync(entryId);
 
             if (entry == null) return;
 
@@ -136,18 +133,19 @@ namespace VietTuneArchive.Application.Services
             var fullText = string.Join(". ", textParts);
             float[] vector = await GetEmbeddingAsync(fullText);
 
-            var existing = await _context.VectorEmbeddings
-                .FirstOrDefaultAsync(v => v.KBEntryId == entryId);
+            var existing = await _vectorEmbeddingRepository
+                .GetFirstOrDefaultAsync(v => v.KBEntryId == entryId);
 
             if (existing != null)
             {
                 existing.EmbeddingJson = JsonSerializer.Serialize(vector);
                 existing.ModelVersion = "all-MiniLM-L6-v2";
                 existing.CreatedAt = DateTime.UtcNow;
+                await _vectorEmbeddingRepository.UpdateAsync(existing);
             }
             else
             {
-                _context.VectorEmbeddings.Add(new VectorEmbedding
+                await _vectorEmbeddingRepository.AddAsync(new VectorEmbedding
                 {
                     Id = Guid.NewGuid(),
                     KBEntryId = entryId,
@@ -156,13 +154,11 @@ namespace VietTuneArchive.Application.Services
                     CreatedAt = DateTime.UtcNow
                 });
             }
-
-            await _context.SaveChangesAsync();
         }
 
         public async Task<List<(Guid RecordingId, double Score)>> SearchSimilarRecordingsAsync(float[] queryVector, int topK = 5)
         {
-            var allEmbeddings = await _context.VectorEmbeddings.Where(x => x.RecordingId != null).ToListAsync();
+            var allEmbeddings = await _vectorEmbeddingRepository.GetAsync(x => x.RecordingId != null);
             var results = new List<(Guid RecordingId, double Score)>();
 
             foreach (var doc in allEmbeddings)
@@ -180,7 +176,7 @@ namespace VietTuneArchive.Application.Services
 
         public async Task<List<(Guid EntryId, double Score)>> SearchSimilarKBEntriesAsync(float[] queryVector, int topK = 5)
         {
-            var allEmbeddings = await _context.VectorEmbeddings.Where(x => x.KBEntryId != null).ToListAsync();
+            var allEmbeddings = await _vectorEmbeddingRepository.GetAsync(x => x.KBEntryId != null);
             var results = new List<(Guid EntryId, double Score)>();
 
             foreach (var doc in allEmbeddings)
