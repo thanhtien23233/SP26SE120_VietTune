@@ -1,207 +1,290 @@
-using AutoMapper;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Text;
 using VietTuneArchive.Application.IServices;
-using VietTuneArchive.Application.Mapper.DTOs;
-using VietTuneArchive.Application.Responses;
+using VietTuneArchive.Application.DTOs.KnowledgeBase;
 using VietTuneArchive.Domain.Entities;
 using VietTuneArchive.Domain.IRepositories;
 
 namespace VietTuneArchive.Application.Services
 {
-    public class KBEntryService : GenericService<KBEntry, KBEntryDto>, IKBEntryService
+    public class NotFoundException : Exception { public NotFoundException(string m) : base(m){} }
+    public class BadRequestException : Exception { public BadRequestException(string m) : base(m){} }
+
+    public class KBEntryService : IKBEntryService
     {
-        private readonly IKBEntryRepository _kbEntryRepository;
+        private readonly IKBEntryRepository _repo;
+        private readonly string[] _validCategories = { "Instrument", "Ceremony", "MusicalTerm", "EthnicGroup", "VocalStyle" };
 
-        public KBEntryService(IKBEntryRepository repository, IMapper mapper)
-            : base(repository, mapper)
+        public KBEntryService(IKBEntryRepository repo)
         {
-            _kbEntryRepository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _repo = repo;
         }
 
-        /// <summary>
-        /// Get entry by slug
-        /// </summary>
-        public async Task<ServiceResponse<KBEntryDto>> GetBySlugAsync(string slug)
+        public async Task<PagedResponse<KBEntryListItemResponse>> GetEntriesAsync(KBEntryQueryParams queryParams)
         {
-            try
+            var result = await _repo.GetAllAsync(queryParams);
+            var items = result.Items.Select(MapToListResponse).ToList();
+            return new PagedResponse<KBEntryListItemResponse>
             {
-                if (string.IsNullOrWhiteSpace(slug))
-                    throw new ArgumentException("Slug cannot be empty", nameof(slug));
+                Items = items,
+                TotalCount = result.TotalCount,
+                Page = queryParams.Page,
+                PageSize = queryParams.PageSize
+            };
+        }
 
-                var entry = await _kbEntryRepository.GetFirstOrDefaultAsync(e => e.Slug == slug);
-                if (entry == null)
-                    return new ServiceResponse<KBEntryDto>
+        public async Task<KBEntryDetailResponse> GetEntryBySlugAsync(string slug)
+        {
+            var entry = await _repo.GetBySlugAsync(slug);
+            if (entry == null) throw new NotFoundException("Entry not found.");
+            return MapToDetailResponse(entry);
+        }
+
+        public async Task<KBEntryDetailResponse> GetEntryByIdAsync(Guid id)
+        {
+            var entry = await _repo.GetByIdAsync(id);
+            if (entry == null) throw new NotFoundException("Entry not found.");
+            return MapToDetailResponse(entry);
+        }
+
+        public async Task<KBEntryDetailResponse> CreateEntryAsync(Guid currentUserId, CreateKBEntryRequest request)
+        {
+            if (!_validCategories.Contains(request.Category))
+                throw new BadRequestException("Invalid category.");
+
+            var slug = await GenerateUniqueSlug(request.Title);
+            
+            var entryId = Guid.NewGuid();
+            var entry = new KBEntry
+            {
+                Id = entryId,
+                Title = request.Title,
+                Content = request.Content,
+                Category = request.Category,
+                AuthorId = currentUserId,
+                CreatedAt = DateTime.UtcNow,
+                Status = 0,
+                Slug = slug
+            };
+
+            await _repo.CreateAsync(entry);
+
+            if (request.Citations != null && request.Citations.Any())
+            {
+                foreach (var c in request.Citations)
+                {
+                    await _repo.CreateCitationAsync(new KBCitation
                     {
-                        Success = false,
-                        Message = "Entry not found"
-                    };
+                        Id = Guid.NewGuid(),
+                        EntryId = entryId,
+                        Citation = c.Citation,
+                        Url = c.Url
+                    });
+                }
+            }
 
-                var dto = _mapper.Map<KBEntryDto>(entry);
-                return new ServiceResponse<KBEntryDto>
-                {
-                    Success = true,
-                    Data = dto,
-                    Message = "Retrieved successfully"
-                };
-            }
-            catch (Exception ex)
+            await _repo.CreateRevisionAsync(new KBRevision
             {
-                return new ServiceResponse<KBEntryDto>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
-            }
+                Id = Guid.NewGuid(),
+                EntryId = entryId,
+                EditorId = currentUserId,
+                Content = request.Content,
+                RevisionNote = "Root",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            return await GetEntryByIdAsync(entryId);
         }
 
-        /// <summary>
-        /// Get entries by category
-        /// </summary>
-        public async Task<ServiceResponse<List<KBEntryDto>>> GetByCategoryAsync(string category)
+        public async Task<KBEntryDetailResponse> UpdateEntryAsync(Guid currentUserId, Guid entryId, UpdateKBEntryRequest request)
         {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(category))
-                    throw new ArgumentException("Category cannot be empty", nameof(category));
+            var entry = await _repo.GetByIdAsync(entryId);
+            if (entry == null) throw new NotFoundException("Entry not found.");
 
-                var entries = await _kbEntryRepository.GetAsync(e => e.Category == category);
-                var dtos = _mapper.Map<List<KBEntryDto>>(entries);
-                return new ServiceResponse<List<KBEntryDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} entries"
-                };
-            }
-            catch (Exception ex)
+            if (!_validCategories.Contains(request.Category))
+                throw new BadRequestException("Invalid category.");
+
+            if (entry.Title != request.Title)
             {
-                return new ServiceResponse<List<KBEntryDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
+                entry.Slug = await GenerateUniqueSlug(request.Title, entryId);
             }
+
+            entry.Title = request.Title;
+            entry.Content = request.Content;
+            entry.Category = request.Category;
+            entry.UpdatedAt = DateTime.UtcNow;
+
+            await _repo.UpdateAsync(entry);
+
+            await _repo.CreateRevisionAsync(new KBRevision
+            {
+                Id = Guid.NewGuid(),
+                EntryId = entryId,
+                EditorId = currentUserId,
+                Content = request.Content,
+                RevisionNote = request.RevisionNote ?? "Update",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            return await GetEntryByIdAsync(entryId);
         }
 
-        /// <summary>
-        /// Get published entries
-        /// </summary>
-        public async Task<ServiceResponse<List<KBEntryDto>>> GetPublishedAsync()
+        public async Task UpdateEntryStatusAsync(Guid currentUserId, Guid entryId, UpdateKBEntryStatusRequest request)
         {
-            try
-            {
-                var entries = await _kbEntryRepository.GetAsync(e => e.Status == 1); // 1 = published
-                var dtos = _mapper.Map<List<KBEntryDto>>(entries.OrderByDescending(e => e.CreatedAt).ToList());
-                return new ServiceResponse<List<KBEntryDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = "Retrieved published entries successfully"
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ServiceResponse<List<KBEntryDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
-            }
+            var entry = await _repo.GetByIdAsync(entryId);
+            if (entry == null) throw new NotFoundException("Entry not found.");
+
+            if (request.Status < 0 || request.Status > 2)
+                throw new BadRequestException("Invalid status.");
+
+            entry.Status = request.Status;
+            entry.UpdatedAt = DateTime.UtcNow;
+            await _repo.UpdateAsync(entry);
         }
 
-        /// <summary>
-        /// Search entries by title or content
-        /// </summary>
-        public async Task<ServiceResponse<List<KBEntryDto>>> SearchAsync(string keyword)
+        public async Task DeleteEntryAsync(Guid entryId)
         {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(keyword))
-                    throw new ArgumentException("Search keyword cannot be empty", nameof(keyword));
-
-                var entries = await _kbEntryRepository.GetAsync(e => 
-                    e.Title.Contains(keyword) || e.Content.Contains(keyword));
-                var dtos = _mapper.Map<List<KBEntryDto>>(entries);
-                return new ServiceResponse<List<KBEntryDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} entries"
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ServiceResponse<List<KBEntryDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
-            }
+            await _repo.DeleteAsync(entryId);
         }
 
-        /// <summary>
-        /// Get entries by author
-        /// </summary>
-        public async Task<ServiceResponse<List<KBEntryDto>>> GetByAuthorAsync(Guid authorId)
+        public async Task<KBCitationResponse> AddCitationAsync(Guid entryId, CreateKBCitationRequest request)
         {
-            try
-            {
-                if (authorId == Guid.Empty)
-                    throw new ArgumentException("Author id cannot be empty", nameof(authorId));
+            var entry = await _repo.GetByIdAsync(entryId);
+            if (entry == null) throw new NotFoundException("Entry not found.");
 
-                var entries = await _kbEntryRepository.GetAsync(e => e.AuthorId == authorId);
-                var dtos = _mapper.Map<List<KBEntryDto>>(entries);
-                return new ServiceResponse<List<KBEntryDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} entries"
-                };
-            }
-            catch (Exception ex)
+            var citation = new KBCitation
             {
-                return new ServiceResponse<List<KBEntryDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
-            }
+                Id = Guid.NewGuid(),
+                EntryId = entryId,
+                Citation = request.Citation,
+                Url = request.Url
+            };
+            await _repo.CreateCitationAsync(citation);
+            return MapToCitationResponse(citation);
         }
 
-        /// <summary>
-        /// Get all categories
-        /// </summary>
-        public async Task<ServiceResponse<List<string>>> GetAllCategoriesAsync()
+        public async Task<KBCitationResponse> UpdateCitationAsync(Guid citationId, UpdateKBCitationRequest request)
         {
-            try
-            {
-                var entries = await _kbEntryRepository.GetAllAsync();
-                var categories = entries
-                    .Select(e => e.Category)
-                    .Distinct()
-                    .OrderBy(c => c)
-                    .ToList();
+            var citation = await _repo.GetCitationByIdAsync(citationId);
+            if (citation == null) throw new NotFoundException("Citation not found.");
 
-                return new ServiceResponse<List<string>>
-                {
-                    Success = true,
-                    Data = categories,
-                    Message = "Retrieved all categories successfully"
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ServiceResponse<List<string>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
-            }
+            citation.Citation = request.Citation;
+            citation.Url = request.Url;
+            await _repo.UpdateCitationAsync(citation);
+            
+            return MapToCitationResponse(citation);
         }
+
+        public async Task DeleteCitationAsync(Guid citationId)
+        {
+            await _repo.DeleteCitationAsync(citationId);
+        }
+
+        public async Task<List<KBRevisionResponse>> GetRevisionsAsync(Guid entryId)
+        {
+            var revisions = await _repo.GetRevisionsByEntryIdAsync(entryId);
+            return revisions.Select(MapToRevisionResponse).ToList();
+        }
+
+        public async Task<KBRevisionDetailResponse> GetRevisionDetailAsync(Guid revisionId)
+        {
+            var revision = await _repo.GetRevisionByIdAsync(revisionId);
+            if (revision == null) throw new NotFoundException("Revision not found.");
+
+            return new KBRevisionDetailResponse
+            {
+                Id = revision.Id,
+                EntryId = revision.EntryId,
+                Content = revision.Content,
+                RevisionNote = revision.RevisionNote,
+                Editor = MapToAuthorResponse(revision.Editor),
+                CreatedAt = revision.CreatedAt
+            };
+        }
+
+        private async Task<string> GenerateUniqueSlug(string title, Guid? excludeId = null)
+        {
+            string slug = ToSlug(title);
+            string uniqueSlug = slug;
+            int counter = 2;
+
+            while (await _repo.SlugExistsAsync(uniqueSlug, excludeId))
+            {
+                uniqueSlug = $"{slug}-{counter}";
+                counter++;
+            }
+            return uniqueSlug;
+        }
+
+        private static string ToSlug(string s)
+        {
+            s = s.ToLower().Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder();
+            foreach (char c in s)
+            {
+                if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+                    sb.Append(c);
+            }
+            s = sb.ToString().Normalize(NormalizationForm.FormC);
+            s = Regex.Replace(s, @"[^a-z0-9\s-]", "");
+            s = Regex.Replace(s, @"\s+", "-").Trim('-');
+            return s;
+        }
+
+        private KBEntryListItemResponse MapToListResponse(KBEntry entry) => new KBEntryListItemResponse
+        {
+            Id = entry.Id,
+            Title = entry.Title,
+            Slug = entry.Slug,
+            Category = entry.Category,
+            Status = entry.Status,
+            Author = MapToAuthorResponse(entry.Author),
+            CreatedAt = entry.CreatedAt,
+            UpdatedAt = entry.UpdatedAt
+        };
+
+        private KBEntryDetailResponse MapToDetailResponse(KBEntry entry) => new KBEntryDetailResponse
+        {
+            Id = entry.Id,
+            Title = entry.Title,
+            Slug = entry.Slug,
+            Content = entry.Content,
+            Category = entry.Category,
+            Status = entry.Status,
+            Author = MapToAuthorResponse(entry.Author),
+            Citations = entry.KBCitations?.Select(MapToCitationResponse).ToList() ?? new List<KBCitationResponse>(),
+            LatestRevision = entry.KBRevisions?.OrderByDescending(r => r.CreatedAt).Select(MapToRevisionResponse).FirstOrDefault(),
+            RevisionCount = entry.KBRevisions?.Count ?? 0,
+            CreatedAt = entry.CreatedAt,
+            UpdatedAt = entry.UpdatedAt
+        };
+
+        private KBAuthorResponse MapToAuthorResponse(User user) => user == null ? null : new KBAuthorResponse
+        {
+            Id = user.Id,
+            FullName = user.FullName,
+            AvatarUrl = user.AvatarUrl,
+            Role = user.Role.ToString()
+        };
+
+        private KBCitationResponse MapToCitationResponse(KBCitation c) => new KBCitationResponse
+        {
+            Id = c.Id,
+            Citation = c.Citation,
+            Url = c.Url
+        };
+
+        private KBRevisionResponse MapToRevisionResponse(KBRevision r) => new KBRevisionResponse
+        {
+            Id = r.Id,
+            EntryId = r.EntryId,
+            Editor = MapToAuthorResponse(r.Editor),
+            RevisionNote = r.RevisionNote,
+            CreatedAt = r.CreatedAt
+        };
     }
 }

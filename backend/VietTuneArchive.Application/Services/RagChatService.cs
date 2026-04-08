@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -18,18 +17,18 @@ namespace VietTuneArchive.Application.Services
     {
         private readonly IRagChatRepository _repository;
         private readonly IKnowledgeRetrievalService _retrievalService;
-        private readonly HttpClient _httpClient;
+        private readonly ILocalLlmService _llmService;
         private readonly IConfiguration _config;
 
         public RagChatService(
             IRagChatRepository repository,
             IKnowledgeRetrievalService retrievalService,
-            IHttpClientFactory httpClientFactory,
+            ILocalLlmService llmService,
             IConfiguration config)
         {
             _repository = repository;
             _retrievalService = retrievalService;
-            _httpClient = httpClientFactory.CreateClient("GeminiApi");
+            _llmService = llmService;
             _config = config;
         }
 
@@ -113,31 +112,17 @@ namespace VietTuneArchive.Application.Services
                 contextBuilder.AppendLine($"[{doc.SourceType}] {doc.Title}: {doc.Content}");
             }
 
-            // 3. Setup Gemini prompt
-            var apiKey = _config["RagChat:GeminiApiKey"] ?? _config["Gemini:ApiKey"];
-            var model = _config["RagChat:GeminiModel"] ?? "gemini-2.0-flash";
-            var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
-
-            var sysPrompt = _config["RagChat:SystemPrompt"] ?? "Bạn là chuyên gia về âm nhạc cổ truyền Việt Nam.";
-            var fullPrompt = $"{sysPrompt}\n\nContext:\n{contextBuilder}\n\nUser: {request.Content}";
-
-            var requestBody = new
-            {
-                contents = new[] { new { parts = new[] { new { text = fullPrompt } } } }
-            };
-
-            var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync(url, jsonContent);
-            response.EnsureSuccessStatusCode();
-
-            var respString = await response.Content.ReadAsStringAsync();
-            var jsonResp = JsonDocument.Parse(respString);
+            // 3. Prepare Local LLM Request
+            var sysPrompt = _config["RagChat:SystemPrompt"] ?? "Bạn là chuyên gia về âm nhạc cổ truyền Việt Nam. Trả lời câu hỏi dựa trên thông tin được cung cấp.";
             
-            var answerText = jsonResp.RootElement
-                .GetProperty("candidates")[0]
-                .GetProperty("content")
-                .GetProperty("parts")[0]
-                .GetProperty("text").GetString() ?? "Xin lỗi, tôi không thể trả lời.";
+            var msgs = conv.QAMessages?.OrderBy(m => m.CreatedAt).TakeLast(6).ToList();
+            var history = msgs?.Select(m => new ChatMessageDto { Role = m.Role, Content = m.Content }).ToList() ?? new List<ChatMessageDto>();
+
+            var fullPrompt = $"Context:\n{contextBuilder}\n\nUser: {request.Content}";
+
+            var answerText = await _llmService.GenerateAsync(sysPrompt, fullPrompt, history);
+            if (string.IsNullOrEmpty(answerText)) 
+                answerText = "Xin lỗi, hiện tại tôi không thể trả lời.";
 
             var recIds = docs.Where(d => d.SourceType == "Recording").Select(d => d.SourceId).ToList();
             var kbIds = docs.Where(d => d.SourceType == "KBEntry").Select(d => d.SourceId).ToList();
