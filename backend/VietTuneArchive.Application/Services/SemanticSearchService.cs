@@ -38,7 +38,8 @@ namespace VietTuneArchive.Application.Services
 
             // 2. Load tất cả embeddings từ DB
             var allEmbeddings = await _db.VectorEmbeddings
-                .Select(v => new { v.RecordingId, v.EmbeddingJson })
+                .Where(v => v.RecordingId != null)
+                .Select(v => new { RecordingId = v.RecordingId.Value, v.EmbeddingJson })
                 .ToListAsync(ct);
 
             // 3. Tính cosine similarity
