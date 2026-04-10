@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VietTuneArchive.Domain.Context;
 
 #nullable disable
 
-namespace VietTuneArchive.Domain.Migrations
+namespace VietTuneArchive.Domain.Context.Migrations
 {
     [DbContext(typeof(DBContext))]
-    partial class DBContextModelSnapshot : ModelSnapshot
+    [Migration("20260410051519_AddEmbargoTable")]
+    partial class AddEmbargoTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -62,7 +65,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("RecordingId");
 
-                    b.ToTable("Annotations", (string)null);
+                    b.ToTable("Annotations");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.AudioAnalysisResult", b =>
@@ -101,7 +104,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("RecordingId");
 
-                    b.ToTable("AudioAnalysisResults", (string)null);
+                    b.ToTable("AudioAnalysisResults");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.AuditLog", b =>
@@ -141,7 +144,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.Ceremony", b =>
@@ -169,7 +172,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Ceremonies", (string)null);
+                    b.ToTable("Ceremonies");
 
                     b.HasData(
                         new
@@ -285,7 +288,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("DistrictId");
 
-                    b.ToTable("Communes", (string)null);
+                    b.ToTable("Communes");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.District", b =>
@@ -306,7 +309,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("ProvinceId");
 
-                    b.ToTable("Districts", (string)null);
+                    b.ToTable("Districts");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.Embargo", b =>
@@ -345,7 +348,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("RecordingId");
 
-                    b.ToTable("Embargoes", (string)null);
+                    b.ToTable("Embargoes");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.EthnicGroup", b =>
@@ -376,7 +379,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("EthnicGroups", (string)null);
+                    b.ToTable("EthnicGroups");
 
                     b.HasData(
                         new
@@ -771,7 +774,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("CeremonyId");
 
-                    b.ToTable("EthnicGroupCeremonies", (string)null);
+                    b.ToTable("EthnicGroupCeremonies");
 
                     b.HasData(
                         new
@@ -933,7 +936,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("OriginEthnicGroupId");
 
-                    b.ToTable("Instruments", (string)null);
+                    b.ToTable("Instruments");
 
                     b.HasData(
                         new
@@ -1110,7 +1113,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("EthnicGroupId");
 
-                    b.ToTable("InstrumentEthnicGroups", (string)null);
+                    b.ToTable("InstrumentEthnicGroups");
 
                     b.HasData(
                         new
@@ -1292,7 +1295,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("EntryId");
 
-                    b.ToTable("KBCitations", (string)null);
+                    b.ToTable("KBCitations");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.KBEntry", b =>
@@ -1339,7 +1342,7 @@ namespace VietTuneArchive.Domain.Migrations
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("KBEntries", (string)null);
+                    b.ToTable("KBEntries");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.KBRevision", b =>
@@ -1371,7 +1374,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("EntryId");
 
-                    b.ToTable("KBRevisions", (string)null);
+                    b.ToTable("KBRevisions");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.MusicalScale", b =>
@@ -1394,7 +1397,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MusicalScales", (string)null);
+                    b.ToTable("MusicalScales");
 
                     b.HasData(
                         new
@@ -1502,7 +1505,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("UserId", "IsRead");
 
-                    b.ToTable("Notifications", (string)null);
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.Province", b =>
@@ -1523,7 +1526,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Provinces", (string)null);
+                    b.ToTable("Provinces");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.QAConversation", b =>
@@ -1546,7 +1549,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("QAConversations", (string)null);
+                    b.ToTable("QAConversations");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.QAMessage", b =>
@@ -1592,7 +1595,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("CorrectedByExpertId");
 
-                    b.ToTable("QAMessages", (string)null);
+                    b.ToTable("QAMessages");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.Recording", b =>
@@ -1704,7 +1707,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("VocalStyleId");
 
-                    b.ToTable("Recordings", (string)null);
+                    b.ToTable("Recordings");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.RecordingImage", b =>
@@ -1732,7 +1735,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("RecordingId");
 
-                    b.ToTable("RecordingImages", (string)null);
+                    b.ToTable("RecordingImages");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.RecordingInstrument", b =>
@@ -1751,7 +1754,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("InstrumentId");
 
-                    b.ToTable("RecordingInstruments", (string)null);
+                    b.ToTable("RecordingInstruments");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.RecordingTag", b =>
@@ -1766,7 +1769,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("TagId");
 
-                    b.ToTable("RecordingTags", (string)null);
+                    b.ToTable("RecordingTags");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.RefreshToken", b =>
@@ -1793,7 +1796,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.Review", b =>
@@ -1826,7 +1829,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("SubmissionId");
 
-                    b.ToTable("Reviews", (string)null);
+                    b.ToTable("Reviews");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.Submission", b =>
@@ -1868,7 +1871,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("ReviewerId");
 
-                    b.ToTable("Submissions", (string)null);
+                    b.ToTable("Submissions");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.SubmissionVersion", b =>
@@ -1893,7 +1896,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("SubmissionId");
 
-                    b.ToTable("SubmissionVersions", (string)null);
+                    b.ToTable("SubmissionVersions");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.Tag", b =>
@@ -1913,7 +1916,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Tags", (string)null);
+                    b.ToTable("Tags");
 
                     b.HasData(
                         new
@@ -2079,7 +2082,7 @@ namespace VietTuneArchive.Domain.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
 
                     b.HasData(
                         new
@@ -2232,7 +2235,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserConnections", (string)null);
+                    b.ToTable("UserConnections");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.VectorEmbedding", b =>
@@ -2265,7 +2268,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("RecordingId");
 
-                    b.ToTable("VectorEmbeddings", (string)null);
+                    b.ToTable("VectorEmbeddings");
                 });
 
             modelBuilder.Entity("VietTuneArchive.Domain.Entities.VocalStyle", b =>
@@ -2289,7 +2292,7 @@ namespace VietTuneArchive.Domain.Migrations
 
                     b.HasIndex("EthnicGroupId");
 
-                    b.ToTable("VocalStyles", (string)null);
+                    b.ToTable("VocalStyles");
 
                     b.HasData(
                         new

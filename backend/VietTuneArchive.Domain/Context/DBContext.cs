@@ -36,6 +36,7 @@ namespace VietTuneArchive.Domain.Context
         public DbSet<Annotation> Annotations { get; set; }
         public DbSet<VectorEmbedding> VectorEmbeddings { get; set; }
         public DbSet<AudioAnalysisResult> AudioAnalysisResults { get; set; }
+        public DbSet<Embargo> Embargoes { get; set; }
 
         // DbSets - Submission & Review Workflow
         public DbSet<Submission> Submissions { get; set; }
@@ -445,6 +446,25 @@ namespace VietTuneArchive.Domain.Context
                 entity.Property(e => e.DetectedKey).HasMaxLength(20);
                 entity.Property(e => e.SuggestedEthnicGroup).HasMaxLength(100);
                 entity.Property(e => e.AnalyzedAt).IsRequired();
+            });
+
+            modelBuilder.Entity<Embargo>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.RecordingId).IsRequired();
+                entity.Property(e => e.Status).IsRequired();
+                entity.Property(e => e.CreatedBy).IsRequired();
+                entity.Property(e => e.CreatedAt).IsRequired();
+
+                entity.HasOne(e => e.Recording)
+                    .WithMany()
+                    .HasForeignKey(e => e.RecordingId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.CreatedBy)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // ============= SUBMISSION & REVIEW WORKFLOW =============
