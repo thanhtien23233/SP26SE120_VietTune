@@ -70,7 +70,8 @@ builder.Services.AddSwaggerGen(c =>
             { new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" } }, new string[] { } }
         });
 
-        // ✅ Fix: Handle circular references
+        // ✅ Fix: Handle circular references and duplicate schema IDs
+        c.CustomSchemaIds(type => type.FullName);
         //c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
     }
     catch (Exception ex)
@@ -171,6 +172,11 @@ builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IAnnotationService, AnnotationService>();
 builder.Services.AddScoped<IVectorEmbeddingService, VectorEmbeddingService>();
 builder.Services.AddScoped<IAudioProcessingService, AudioProcessingService>();
+// ✅ Gemini Transcription Service
+builder.Services.AddHttpClient<ITranscriptionService, GeminiTranscriptionService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(120); 
+});
 // ✅ YamNet Service Config
 builder.Services.Configure<YamNetServiceConfig>(builder.Configuration.GetSection("YamNetService"));
 
