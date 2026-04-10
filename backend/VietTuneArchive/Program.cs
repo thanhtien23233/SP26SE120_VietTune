@@ -106,6 +106,7 @@ builder.Services.AddScoped<IGenericRepository<Recording>, GenericRepository<Reco
 builder.Services.AddScoped<IRecordingRepository, RecordingRepository>();
 builder.Services.AddScoped<IGenericRepository<RecordingImage>, GenericRepository<RecordingImage>>();
 builder.Services.AddScoped<IRecordingImageRepository, RecordingImageRepository>();
+builder.Services.AddScoped<IEmbargoRepository, EmbargoRepository>();
 
 // ✅ REPOSITORIES - Submission & Review
 builder.Services.AddScoped<IGenericRepository<Submission>, GenericRepository<Submission>>();
@@ -158,6 +159,7 @@ builder.Services.AddScoped<IInstrumentService, InstrumentService>();
 // ✅ SERVICES - Recording & Related
 builder.Services.AddScoped<IRecordingService, RecordingService>();
 builder.Services.AddScoped<IRecordingImageService, RecordingImageService>();
+builder.Services.AddScoped<IEmbargoService, EmbargoService>();
 
 // ✅ SERVICES - Submission & Review
 builder.Services.AddScoped<ISubmissionService2, SubmissionService2>();

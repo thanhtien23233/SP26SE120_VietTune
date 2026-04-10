@@ -41,6 +41,9 @@ namespace VietTuneArchive.Application.Mapper
                         : new List<GetInstrumentDto>()));
             CreateMap<RecordingImage, RecordingImageDto>().ReverseMap();
 
+            // ============= EMBARGO =============
+            CreateMap<Embargo, EmbargoDto>().ReverseMap();
+
             // ============= SUBMISSION & REVIEW =============
             CreateMap<Submission, SubmissionDto>().ReverseMap();
             CreateMap<Submission, GetSubmissionDto>()
