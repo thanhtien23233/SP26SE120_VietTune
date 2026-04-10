@@ -66,6 +66,13 @@ namespace VietTuneArchive.Application.Mapper
             // ============= Q&A SYSTEM =============
             CreateMap<QAConversation, QAConversationDto>().ReverseMap();
             CreateMap<QAMessage, QAMessageDto>().ReverseMap();
+
+            // ============= COPYRIGHT DISPUTE =============
+            CreateMap<CopyrightDispute, CopyrightDisputeDto>()
+                .ForMember(dest => dest.RecordingTitle, opt => opt.MapFrom(src => src.Recording != null ? src.Recording.Title : null))
+                .ForMember(dest => dest.ReportedByUserName, opt => opt.MapFrom(src => src.ReportedByUser != null ? src.ReportedByUser.FullName : null))
+                .ForMember(dest => dest.AssignedReviewerName, opt => opt.MapFrom(src => src.AssignedReviewer != null ? src.AssignedReviewer.FullName : null))
+                .ReverseMap();
         }
     }
 }

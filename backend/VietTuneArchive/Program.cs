@@ -136,6 +136,7 @@ builder.Services.AddScoped<IKBCitationRepository, KBCitationRepository>();
 builder.Services.AddScoped<IQAConversationRepository, QAConversationRepository>();
 builder.Services.AddScoped<IQAMessageRepository, QAMessageRepository>();
 builder.Services.AddScoped<IRagChatRepository, RagChatRepository>();
+builder.Services.AddScoped<ICopyrightDisputeRepository, CopyrightDisputeRepository>();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
@@ -223,6 +224,7 @@ builder.Services.AddHttpClient("AiService", client =>
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ICopyrightDisputeService, CopyrightDisputeService>();
 
 
 builder.Services.AddMemoryCache();

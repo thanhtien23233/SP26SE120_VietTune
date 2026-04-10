@@ -35,6 +35,20 @@ namespace VietTuneArchive.Domain.Entities
         public List<string> EvidenceUrls { get; set; } = new List<string>();
 
         [Required]
+        public CopyrightDisputeStatus Status { get; set; } = CopyrightDisputeStatus.Pending;
+
+        public Guid? AssignedReviewerId { get; set; }
+
+        [ForeignKey("AssignedReviewerId")]
+        public User? AssignedReviewer { get; set; }
+
+        public CopyrightDisputeResolution? Resolution { get; set; }
+
+        public string? ResolutionNotes { get; set; }
+
+        public DateTime? ResolvedAt { get; set; }
+
+        [Required]
         public DateTime CreatedAt { get; set; }
 
         public DateTime? UpdatedAt { get; set; }
