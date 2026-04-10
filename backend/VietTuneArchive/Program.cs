@@ -213,6 +213,16 @@ builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
 builder.Services.AddScoped<IKnowledgeRetrievalService, KnowledgeRetrievalService>();
 builder.Services.AddScoped<ILocalLlmService, LocalLlmService>();
 
+// === LOCAL WHISPER SERVICE (MỚI) ===
+builder.Services.AddHttpClient<ILocalWhisperService, LocalWhisperService>(client =>
+{
+    var baseUrl = builder.Configuration["LocalWhisperService:BaseUrl"] ?? "http://localhost:8001";
+    client.BaseAddress = new Uri(baseUrl);
+    
+    var timeout = int.Parse(builder.Configuration["LocalWhisperService:TimeoutSeconds"] ?? "300");
+    client.Timeout = TimeSpan.FromSeconds(timeout);
+});
+
 // HttpClient cho Python AI microservice (RAG)
 builder.Services.AddHttpClient("AiService", client =>
 {

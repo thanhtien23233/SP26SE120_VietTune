@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
+using VietTuneArchive.Application.Helpers;
 using static VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto;
 
 namespace VietTuneArchive.API.Controllers
@@ -13,64 +14,65 @@ namespace VietTuneArchive.API.Controllers
     public class AIAnalysisController : ControllerBase
     {
         private readonly IAudioProcessingService _processingService;
-        private readonly ITranscriptionService _transcriptionService;
+        private readonly ILocalWhisperService _localWhisperService;
         private readonly ILogger<AIAnalysisController> _logger;
-
-        private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
 
         public AIAnalysisController(
             IAudioProcessingService processingService,
-            ITranscriptionService transcriptionService,
+            ILocalWhisperService localWhisperService,
             ILogger<AIAnalysisController> logger)
         {
             _processingService = processingService;
-            _transcriptionService = transcriptionService;
+            _localWhisperService = localWhisperService;
             _logger = logger;
         }
 
         // CHỨC NĂNG 2: CHỈ PHÂN TÍCH AI (TRẢ VỀ KẾT QUẢ + URL TẠM CỦA GEMINI)
+        // GIỮ NGUYÊN - KHÔNG ĐƯỢC SỬA THEO YÊU CẦU
         [HttpPost("analyze-only")]
         [AllowAnonymous]
         public async Task<ActionResult<AIAnalysisResultDto>> AnalyzeOnly(IFormFile audioFile)
         {
-            // Service này sẽ upload lên Gemini File API và đợi ACTIVE
-            // Sau đó trả về kết quả phân tích kèm theo link nội bộ của Gemini (nếu cần)
             var result = await _processingService.AnalyzeAudioAsync(audioFile);
             return Ok(result);
         }
 
-        // API 1: CHỈ TRANSCRIBE (Whisper)
+        /// <summary>
+        /// Endpoint mới 1: Chỉ transcribe bằng local Whisper service
+        /// </summary>
         [HttpPost("transcribe-only")]
         [AllowAnonymous]
-        public async Task<ActionResult<TranscriptionResultDto>> TranscribeOnly(IFormFile audioFile)
+        public async Task<ActionResult<LocalTranscriptionResultDto>> TranscribeOnly(IFormFile audioFile)
         {
             if (audioFile == null || audioFile.Length == 0)
                 return BadRequest("Audio file is required.");
 
             // Validate extension
             var ext = Path.GetExtension(audioFile.FileName).ToLower();
-            var allowedExtensions = new[] { ".flac", ".wav", ".mp3", ".m4a", ".ogg", ".webm" };
+            var allowedExtensions = new[] { ".flac", ".wav", ".mp3", ".m4a", ".ogg", ".webm", ".mp4" };
             if (!allowedExtensions.Contains(ext))
-                return BadRequest("Unsupported audio format. Allowed: .flac, .wav, .mp3, .m4a, .ogg, .webm");
+                return BadRequest("Unsupported audio format. Allowed: .flac, .wav, .mp3, .m4a, .ogg, .webm, .mp4");
 
-            // Validate size (25MB limit for OpenAI Whisper)
-            if (audioFile.Length > 25 * 1024 * 1024)
-                return BadRequest("File size exceeds 25MB limit for Whisper API.");
+            // Validate size (local service can handle more, set to 100MB as per prompt)
+            if (audioFile.Length > 100 * 1024 * 1024)
+                return BadRequest("File size exceeds 100MB limit for local Whisper service.");
 
             try
             {
-                _logger.LogInformation("Transcribing file: {FileName}, Size: {Size} bytes", audioFile.FileName, audioFile.Length);
-                var result = await _transcriptionService.TranscribeAsync(audioFile);
+                _logger.LogInformation("Transcribing file locally: {FileName}, Size: {Size} bytes", audioFile.FileName, audioFile.Length);
+                var result = await _localWhisperService.TranscribeAsync(audioFile);
                 return Ok(result);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Transcription failed for file {FileName}", audioFile.FileName);
+                _logger.LogError(ex, "Local transcription failed for file {FileName}", audioFile.FileName);
                 return StatusCode(500, new { error = ex.Message });
             }
         }
 
-        // API 2: VỪA PHÂN TÍCH VỪA TRANSCRIBE (Gemini + Whisper song song)
+        /// <summary>
+        /// Endpoint mới 2: Chạy SONG SONG phân tích metadata + transcribe local
+        /// </summary>
         [HttpPost("analyze-and-transcribe")]
         [AllowAnonymous]
         public async Task<ActionResult<AnalyzeAndTranscribeResultDto>> AnalyzeAndTranscribe(IFormFile audioFile)
@@ -79,54 +81,80 @@ namespace VietTuneArchive.API.Controllers
                 return BadRequest("Audio file is required.");
 
             var ext = Path.GetExtension(audioFile.FileName).ToLower();
-            var allowedExtensions = new[] { ".flac", ".wav", ".mp3", ".m4a", ".ogg", ".webm" };
+            var allowedExtensions = new[] { ".flac", ".wav", ".mp3", ".m4a", ".ogg", ".webm", ".mp4" };
             if (!allowedExtensions.Contains(ext))
                 return BadRequest("Unsupported audio format.");
 
-            if (audioFile.Length > 25 * 1024 * 1024)
-                return BadRequest("File size exceeds 25MB limit.");
-
-            var startTime = DateTime.UtcNow;
+            if (audioFile.Length > 100 * 1024 * 1024)
+                return BadRequest("File size exceeds 100MB limit.");
 
             try
             {
-                // Vì IFormFile stream chỉ đọc được một lần, ta cần copy vào memory
+                _logger.LogInformation("Starting parallel analysis and local transcription for: {FileName}", audioFile.FileName);
+
+                // Copy file vào memory vì stream chỉ được đọc 1 lần
                 using var memoryStream = new MemoryStream();
                 await audioFile.CopyToAsync(memoryStream);
                 var fileBytes = memoryStream.ToArray();
 
-                // Tạo các stream riêng cho từng task
-                using var analysisStream = new MemoryStream(fileBytes);
-                using var transcriptionStream = new MemoryStream(fileBytes);
+                AIAnalysisResultDto? analysisResult = null;
+                LocalTranscriptionResultDto? transcriptionResult = null;
+                var errors = new Dictionary<string, string>();
 
-                // Mock IFormFile cho AnalyzeAudioAsync nếu nó yêu cầu
-                var analysisFile = new FormFile(analysisStream, 0, fileBytes.Length, "audioFile", audioFile.FileName)
+                // Chạy 2 task song song và bắt exception từng task để không làm mất kết quả task kia
+                var analysisTask = Task.Run(async () => {
+                    try { 
+                        var analysisFile = FormFileHelper.CreateFromBytes(fileBytes, audioFile.FileName, audioFile.ContentType);
+                        analysisResult = await _processingService.AnalyzeAudioAsync(analysisFile); 
+                    }
+                    catch (Exception ex) { 
+                        _logger.LogError(ex, "Analysis task failed");
+                        errors["analysis"] = ex.Message; 
+                    }
+                });
+
+                var transcribeTask = Task.Run(async () => {
+                    try { 
+                        var transcriptionFile = FormFileHelper.CreateFromBytes(fileBytes, audioFile.FileName, audioFile.ContentType);
+                        transcriptionResult = await _localWhisperService.TranscribeAsync(transcriptionFile); 
+                    }
+                    catch (Exception ex) { 
+                        _logger.LogError(ex, "Transcription task failed");
+                        errors["transcription"] = ex.Message; 
+                    }
+                });
+
+                await Task.WhenAll(analysisTask, transcribeTask);
+
+                var result = new AnalyzeAndTranscribeResultDto
                 {
-                    Headers = audioFile.Headers,
-                    ContentType = audioFile.ContentType
+                    Analysis = analysisResult,
+                    Transcription = transcriptionResult,
+                    Errors = errors.Count > 0 ? errors : null
                 };
 
-                _logger.LogInformation("Starting parallel analysis and transcription for: {FileName}", audioFile.FileName);
-
-                var analysisTask = _processingService.AnalyzeAudioAsync(analysisFile);
-                var transcriptionTask = _transcriptionService.TranscribeAsync(transcriptionStream, audioFile.FileName);
-
-                await Task.WhenAll(analysisTask, transcriptionTask);
-
-                var executionTime = DateTime.UtcNow - startTime;
-                _logger.LogInformation("Parallel execution completed in {Duration}ms", executionTime.TotalMilliseconds);
-
-                return Ok(new AnalyzeAndTranscribeResultDto
-                {
-                    Analysis = analysisTask.Result,
-                    Transcription = transcriptionTask.Result
-                });
+                return Ok(result);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Combined analysis and transcription failed for {FileName}", audioFile.FileName);
+                _logger.LogError(ex, "Combined analysis and local transcription failed for {FileName}", audioFile.FileName);
                 return StatusCode(500, new { error = ex.Message });
             }
+        }
+
+        /// <summary>
+        /// Endpoint mới 3: Kiểm tra Python Whisper service có sẵn sàng không
+        /// </summary>
+        [HttpGet("whisper-health")]
+        [AllowAnonymous]
+        public async Task<ActionResult> WhisperHealth()
+        {
+            var isHealthy = await _localWhisperService.IsHealthyAsync();
+            if (isHealthy)
+            {
+                return Ok(new { status = "healthy" });
+            }
+            return StatusCode(503, new { status = "unhealthy", message = "Whisper service is not available" });
         }
     }
 }

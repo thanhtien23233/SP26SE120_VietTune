@@ -2,7 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VietTuneArchive.Application.IServices;
-using static VietTuneArchive.Application.Mapper.DTOs.Request.RagChatRequest;
+using VietTuneArchive.Application.Mapper.DTOs.Request;
 
 namespace VietTuneArchive.API.Controllers
 {

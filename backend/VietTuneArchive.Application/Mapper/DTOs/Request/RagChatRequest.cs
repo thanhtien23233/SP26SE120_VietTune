@@ -1,15 +1,13 @@
 namespace VietTuneArchive.Application.Mapper.DTOs.Request
 {
-    public class RagChatRequest
+    public class CreateConversationRequest
     {
-        public class CreateConversationRequest
-        {
-            public string? Title { get; set; }
-        }
+        public string? Title { get; set; }
+    }
 
-        public class SendMessageRequest
-        {
-            public string Content { get; set; } = default!;
-        }
+    public class SendMessageRequest
+    {
+        public string Content { get; set; } = default!;
     }
 }
+

@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Domain.Entities;
 using VietTuneArchive.Domain.IRepositories;
-using static VietTuneArchive.Application.Mapper.DTOs.Request.RagChatRequest;
+using VietTuneArchive.Application.Mapper.DTOs.Request;
 using static VietTuneArchive.Application.Mapper.DTOs.Response.RagChatResponse;
 
 namespace VietTuneArchive.Application.Services

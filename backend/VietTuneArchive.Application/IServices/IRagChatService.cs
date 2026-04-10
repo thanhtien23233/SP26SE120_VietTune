@@ -1,4 +1,4 @@
-using static VietTuneArchive.Application.Mapper.DTOs.Request.RagChatRequest;
+using VietTuneArchive.Application.Mapper.DTOs.Request;
 using static VietTuneArchive.Application.Mapper.DTOs.Response.RagChatResponse;
 
 namespace VietTuneArchive.Application.IServices
