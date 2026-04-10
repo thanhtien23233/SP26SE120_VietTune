@@ -1,9 +1,0 @@
-﻿     1>c:\Users\thanh\OneDrive\Documents\SP26SE120_VietTune\backend\VietTuneArchive.Application\Services\AI\MelSpectrogramExtractor.cs(109,17): error CS0104: 'Complex' is an ambiguous reference between 'FftSharp.Complex' and 'System.Numerics.Complex' [c:\Users\thanh\OneDrive\Documents\SP26SE120_VietTune\backend\VietTuneArchive.Application\VietTuneArchive.Application.csproj]
-     1>c:\Users\thanh\OneDrive\Documents\SP26SE120_VietTune\backend\VietTuneArchive.Application\Services\AI\MelSpectrogramExtractor.cs(109,59): error CS0104: 'Complex' is an ambiguous reference between 'FftSharp.Complex' and 'System.Numerics.Complex' [c:\Users\thanh\OneDrive\Documents\SP26SE120_VietTune\backend\VietTuneArchive.Application\VietTuneArchive.Application.csproj]
-     1>c:\Users\thanh\OneDrive\Documents\SP26SE120_VietTune\backend\VietTuneArchive.Application\Services\AI\MelSpectrogramExtractor.cs(110,38): error CS1503: Argument 1: cannot convert from 'FftSharp.Complex[]' to 'System.Numerics.Complex[]' [c:\Users\thanh\OneDrive\Documents\SP26SE120_VietTune\backend\VietTuneArchive.Application\VietTuneArchive.Application.csproj]
-
-Build FAILED.
-    60 Warning(s)
-    3 Error(s)
-
-Time Elapsed 00:00:02.20
