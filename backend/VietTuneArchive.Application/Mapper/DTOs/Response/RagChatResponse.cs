@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace VietTuneArchive.Application.Mapper.DTOs.Response
 {
     public class RagChatResponse

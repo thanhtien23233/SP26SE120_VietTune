@@ -1,13 +1,9 @@
-using Microsoft.IdentityModel.Tokens;
-using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
 using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.Common.Email;
 using VietTuneArchive.Application.IServices;
@@ -91,7 +87,7 @@ namespace VietTuneArchive.Application.Services
                 Subject = new ClaimsIdentity(new[]
                 {
                      new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                     new Claim("id", user.Id.ToString()), 
+                     new Claim("id", user.Id.ToString()),
                      new Claim(ClaimTypes.Name, user.FullName ?? ""),
                      new Claim(ClaimTypes.Role, user.Role)
                 }),

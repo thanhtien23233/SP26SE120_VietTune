@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VietTuneArchive.Application.IServices;
@@ -97,10 +93,10 @@ namespace VietTuneArchive.Application.Services
             var query = request.Query.ToLower().Trim();
             var limit = Math.Clamp(request.Limit, 1, 50);
             var results = new List<GraphNodeDto>();
-            var types = request.Types ?? new List<string> 
-            { 
-                "EthnicGroup", "Instrument", "Ceremony", "Recording", 
-                "VocalStyle", "MusicalScale", "Tag", "Province" 
+            var types = request.Types ?? new List<string>
+            {
+                "EthnicGroup", "Instrument", "Ceremony", "Recording",
+                "VocalStyle", "MusicalScale", "Tag", "Province"
             };
 
             if (types.Contains("EthnicGroup"))
@@ -272,88 +268,91 @@ namespace VietTuneArchive.Application.Services
             {
                 case "Instrument-EthnicGroup":
                 case "EthnicGroup-Instrument":
-                {
-                    var rels = await _db.InstrumentEthnicGroups
-                        .Include(ie => ie.Instrument)
-                        .Include(ie => ie.EthnicGroup)
-                        .Take(limit)
-                        .ToListAsync();
-
-                    foreach (var rel in rels)
                     {
-                        if (rel.Instrument == null || rel.EthnicGroup == null) continue;
-                        
-                        var instKey = $"Instrument:{rel.InstrumentId}";
-                        var ethKey = $"EthnicGroup:{rel.EthnicGroupId}";
+                        var rels = await _db.InstrumentEthnicGroups
+                            .Include(ie => ie.Instrument)
+                            .Include(ie => ie.EthnicGroup)
+                            .Take(limit)
+                            .ToListAsync();
 
-                        if (!nodes.ContainsKey(instKey)) nodes[instKey] = ToNodeInstrument(rel.Instrument);
-                        if (!nodes.ContainsKey(ethKey)) nodes[ethKey] = ToNodeEthnicGroup(rel.EthnicGroup);
-
-                        edges.Add(new GraphEdgeDto
+                        foreach (var rel in rels)
                         {
-                            SourceId = rel.InstrumentId.ToString(), TargetId = rel.EthnicGroupId.ToString(),
-                            Relation = "BELONGS_TO_ETHNIC_GROUP"
-                        });
+                            if (rel.Instrument == null || rel.EthnicGroup == null) continue;
+
+                            var instKey = $"Instrument:{rel.InstrumentId}";
+                            var ethKey = $"EthnicGroup:{rel.EthnicGroupId}";
+
+                            if (!nodes.ContainsKey(instKey)) nodes[instKey] = ToNodeInstrument(rel.Instrument);
+                            if (!nodes.ContainsKey(ethKey)) nodes[ethKey] = ToNodeEthnicGroup(rel.EthnicGroup);
+
+                            edges.Add(new GraphEdgeDto
+                            {
+                                SourceId = rel.InstrumentId.ToString(),
+                                TargetId = rel.EthnicGroupId.ToString(),
+                                Relation = "BELONGS_TO_ETHNIC_GROUP"
+                            });
+                        }
+                        break;
                     }
-                    break;
-                }
 
                 case "EthnicGroup-Ceremony":
                 case "Ceremony-EthnicGroup":
-                {
-                    var rels = await _db.EthnicGroupCeremonies
-                        .Include(ec => ec.EthnicGroup)
-                        .Include(ec => ec.Ceremony)
-                        .Take(limit)
-                        .ToListAsync();
-
-                    foreach (var rel in rels)
                     {
-                        if (rel.EthnicGroup == null || rel.Ceremony == null) continue;
-                        
-                        var ethKey = $"EthnicGroup:{rel.EthnicGroupId}";
-                        var cerKey = $"Ceremony:{rel.CeremonyId}";
+                        var rels = await _db.EthnicGroupCeremonies
+                            .Include(ec => ec.EthnicGroup)
+                            .Include(ec => ec.Ceremony)
+                            .Take(limit)
+                            .ToListAsync();
 
-                        if (!nodes.ContainsKey(ethKey)) nodes[ethKey] = ToNodeEthnicGroup(rel.EthnicGroup);
-                        if (!nodes.ContainsKey(cerKey)) nodes[cerKey] = ToNodeCeremony(rel.Ceremony);
-
-                        edges.Add(new GraphEdgeDto
+                        foreach (var rel in rels)
                         {
-                            SourceId = rel.EthnicGroupId.ToString(), TargetId = rel.CeremonyId.ToString(),
-                            Relation = "HAS_CEREMONY"
-                        });
+                            if (rel.EthnicGroup == null || rel.Ceremony == null) continue;
+
+                            var ethKey = $"EthnicGroup:{rel.EthnicGroupId}";
+                            var cerKey = $"Ceremony:{rel.CeremonyId}";
+
+                            if (!nodes.ContainsKey(ethKey)) nodes[ethKey] = ToNodeEthnicGroup(rel.EthnicGroup);
+                            if (!nodes.ContainsKey(cerKey)) nodes[cerKey] = ToNodeCeremony(rel.Ceremony);
+
+                            edges.Add(new GraphEdgeDto
+                            {
+                                SourceId = rel.EthnicGroupId.ToString(),
+                                TargetId = rel.CeremonyId.ToString(),
+                                Relation = "HAS_CEREMONY"
+                            });
+                        }
+                        break;
                     }
-                    break;
-                }
 
                 case "Recording-Instrument":
                 case "Instrument-Recording":
-                {
-                    var rels = await _db.RecordingInstruments
-                        .Include(ri => ri.Recording)
-                        .Include(ri => ri.Instrument)
-                        .Take(limit)
-                        .ToListAsync();
-
-                    foreach (var rel in rels)
                     {
-                        if (rel.Recording == null || rel.Instrument == null) continue;
-                        
-                        var recKey = $"Recording:{rel.RecordingId}";
-                        var instKey = $"Instrument:{rel.InstrumentId}";
+                        var rels = await _db.RecordingInstruments
+                            .Include(ri => ri.Recording)
+                            .Include(ri => ri.Instrument)
+                            .Take(limit)
+                            .ToListAsync();
 
-                        if (!nodes.ContainsKey(recKey)) nodes[recKey] = ToNodeRecording(rel.Recording);
-                        if (!nodes.ContainsKey(instKey)) nodes[instKey] = ToNodeInstrument(rel.Instrument);
-
-                        edges.Add(new GraphEdgeDto
+                        foreach (var rel in rels)
                         {
-                            SourceId = rel.RecordingId.ToString(), TargetId = rel.InstrumentId.ToString(),
-                            Relation = "USES_INSTRUMENT",
-                            Properties = new Dictionary<string, object?> { ["playingTechnique"] = rel.PlayingTechnique }
-                        });
+                            if (rel.Recording == null || rel.Instrument == null) continue;
+
+                            var recKey = $"Recording:{rel.RecordingId}";
+                            var instKey = $"Instrument:{rel.InstrumentId}";
+
+                            if (!nodes.ContainsKey(recKey)) nodes[recKey] = ToNodeRecording(rel.Recording);
+                            if (!nodes.ContainsKey(instKey)) nodes[instKey] = ToNodeInstrument(rel.Instrument);
+
+                            edges.Add(new GraphEdgeDto
+                            {
+                                SourceId = rel.RecordingId.ToString(),
+                                TargetId = rel.InstrumentId.ToString(),
+                                Relation = "USES_INSTRUMENT",
+                                Properties = new Dictionary<string, object?> { ["playingTechnique"] = rel.PlayingTechnique }
+                            });
+                        }
+                        break;
                     }
-                    break;
-                }
 
                 default:
                     _logger.LogWarning("Unsupported relationship pair: {Pair}", pair);
@@ -378,48 +377,64 @@ namespace VietTuneArchive.Application.Services
             {
                 "EthnicGroup" => await _db.EthnicGroups.Where(e => e.Id == id).Select(e => new { e.Id, e.Name, e.LanguageFamily, e.PrimaryRegion, e.ImageUrl }).FirstOrDefaultAsync() is var eg && eg != null ? new GraphNodeDto
                 {
-                    Id = eg.Id.ToString(), Type = "EthnicGroup", Label = eg.Name,
+                    Id = eg.Id.ToString(),
+                    Type = "EthnicGroup",
+                    Label = eg.Name,
                     Properties = new Dictionary<string, object?> { ["languageFamily"] = eg.LanguageFamily, ["primaryRegion"] = eg.PrimaryRegion, ["imageUrl"] = eg.ImageUrl }
                 } : null,
 
                 "Instrument" => await _db.Instruments.Where(i => i.Id == id).Select(i => new { i.Id, i.Name, i.Category, i.TuningSystem, i.ImageUrl }).FirstOrDefaultAsync() is var ins && ins != null ? new GraphNodeDto
                 {
-                    Id = ins.Id.ToString(), Type = "Instrument", Label = ins.Name,
+                    Id = ins.Id.ToString(),
+                    Type = "Instrument",
+                    Label = ins.Name,
                     Properties = new Dictionary<string, object?> { ["category"] = ins.Category, ["tuningSystem"] = ins.TuningSystem, ["imageUrl"] = ins.ImageUrl }
                 } : null,
 
                 "Ceremony" => await _db.Ceremonies.Where(c => c.Id == id).Select(c => new { c.Id, c.Name, c.Type, c.Season }).FirstOrDefaultAsync() is var cer && cer != null ? new GraphNodeDto
                 {
-                    Id = cer.Id.ToString(), Type = "Ceremony", Label = cer.Name,
+                    Id = cer.Id.ToString(),
+                    Type = "Ceremony",
+                    Label = cer.Name,
                     Properties = new Dictionary<string, object?> { ["type"] = cer.Type, ["season"] = cer.Season }
                 } : null,
 
                 "Recording" => await _db.Recordings.Where(r => r.Id == id).Select(r => new { r.Id, r.Title, r.PerformerName, r.DurationSeconds, r.PerformanceContext }).FirstOrDefaultAsync() is var rec && rec != null ? new GraphNodeDto
                 {
-                    Id = rec.Id.ToString(), Type = "Recording", Label = rec.Title ?? "Untitled",
+                    Id = rec.Id.ToString(),
+                    Type = "Recording",
+                    Label = rec.Title ?? "Untitled",
                     Properties = new Dictionary<string, object?> { ["performerName"] = rec.PerformerName, ["durationSeconds"] = rec.DurationSeconds, ["performanceContext"] = rec.PerformanceContext }
                 } : null,
 
                 "VocalStyle" => await _db.VocalStyles.Where(v => v.Id == id).Select(v => new { v.Id, v.Name }).FirstOrDefaultAsync() is var vs && vs != null ? new GraphNodeDto
                 {
-                    Id = vs.Id.ToString(), Type = "VocalStyle", Label = vs.Name
+                    Id = vs.Id.ToString(),
+                    Type = "VocalStyle",
+                    Label = vs.Name
                 } : null,
 
                 "MusicalScale" => await _db.MusicalScales.Where(m => m.Id == id).Select(m => new { m.Id, m.Name, m.NotePattern }).FirstOrDefaultAsync() is var ms && ms != null ? new GraphNodeDto
                 {
-                    Id = ms.Id.ToString(), Type = "MusicalScale", Label = ms.Name,
+                    Id = ms.Id.ToString(),
+                    Type = "MusicalScale",
+                    Label = ms.Name,
                     Properties = new Dictionary<string, object?> { ["notePattern"] = ms.NotePattern }
                 } : null,
 
                 "Tag" => await _db.Tags.Where(t => t.Id == id).Select(t => new { t.Id, t.Name, t.Category }).FirstOrDefaultAsync() is var tg && tg != null ? new GraphNodeDto
                 {
-                    Id = tg.Id.ToString(), Type = "Tag", Label = tg.Name,
+                    Id = tg.Id.ToString(),
+                    Type = "Tag",
+                    Label = tg.Name,
                     Properties = new Dictionary<string, object?> { ["category"] = tg.Category }
                 } : null,
 
                 "Province" => await _db.Provinces.Where(p => p.Id == id).Select(p => new { p.Id, p.Name, p.RegionCode }).FirstOrDefaultAsync() is var pv && pv != null ? new GraphNodeDto
                 {
-                    Id = pv.Id.ToString(), Type = "Province", Label = pv.Name,
+                    Id = pv.Id.ToString(),
+                    Type = "Province",
+                    Label = pv.Name,
                     Properties = new Dictionary<string, object?> { ["regionCode"] = pv.RegionCode }
                 } : null,
 
@@ -554,49 +569,65 @@ namespace VietTuneArchive.Application.Services
 
         private GraphNodeDto ToNodeEthnicGroup(EthnicGroup entity) => new GraphNodeDto
         {
-            Id = entity.Id.ToString(), Type = "EthnicGroup", Label = entity.Name,
+            Id = entity.Id.ToString(),
+            Type = "EthnicGroup",
+            Label = entity.Name,
             Properties = new Dictionary<string, object?> { ["languageFamily"] = entity.LanguageFamily, ["primaryRegion"] = entity.PrimaryRegion, ["imageUrl"] = entity.ImageUrl }
         };
 
         private GraphNodeDto ToNodeInstrument(Instrument entity) => new GraphNodeDto
         {
-            Id = entity.Id.ToString(), Type = "Instrument", Label = entity.Name,
+            Id = entity.Id.ToString(),
+            Type = "Instrument",
+            Label = entity.Name,
             Properties = new Dictionary<string, object?> { ["category"] = entity.Category, ["tuningSystem"] = entity.TuningSystem, ["imageUrl"] = entity.ImageUrl }
         };
 
         private GraphNodeDto ToNodeCeremony(Ceremony entity) => new GraphNodeDto
         {
-            Id = entity.Id.ToString(), Type = "Ceremony", Label = entity.Name,
+            Id = entity.Id.ToString(),
+            Type = "Ceremony",
+            Label = entity.Name,
             Properties = new Dictionary<string, object?> { ["type"] = entity.Type, ["season"] = entity.Season }
         };
 
         private GraphNodeDto ToNodeRecording(Recording entity) => new GraphNodeDto
         {
-            Id = entity.Id.ToString(), Type = "Recording", Label = entity.Title ?? "Untitled",
+            Id = entity.Id.ToString(),
+            Type = "Recording",
+            Label = entity.Title ?? "Untitled",
             Properties = new Dictionary<string, object?> { ["performerName"] = entity.PerformerName, ["durationSeconds"] = entity.DurationSeconds }
         };
 
         private GraphNodeDto ToNodeVocalStyle(VocalStyle entity) => new GraphNodeDto
         {
-            Id = entity.Id.ToString(), Type = "VocalStyle", Label = entity.Name,
+            Id = entity.Id.ToString(),
+            Type = "VocalStyle",
+            Label = entity.Name,
             Properties = new Dictionary<string, object?> { ["description"] = entity.Description }
         };
 
         private GraphNodeDto ToNodeMusicalScale(MusicalScale entity) => new GraphNodeDto
         {
-            Id = entity.Id.ToString(), Type = "MusicalScale", Label = entity.Name,
+            Id = entity.Id.ToString(),
+            Type = "MusicalScale",
+            Label = entity.Name,
             Properties = new Dictionary<string, object?> { ["notePattern"] = entity.NotePattern }
         };
 
         private GraphNodeDto ToNodeTag(Tag entity) => new GraphNodeDto
         {
-            Id = entity.Id.ToString(), Type = "Tag", Label = entity.Name,
+            Id = entity.Id.ToString(),
+            Type = "Tag",
+            Label = entity.Name,
             Properties = new Dictionary<string, object?> { ["category"] = entity.Category }
         };
 
         private GraphNodeDto ToNodeProvince(Province entity) => new GraphNodeDto
         {
-            Id = entity.Id.ToString(), Type = "Province", Label = entity.Name,
+            Id = entity.Id.ToString(),
+            Type = "Province",
+            Label = entity.Name,
             Properties = new Dictionary<string, object?> { ["regionCode"] = entity.RegionCode }
         };
 

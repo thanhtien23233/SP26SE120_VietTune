@@ -38,7 +38,7 @@ namespace VietTuneArchive.Application.Services
                 return Result<bool>.Failure(ex.Message);
             }
         }
-        public async Task<Result<bool>> FlagMessageAsync (Guid messageId)
+        public async Task<Result<bool>> FlagMessageAsync(Guid messageId)
         {
             try
             {
@@ -114,7 +114,7 @@ namespace VietTuneArchive.Application.Services
                 if (conversationId == Guid.Empty)
                     throw new ArgumentException("Conversation id cannot be empty", nameof(conversationId));
 
-                var messages = await _messageRepository.GetAsync(m => 
+                var messages = await _messageRepository.GetAsync(m =>
                     m.ConversationId == conversationId && m.Role == role);
                 var dtos = _mapper.Map<List<QAMessageDto>>(messages.OrderBy(m => m.CreatedAt).ToList());
                 return new ServiceResponse<List<QAMessageDto>>
@@ -142,7 +142,7 @@ namespace VietTuneArchive.Application.Services
         {
             try
             {
-                var messages = await _messageRepository.GetAsync(m => 
+                var messages = await _messageRepository.GetAsync(m =>
                     m.ConfidenceScore.HasValue && m.ConfidenceScore >= minConfidence);
                 var dtos = _mapper.Map<List<QAMessageDto>>(messages.OrderByDescending(m => m.ConfidenceScore).ToList());
                 return new ServiceResponse<List<QAMessageDto>>
@@ -173,7 +173,7 @@ namespace VietTuneArchive.Application.Services
                 if (expertId == Guid.Empty)
                     throw new ArgumentException("Expert id cannot be empty", nameof(expertId));
 
-                var messages = await _messageRepository.GetAsync(m => 
+                var messages = await _messageRepository.GetAsync(m =>
                     m.CorrectedByExpertId == expertId);
                 var dtos = _mapper.Map<List<QAMessageDto>>(messages);
                 return new ServiceResponse<List<QAMessageDto>>
@@ -204,11 +204,11 @@ namespace VietTuneArchive.Application.Services
                 if (conversationId == Guid.Empty)
                     throw new ArgumentException("Conversation id cannot be empty", nameof(conversationId));
 
-                var messages = await _messageRepository.GetAsync(m => 
+                var messages = await _messageRepository.GetAsync(m =>
                     m.ConversationId == conversationId && m.ConfidenceScore.HasValue);
-                
-                var averageConfidence = messages.Any() 
-                    ? messages.Average(m => m.ConfidenceScore!.Value) 
+
+                var averageConfidence = messages.Any()
+                    ? messages.Average(m => m.ConfidenceScore!.Value)
                     : 0;
 
                 return new ServiceResponse<decimal>

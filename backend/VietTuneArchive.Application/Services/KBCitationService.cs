@@ -84,7 +84,7 @@ namespace VietTuneArchive.Application.Services
                 if (string.IsNullOrWhiteSpace(keyword))
                     throw new ArgumentException("Search keyword cannot be empty", nameof(keyword));
 
-                var citations = await _citationRepository.GetAsync(c => 
+                var citations = await _citationRepository.GetAsync(c =>
                     c.Citation.Contains(keyword) || (c.Url != null && c.Url.Contains(keyword)));
                 var dtos = _mapper.Map<List<KBCitationDto>>(citations);
                 return new ServiceResponse<List<KBCitationDto>>

@@ -1,6 +1,6 @@
-using Microsoft.Extensions.Logging;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 
@@ -26,7 +26,7 @@ namespace VietTuneArchive.Application.Services
             }
 
             using var content = new MultipartFormDataContent();
-            
+
             // Read stream into byte array for HttpClient (or we can use StreamContent directly but let's follow the previous pattern for reliability)
             byte[] byteArray;
             if (audioStream is MemoryStream ms)
@@ -45,11 +45,11 @@ namespace VietTuneArchive.Application.Services
             content.Add(streamContent, "file", fileName);
 
             var url = $"/analyze?include_timeline={includeTimeline.ToString().ToLower()}";
-            
+
             _logger.LogInformation("Sending audio analysis request to Python service for {fileName} ({size} bytes)", fileName, byteArray.Length);
-            
+
             var response = await _httpClient.PostAsync(url, content);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await response.Content.ReadAsStringAsync();
@@ -85,7 +85,7 @@ namespace VietTuneArchive.Application.Services
                 var json = await response.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(json);
                 var root = doc.RootElement;
-                
+
                 if (root.TryGetProperty("classes", out var classesElement) && classesElement.ValueKind == JsonValueKind.Array)
                 {
                     return classesElement.EnumerateArray()

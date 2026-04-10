@@ -177,7 +177,7 @@ namespace VietTuneArchive.Application.Services
                 if (startTime > endTime)
                     throw new ArgumentException("Start time must be less than end time");
 
-                var annotations = await _annotationRepository.GetAsync(a => 
+                var annotations = await _annotationRepository.GetAsync(a =>
                     a.RecordingId == recordingId &&
                     a.TimestampStart.HasValue && a.TimestampEnd.HasValue &&
                     a.TimestampStart <= endTime && a.TimestampEnd >= startTime);
@@ -211,8 +211,8 @@ namespace VietTuneArchive.Application.Services
                 if (string.IsNullOrWhiteSpace(keyword))
                     throw new ArgumentException("Search keyword cannot be empty", nameof(keyword));
 
-                var annotations = await _annotationRepository.GetAsync(a => 
-                    a.Content.Contains(keyword) || 
+                var annotations = await _annotationRepository.GetAsync(a =>
+                    a.Content.Contains(keyword) ||
                     (a.ResearchCitation != null && a.ResearchCitation.Contains(keyword)));
 
                 var dtos = _mapper.Map<List<AnnotationDto>>(annotations);

@@ -1,12 +1,12 @@
 ﻿using System.Text;
 using System.Text.Json;
-using GenerativeAI.Types;
 using GenerativeAI;
+using GenerativeAI.Types;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using static VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto;
 using VietTuneArchive.Application.IServices;
+using static VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto;
 
 public class AudioProcessingService : IAudioProcessingService
 {

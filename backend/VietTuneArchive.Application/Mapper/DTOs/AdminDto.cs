@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace VietTuneArchive.Application.Mapper.DTOs
+﻿namespace VietTuneArchive.Application.Mapper.DTOs
 {
     public class AdminDto
     {

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace VietTuneArchive.Application.Mapper.DTOs.Request
+﻿namespace VietTuneArchive.Application.Mapper.DTOs.Request
 {
     public class AuthRequest
     {
@@ -34,7 +28,7 @@ namespace VietTuneArchive.Application.Mapper.DTOs.Request
         public class ResetPasswordRequest
         {
             public string Email { get; set; } = default!;
-            public string Token { get; set; } = default!;   
+            public string Token { get; set; } = default!;
             public string NewPassword { get; set; } = default!;
         }
     }

@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -199,7 +194,7 @@ namespace VietTuneArchive.Application.Services
             string modelVer = _options.EmbeddingModel;
             var existing = await _db.VectorEmbeddings
                 .FirstOrDefaultAsync(v => v.KBEntryId == entryId && v.ModelVersion == modelVer, ct);
-            
+
             if (existing != null) _db.VectorEmbeddings.Remove(existing);
 
             var vectorEmbedding = new VectorEmbedding

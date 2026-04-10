@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 
 namespace VietTuneArchive.Application.Hubs
-{ 
+{
     public class NotificationHub : Hub
     {
         public override async Task OnConnectedAsync()

@@ -27,8 +27,8 @@ namespace VietTuneArchive.Application.Services
                 if (string.IsNullOrWhiteSpace(keyword))
                     throw new ArgumentException("Search keyword cannot be empty", nameof(keyword));
 
-                var ethnicGroups = await _ethnicGroupRepository.GetAsync(eg => 
-                    eg.Name.Contains(keyword) || 
+                var ethnicGroups = await _ethnicGroupRepository.GetAsync(eg =>
+                    eg.Name.Contains(keyword) ||
                     (eg.Description != null && eg.Description.Contains(keyword)) ||
                     (eg.PrimaryRegion != null && eg.PrimaryRegion.Contains(keyword)));
 
@@ -61,7 +61,7 @@ namespace VietTuneArchive.Application.Services
                 if (string.IsNullOrWhiteSpace(region))
                     throw new ArgumentException("Region cannot be empty", nameof(region));
 
-                var ethnicGroups = await _ethnicGroupRepository.GetAsync(eg => 
+                var ethnicGroups = await _ethnicGroupRepository.GetAsync(eg =>
                     eg.PrimaryRegion == region);
 
                 var dtos = _mapper.Map<List<EthnicGroupDto>>(ethnicGroups);
@@ -93,7 +93,7 @@ namespace VietTuneArchive.Application.Services
                 if (string.IsNullOrWhiteSpace(languageFamily))
                     throw new ArgumentException("Language family cannot be empty", nameof(languageFamily));
 
-                var ethnicGroups = await _ethnicGroupRepository.GetAsync(eg => 
+                var ethnicGroups = await _ethnicGroupRepository.GetAsync(eg =>
                     eg.LanguageFamily == languageFamily);
 
                 var dtos = _mapper.Map<List<EthnicGroupDto>>(ethnicGroups);

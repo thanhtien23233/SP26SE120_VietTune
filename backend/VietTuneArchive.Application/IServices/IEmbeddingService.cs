@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
 namespace VietTuneArchive.Application.IServices
 {
     public interface IEmbeddingService
@@ -17,7 +13,7 @@ namespace VietTuneArchive.Application.IServices
 
         // === Được gọi từ Admin endpoint — chỉ để backfill/re-generate ===
         Task<int> BackfillAllMissingEmbeddingsAsync();
-        
+
         // Removed GetStatsAsync since we don't have DTO for it yet, or we can just return a basic object
         // Task<EmbeddingStatsDto> GetStatsAsync(); 
 

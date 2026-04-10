@@ -4,9 +4,9 @@ using VietTuneArchive.Application.Responses;
 
 namespace VietTuneArchive.Application.IServices
 {
-    public interface IRecordingService : IGenericService<RecordingDto> 
+    public interface IRecordingService : IGenericService<RecordingDto>
     {
-        Task<Result<RecordingDto>> UploadRecordInfo (RecordingDto recordingDto, Guid recordingId);
+        Task<Result<RecordingDto>> UploadRecordInfo(RecordingDto recordingDto, Guid recordingId);
         Task<Result<IEnumerable<GetRecordingDto>>> SearchByTitleAsync(string title);
         Task<Result<RecordingSearchResultDto>> SearchByFilterAsync(RecordingFilterDto filter);
         Task<ServiceResponse<List<RecordingDto>>> GetByEthnicGroupAsync(Guid ethnicGroupId);

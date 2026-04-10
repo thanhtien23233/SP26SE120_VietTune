@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace VietTuneArchive.Application.Mapper.DTOs
+﻿namespace VietTuneArchive.Application.Mapper.DTOs
 {
     public class TranscriptionDto
     {

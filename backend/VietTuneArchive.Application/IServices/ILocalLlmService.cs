@@ -1,7 +1,3 @@
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using VietTuneArchive.Domain.Entities; // for QAMessage or ChatMessage if we mapped that
-
 namespace VietTuneArchive.Application.IServices
 {
     public class ChatMessageDto

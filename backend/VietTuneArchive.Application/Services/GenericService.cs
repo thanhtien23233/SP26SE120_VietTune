@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
 using AutoMapper;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Responses;
@@ -16,8 +11,8 @@ namespace VietTuneArchive.Application.Services
     /// </summary>
     /// <typeparam name="TEntity">Entity type</typeparam>
     /// <typeparam name="TDto">DTO type for response</typeparam>
-    public class GenericService<TEntity, TDto> : IGenericService<TDto> 
-        where TEntity : class 
+    public class GenericService<TEntity, TDto> : IGenericService<TDto>
+        where TEntity : class
         where TDto : class
     {
         protected readonly IGenericRepository<TEntity> _repository;

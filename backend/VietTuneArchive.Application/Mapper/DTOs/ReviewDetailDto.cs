@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace VietTuneArchive.Application.Mapper.DTOs
 {
     public class ReviewStatsDto

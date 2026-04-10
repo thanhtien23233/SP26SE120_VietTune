@@ -88,7 +88,7 @@ namespace VietTuneArchive.Application.Services
                 if (string.IsNullOrWhiteSpace(title))
                     throw new ArgumentException("Search title cannot be empty", nameof(title));
 
-                var conversations = await _conversationRepository.GetAsync(c => 
+                var conversations = await _conversationRepository.GetAsync(c =>
                     c.Title != null && c.Title.Contains(title));
                 var dtos = _mapper.Map<List<QAConversationDto>>(conversations);
                 return new ServiceResponse<List<QAConversationDto>>

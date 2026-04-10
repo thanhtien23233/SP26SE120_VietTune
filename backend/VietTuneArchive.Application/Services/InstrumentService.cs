@@ -32,7 +32,7 @@ namespace VietTuneArchive.Application.Services
 
                 var instruments = await _instrumentRepository.GetAsync(i => i.Category == category);
                 var dtos = _mapper.Map<List<InstrumentDto>>(instruments.ToList());
-                
+
                 return new ServiceResponse<List<InstrumentDto>>
                 {
                     Success = true,
@@ -64,7 +64,7 @@ namespace VietTuneArchive.Application.Services
 
                 var instruments = await _instrumentRepository.GetAsync(i => i.OriginEthnicGroupId == ethnicGroupId);
                 var dtos = _mapper.Map<List<InstrumentDto>>(instruments.ToList());
-                
+
                 return new ServiceResponse<List<InstrumentDto>>
                 {
                     Success = true,
@@ -94,12 +94,12 @@ namespace VietTuneArchive.Application.Services
                         Message = "Search keyword cannot be empty"
                     };
 
-                var instruments = await _instrumentRepository.GetAsync(i => 
-                    i.Name.Contains(keyword) || 
+                var instruments = await _instrumentRepository.GetAsync(i =>
+                    i.Name.Contains(keyword) ||
                     (i.Description != null && i.Description.Contains(keyword)));
-                    
+
                 var dtos = _mapper.Map<List<InstrumentDto>>(instruments.ToList());
-                
+
                 return new ServiceResponse<List<InstrumentDto>>
                 {
                     Success = true,

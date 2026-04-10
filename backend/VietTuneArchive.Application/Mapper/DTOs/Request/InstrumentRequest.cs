@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace VietTuneArchive.Application.Mapper.DTOs.Request
+﻿namespace VietTuneArchive.Application.Mapper.DTOs.Request
 {
     public class InstrumentRequest
     {

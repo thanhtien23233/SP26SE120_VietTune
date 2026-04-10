@@ -108,7 +108,7 @@ namespace VietTuneArchive.Application.Services
             }
         }
 
-        public async Task<Result<bool>> EditRequest (Guid submissionId, Guid reviewerId)
+        public async Task<Result<bool>> EditRequest(Guid submissionId, Guid reviewerId)
         {
             try
             {
@@ -141,7 +141,7 @@ namespace VietTuneArchive.Application.Services
             }
         }
 
-        public async Task<Result<bool>> ConfirmEdit (Guid SubmissionId)
+        public async Task<Result<bool>> ConfirmEdit(Guid SubmissionId)
         {
             try
             {
@@ -249,7 +249,7 @@ namespace VietTuneArchive.Application.Services
                     "Submission",
                     submission.Id
                 );
-                
+
                 // <<< THÊM: Sinh embedding sau khi duyệt >>>
                 try
                 {
@@ -453,11 +453,11 @@ namespace VietTuneArchive.Application.Services
             {
                 if (submissionId == Guid.Empty)
                     throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
-                
+
                 var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
                 if (submission == null)
                     return Result<bool>.Failure("Submission not found");
-                
+
                 if (submission.Status == SubmissionStatus.Approved)
                     return Result<bool>.Failure("Cannot delete an approved submission");
 
@@ -470,7 +470,7 @@ namespace VietTuneArchive.Application.Services
                         await _recordingRepository.DeleteAsync(recording.Id);
                     }
                 }
-                
+
                 // Delete submission
                 await _submissionRepository.DeleteAsync(submissionId);
                 return Result<bool>.Success(true, "Submission deleted successfully");

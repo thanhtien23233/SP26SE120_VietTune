@@ -47,7 +47,7 @@ namespace VietTuneArchive.Application.Services
                 if (string.IsNullOrWhiteSpace(name))
                     throw new ArgumentException("Search name cannot be empty", nameof(name));
 
-                var districts = await _districtRepository.GetAsync(d => 
+                var districts = await _districtRepository.GetAsync(d =>
                     d.ProvinceId == provinceId && d.Name.Contains(name));
                 var dtos = _mapper.Map<List<DistrictDto>>(districts);
                 return new ServiceResponse<List<DistrictDto>>

@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace VietTuneArchive.Application.Mapper.DTOs.KnowledgeGraph
 {
     /// <summary>
@@ -9,15 +7,15 @@ namespace VietTuneArchive.Application.Mapper.DTOs.KnowledgeGraph
     public class GraphNodeDto
     {
         public string Id { get; set; } = string.Empty;
-        
+
         /// <summary>
         /// Loại entity: "EthnicGroup", "Instrument", "Ceremony", "Recording", 
         /// "VocalStyle", "MusicalScale", "Tag", "Province"
         /// </summary>
         public string Type { get; set; } = string.Empty;
-        
+
         public string Label { get; set; } = string.Empty;
-        
+
         /// <summary>
         /// Metadata bổ sung tuỳ theo Type.
         /// VD: Instrument có Category, TuningSystem; EthnicGroup có LanguageFamily, PrimaryRegion...

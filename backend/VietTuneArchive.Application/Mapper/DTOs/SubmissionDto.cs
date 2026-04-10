@@ -1,5 +1,3 @@
-using System;
-using VietTuneArchive.Domain.Entities;
 using VietTuneArchive.Domain.Entities.Enum;
 
 namespace VietTuneArchive.Application.Mapper.DTOs

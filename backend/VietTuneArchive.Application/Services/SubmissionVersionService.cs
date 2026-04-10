@@ -35,7 +35,7 @@ namespace VietTuneArchive.Application.Services
 
                 var versions = await _versionRepository.GetAsync(v => v.SubmissionId == submissionId);
                 var dtos = _mapper.Map<List<SubmissionVersionDto>>(versions.OrderBy(v => v.VersionNumber).ToList());
-                
+
                 return new ServiceResponse<List<SubmissionVersionDto>>
                 {
                     Success = true,

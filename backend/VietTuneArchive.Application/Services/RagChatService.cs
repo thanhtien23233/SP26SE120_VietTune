@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Domain.Entities;
@@ -75,7 +71,7 @@ namespace VietTuneArchive.Application.Services
                     ConfidenceScore = m.ConfidenceScore,
                     CreatedAt = m.CreatedAt,
                     Sources = string.IsNullOrEmpty(m.SourceRecordingIdsJson) && string.IsNullOrEmpty(m.SourceKBEntryIdsJson)
-                              ? new List<SourceReference>() 
+                              ? new List<SourceReference>()
                               : new List<SourceReference> { new SourceReference { Title = "Sources available in DB" } }
                 }).ToList() ?? new List<RagChatMessageResponse>()
             };
@@ -114,14 +110,14 @@ namespace VietTuneArchive.Application.Services
 
             // 3. Prepare Local LLM Request
             var sysPrompt = _config["RagChat:SystemPrompt"] ?? "Bạn là chuyên gia về âm nhạc cổ truyền Việt Nam. Trả lời câu hỏi dựa trên thông tin được cung cấp.";
-            
+
             var msgs = conv.QAMessages?.OrderBy(m => m.CreatedAt).TakeLast(6).ToList();
             var history = msgs?.Select(m => new ChatMessageDto { Role = m.Role, Content = m.Content }).ToList() ?? new List<ChatMessageDto>();
 
             var fullPrompt = $"Context:\n{contextBuilder}\n\nUser: {request.Content}";
 
             var answerText = await _llmService.GenerateAsync(sysPrompt, fullPrompt, history);
-            if (string.IsNullOrEmpty(answerText)) 
+            if (string.IsNullOrEmpty(answerText))
                 answerText = "Xin lỗi, hiện tại tôi không thể trả lời.";
 
             var recIds = docs.Where(d => d.SourceType == "Recording").Select(d => d.SourceId).ToList();

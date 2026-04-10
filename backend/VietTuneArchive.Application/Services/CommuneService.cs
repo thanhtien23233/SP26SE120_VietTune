@@ -50,7 +50,7 @@ namespace VietTuneArchive.Application.Services
                 if (string.IsNullOrWhiteSpace(name))
                     throw new ArgumentException("Search name cannot be empty", nameof(name));
 
-                var communes = await _communeRepository.GetAsync(c => 
+                var communes = await _communeRepository.GetAsync(c =>
                     c.DistrictId == districtId && c.Name.Contains(name));
                 var dtos = _mapper.Map<List<CommuneDto>>(communes);
                 return new ServiceResponse<List<CommuneDto>>
@@ -78,9 +78,9 @@ namespace VietTuneArchive.Application.Services
         {
             try
             {
-                var communes = await _communeRepository.GetAsync(c => 
+                var communes = await _communeRepository.GetAsync(c =>
                     c.Latitude.HasValue && c.Longitude.HasValue);
-                
+
                 var filteredCommunesList = communes
                     .Where(c => CalculateDistance(latitude, longitude, c.Latitude!.Value, c.Longitude!.Value) <= radiusKm)
                     .ToList();

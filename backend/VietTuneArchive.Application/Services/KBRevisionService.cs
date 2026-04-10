@@ -155,7 +155,7 @@ namespace VietTuneArchive.Application.Services
                 if (string.IsNullOrWhiteSpace(keyword))
                     throw new ArgumentException("Search keyword cannot be empty", nameof(keyword));
 
-                var revisions = await _revisionRepository.GetAsync(r => 
+                var revisions = await _revisionRepository.GetAsync(r =>
                     r.RevisionNote != null && r.RevisionNote.Contains(keyword));
                 var dtos = _mapper.Map<List<KBRevisionDto>>(revisions);
                 return new ServiceResponse<List<KBRevisionDto>>

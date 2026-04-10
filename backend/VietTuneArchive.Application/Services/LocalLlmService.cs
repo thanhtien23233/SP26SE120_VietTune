@@ -1,9 +1,5 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Threading.Tasks;
 using VietTuneArchive.Application.IServices;
 
 namespace VietTuneArchive.Application.Services
@@ -30,10 +26,10 @@ namespace VietTuneArchive.Application.Services
                 user_prompt = userPrompt,
                 history = history?.Select(m => new { role = m.Role == 0 ? "user" : "assistant", content = m.Content })
             };
-            
+
             var response = await _httpClient.PostAsJsonAsync("/generate", request);
             response.EnsureSuccessStatusCode();
-            
+
             // Read string first to help debug if needed, or just deserialize directly
             var result = await response.Content.ReadFromJsonAsync<GenerateResponse>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return result?.content ?? string.Empty;

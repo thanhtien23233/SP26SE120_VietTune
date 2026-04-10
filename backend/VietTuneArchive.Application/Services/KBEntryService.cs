@@ -1,19 +1,15 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Text;
+using System.Text.RegularExpressions;
 using VietTuneArchive.Application.IServices;
-using VietTuneArchive.Domain.Entities;
-using VietTuneArchive.Domain.IRepositories;
-using VietTuneArchive.Domain.Entities.DTO.KnowledgeBase;
 using VietTuneArchive.Application.Responses;
+using VietTuneArchive.Domain.Entities;
+using VietTuneArchive.Domain.Entities.DTO.KnowledgeBase;
+using VietTuneArchive.Domain.IRepositories;
 
 namespace VietTuneArchive.Application.Services
 {
-    public class NotFoundException : Exception { public NotFoundException(string m) : base(m){} }
-    public class BadRequestException : Exception { public BadRequestException(string m) : base(m){} }
+    public class NotFoundException : Exception { public NotFoundException(string m) : base(m) { } }
+    public class BadRequestException : Exception { public BadRequestException(string m) : base(m) { } }
 
     public class KBEntryService : IKBEntryService
     {
@@ -60,7 +56,7 @@ namespace VietTuneArchive.Application.Services
                 throw new BadRequestException("Invalid category.");
 
             var slug = await GenerateUniqueSlug(request.Title);
-            
+
             var entryId = Guid.NewGuid();
             var entry = new KBEntry
             {
@@ -185,7 +181,7 @@ namespace VietTuneArchive.Application.Services
             citation.Citation = request.Citation;
             citation.Url = request.Url;
             await _repo.UpdateCitationAsync(citation);
-            
+
             return MapToCitationResponse(citation);
         }
 

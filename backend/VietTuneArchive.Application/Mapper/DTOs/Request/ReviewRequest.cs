@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace VietTuneArchive.Application.Mapper.DTOs.Request
+﻿namespace VietTuneArchive.Application.Mapper.DTOs.Request
 {
     public class ReviewRequest
     {

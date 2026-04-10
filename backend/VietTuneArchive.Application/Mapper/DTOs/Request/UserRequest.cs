@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace VietTuneArchive.Application.Mapper.DTOs.Request
+﻿namespace VietTuneArchive.Application.Mapper.DTOs.Request
 {
     public class UserRequest
     {

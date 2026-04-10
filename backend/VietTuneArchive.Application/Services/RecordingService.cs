@@ -42,7 +42,8 @@ namespace VietTuneArchive.Application.Services
             _vectorEmbeddingService = vectorEmbeddingService;
             _logger = logger;
         }
-        public async Task<Result<RecordingDto>> UploadRecordInfo(RecordingDto recordingDto, Guid recordingId) { 
+        public async Task<Result<RecordingDto>> UploadRecordInfo(RecordingDto recordingDto, Guid recordingId)
+        {
             try
             {
                 if (recordingDto == null)
@@ -144,7 +145,7 @@ namespace VietTuneArchive.Application.Services
                         );
                     }
                 }
-                
+
                 // <<< THÊM: Re-generate embedding nếu bản ghi đã được duyệt (Published) >>>
                 // LƯU Ý: Ở trên đã set Pending, nên chỗ này chỉ chạy nếu logic bên trên thay đổi hoặc status được giữ nguyên.
                 if (existingRecording.Status == SubmissionStatus.Approved)
@@ -213,7 +214,7 @@ namespace VietTuneArchive.Application.Services
                     Data = dtos,
                     Total = total
                 };
-                
+
                 return Result<RecordingSearchResultDto>.Success(
                     result,
                     $"Found {total} recordings, returned {dtos.Count}");
@@ -294,7 +295,7 @@ namespace VietTuneArchive.Application.Services
                 if (string.IsNullOrWhiteSpace(performerName))
                     throw new ArgumentException("Performer name cannot be empty", nameof(performerName));
 
-                var recordings = await _recordingRepository.GetAsync(r => 
+                var recordings = await _recordingRepository.GetAsync(r =>
                     r.PerformerName != null && r.PerformerName.Contains(performerName));
                 var dtos = _mapper.Map<List<RecordingDto>>(recordings);
                 return new ServiceResponse<List<RecordingDto>>
@@ -325,7 +326,7 @@ namespace VietTuneArchive.Application.Services
                 if (startDate > endDate)
                     throw new ArgumentException("Start date must be before end date");
 
-                var recordings = await _recordingRepository.GetAsync(r => 
+                var recordings = await _recordingRepository.GetAsync(r =>
                     r.RecordingDate.HasValue && r.RecordingDate >= startDate && r.RecordingDate <= endDate);
                 var dtos = _mapper.Map<List<RecordingDto>>(recordings);
                 return new ServiceResponse<List<RecordingDto>>

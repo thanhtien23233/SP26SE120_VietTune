@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Domain.Context;
@@ -30,7 +26,7 @@ namespace VietTuneArchive.Application.Services
             try
             {
                 questionVector = await _embeddingService.GetEmbeddingAsync(question);
-                
+
                 // 1a. Similar Recordings
                 var similarRecordings = await _embeddingService.SearchSimilarRecordingsAsync(questionVector, 5);
                 foreach (var recMatch in similarRecordings)
@@ -39,7 +35,7 @@ namespace VietTuneArchive.Application.Services
                         .Include(r => r.EthnicGroup)
                         .Include(r => r.Ceremony)
                         .FirstOrDefaultAsync(r => r.Id == recMatch.RecordingId);
-                        
+
                     if (rec != null)
                     {
                         docs.Add(new RetrievedDocument
@@ -80,9 +76,9 @@ namespace VietTuneArchive.Application.Services
             if (docs.Count(d => d.SourceType == "KBEntry") < 3)
             {
                 var existingKbIds = docs.Where(d => d.SourceType == "KBEntry").Select(d => d.SourceId).ToList();
-                
+
                 var kbEntries = await _context.KBEntries
-                    .Where(kb => kb.Status == 1 && !existingKbIds.Contains(kb.Id) && 
+                    .Where(kb => kb.Status == 1 && !existingKbIds.Contains(kb.Id) &&
                                 (kb.Title.ToLower().Contains(lowerQuery) || lowerQuery.Contains(kb.Title.ToLower())))
                     .Take(3)
                     .ToListAsync();
@@ -105,7 +101,7 @@ namespace VietTuneArchive.Application.Services
                 .Where(i => i.Name.ToLower().Contains(lowerQuery) || (i.Description != null && i.Description.ToLower().Contains(lowerQuery)))
                 .Take(3)
                 .ToListAsync();
-            
+
             foreach (var inst in instruments)
             {
                 docs.Add(new RetrievedDocument

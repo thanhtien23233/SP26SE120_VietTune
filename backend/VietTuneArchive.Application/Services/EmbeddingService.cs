@@ -1,11 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Domain.Entities;
 using VietTuneArchive.Domain.IRepositories;
@@ -20,7 +14,7 @@ namespace VietTuneArchive.Application.Services
         private readonly IKBEntryRepository _kbEntryRepository;
 
         public EmbeddingService(
-            IHttpClientFactory httpClientFactory, 
+            IHttpClientFactory httpClientFactory,
             IRecordingRepository recordingRepository,
             IVectorEmbeddingRepository vectorEmbeddingRepository,
             IKBEntryRepository kbEntryRepository)
@@ -194,7 +188,7 @@ namespace VietTuneArchive.Application.Services
 
         public async Task GenerateAndStoreEmbeddingAsync(Guid recordingId, string textContent)
         {
-             await GenerateEmbeddingForRecordingAsync(recordingId);
+            await GenerateEmbeddingForRecordingAsync(recordingId);
         }
 
         public async Task<int> BackfillAllMissingEmbeddingsAsync()
@@ -216,12 +210,12 @@ namespace VietTuneArchive.Application.Services
             }
 
             // 2. KBEntries
-            var (kbItems, _) = await _kbEntryRepository.GetAllAsync(new VietTuneArchive.Domain.Entities.DTO.KnowledgeBase.KBEntryQueryParams 
-            { 
-                Status = 1, 
-                PageSize = 10000 
+            var (kbItems, _) = await _kbEntryRepository.GetAllAsync(new VietTuneArchive.Domain.Entities.DTO.KnowledgeBase.KBEntryQueryParams
+            {
+                Status = 1,
+                PageSize = 10000
             });
-            
+
             var existingKbs = await _vectorEmbeddingRepository.GetAsync(v => v.KBEntryId != null);
             var embeddedKbIds = existingKbs.Select(v => v.KBEntryId.Value).ToHashSet();
 
