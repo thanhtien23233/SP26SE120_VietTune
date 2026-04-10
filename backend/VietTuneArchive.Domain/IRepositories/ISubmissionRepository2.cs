@@ -9,5 +9,6 @@ namespace VietTuneArchive.Domain.IRepositories
         Task<IEnumerable<Submission>> GetAllSubmissionsAsync();
         Task<IEnumerable<Submission>> GetByUserIdAsync(Guid userId);
         Task<IEnumerable<Submission>> GetByStatusAsync(SubmissionStatus status);
+        Task<IEnumerable<Submission>> GetByExpertIdAsync(Guid expertId);
     }
 }

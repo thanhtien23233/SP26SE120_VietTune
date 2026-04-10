@@ -267,6 +267,89 @@ namespace VietTuneArchive.Application.Services
                 return Result<bool>.Failure($"Failed to approve submission: {ex.Message}");
             }
         }
+
+        public async Task<Result<bool>> AssignReviewer(Guid submissionId, Guid reviewerId)
+        {
+            try
+            {
+                if (submissionId == Guid.Empty)
+                    throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
+                var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
+                if (submission == null)
+                    return Result<bool>.Failure("Submission not found");
+                if (submission.ReviewerId.HasValue)
+                    return Result<bool>.Failure("Submission already has a reviewer assigned");
+                var reviewer = await _userRepository.GetByIdAsync(reviewerId);
+                if (reviewer == null || !reviewer.Role.Contains("Expert"))
+                    return Result<bool>.Failure("Invalid reviewer ID");
+                submission.ReviewerId = reviewerId;
+                submission.Reviewer = reviewer;
+                submission.UpdatedAt = DateTime.UtcNow;
+                await _submissionRepo.UpdateAsync(submission);
+                await _notificationService.SendNotificationAsync(
+                    reviewerId,
+                    "Bạn được phân công đánh giá bản ghi",
+                    $"Bạn đã được phân công đánh giá bản ghi '{submission.Recording.Title}'. Vui lòng xem xét và đưa ra quyết định.",
+                    "SubmissionAssigned",
+                    "Submission",
+                    submission.Id
+                );
+                return Result<bool>.Success(true, "Reviewer assigned successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<bool>.Failure($"Failed to assign reviewer: {ex.Message}");
+            }
+        }
+
+        public async Task<Result<bool>> UnassignReviewer(Guid submissionId)
+        {
+            try
+            {
+                if (submissionId == Guid.Empty)
+                    throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
+                var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
+                if (submission == null)
+                    return Result<bool>.Failure("Submission not found");
+                if (!submission.ReviewerId.HasValue)
+                    return Result<bool>.Failure("Submission does not have a reviewer assigned");
+                var reviewerId = submission.ReviewerId.Value;
+                submission.ReviewerId = null;
+                submission.Reviewer = null;
+                submission.UpdatedAt = DateTime.UtcNow;
+                await _submissionRepo.UpdateAsync(submission);
+                await _notificationService.SendNotificationAsync(
+                    reviewerId,
+                    "Bạn đã được gỡ phân công đánh giá bản ghi",
+                    $"Phân công đánh giá bản ghi '{submission.Recording.Title}' đã được gỡ bỏ. Bạn không còn trách nhiệm đánh giá bản ghi này.",
+                    "SubmissionUnassigned",
+                    "Submission",
+                    submission.Id
+                );
+                return Result<bool>.Success(true, "Reviewer unassigned successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<bool>.Failure($"Failed to unassign reviewer: {ex.Message}");
+            }
+        }
+
+        public async Task<Result<GetSubmissionDto>> GetSubmissionByExpertIdAsync(Guid expertId)
+        {
+            try
+            {
+                if (expertId == Guid.Empty)
+                    throw new ArgumentException("Expert id cannot be empty", nameof(expertId));
+                var submissions = await _submissionRepo.GetByExpertIdAsync(expertId);
+                var dtos = _mapper.Map<List<GetSubmissionDto>>(submissions);
+                return Result<GetSubmissionDto>.Success(dtos.First(), $"Found {dtos.Count} submissions for expert ID {expertId}");
+            }
+            catch (Exception ex)
+            {
+                return Result<GetSubmissionDto>.Failure($"Failed to retrieve submission: {ex.Message}");
+            }
+        }
+
         /// <summary>
         /// Get submissions by contributor
         /// </summary>

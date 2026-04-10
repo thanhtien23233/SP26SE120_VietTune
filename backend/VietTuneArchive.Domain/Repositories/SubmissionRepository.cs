@@ -52,6 +52,19 @@ namespace VietTuneArchive.Domain.Repositories
         {
             return await _context.Submissions
                 .Where(s => s.Status == status)
+                .Where(s => s.RecordingId == null)
+                .Include(r => r.Recording)
+                .ThenInclude(r => r.RecordingInstruments)
+                    .ThenInclude(ri => ri.Instrument)
+                .Include(sv => sv.SubmissionVersions)
+                .Include(rv => rv.Reviews)
+                .Include(re => re.Reviewer)
+                .ToListAsync();
+        }
+        public async Task<IEnumerable<Submission>> GetByExpertIdAsync(Guid expertId)
+        {
+            return await _context.Submissions
+                .Where(s => s.ReviewerId == expertId)
                 .Include(r => r.Recording)
                 .ThenInclude(r => r.RecordingInstruments)
                     .ThenInclude(ri => ri.Instrument)

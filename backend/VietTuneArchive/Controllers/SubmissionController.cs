@@ -152,6 +152,43 @@ namespace VietTuneArchive.API.Controllers
             }
             return BadRequest(result);
         }
+
+        [HttpPut("assign-reviewer-submission")]
+        [Authorize(Roles = "Admin,Expert")]
+        public async Task<IActionResult> AssignReviewerSubmission(Guid submissionId, Guid reviewerId)
+        {
+            var result = await _submissionService.AssignReviewer(submissionId, reviewerId);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
+        [HttpPut("unassign-reviewer-submission")]
+        [Authorize(Roles = "Admin,Expert")]
+        public async Task<IActionResult> UnassignReviewerSubmission(Guid submissionId)
+        {
+            var result = await _submissionService.UnassignReviewer(submissionId);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
+        [HttpGet("get-by-reviewer")]
+        [Authorize(Roles = "Admin,Expert")]
+        public async Task<IActionResult> GetSubmissionsByReviewer(Guid reviewerId)
+        {
+            var result = await _submissionService.GetSubmissionByExpertIdAsync(reviewerId);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
         [HttpGet("get-all")]
         public async Task<IActionResult> GetAllSubmissions(
     [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
