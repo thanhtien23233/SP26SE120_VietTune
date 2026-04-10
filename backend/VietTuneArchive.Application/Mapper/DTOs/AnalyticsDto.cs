@@ -56,5 +56,41 @@
             public Dictionary<string, int> ByRegion { get; set; } = new();
             public List<string> MostViewedSongs { get; set; } = new();
         }
+
+        public class CoverageChartDto
+        {
+            public string Name { get; set; } = default!;
+            public string Label { get; set; } = default!;
+            public string Ethnicity { get; set; } = default!;
+            public string Region { get; set; } = default!;
+            public int Count { get; set; }
+            public int Value { get; set; }
+        }
+
+        public class ContentAnalyticsResponseDto
+        {
+            public int TotalSongs { get; set; }
+            public Dictionary<string, int> ByEthnicity { get; set; } = new();
+            public Dictionary<string, int> ByRegion { get; set; } = new();
+        }
+
+        public class ExpertPerformanceResponseDto
+        {
+            public Guid ExpertId { get; set; }
+            public string Name { get; set; } = default!;
+            public int Reviews { get; set; }
+            public double Accuracy { get; set; }
+            public string AvgTime { get; set; } = default!;
+        }
+
+        public class ContributorLeaderboardDto
+        {
+            public Guid UserId { get; set; }
+            public string Username { get; set; } = default!;
+            public string FullName { get; set; } = default!;
+            public int ContributionCount { get; set; }
+            public int ApprovedCount { get; set; }
+            public int RejectedCount { get; set; }
+        }
     }
 }

@@ -232,6 +232,12 @@ builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ICopyrightDisputeService, CopyrightDisputeService>();
 
+// ✅ REPOSITORIES - Analytics
+builder.Services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
+
+// ✅ SERVICES - Analytics
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
+
 
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IEnumProviderService, EnumProviderService>();
