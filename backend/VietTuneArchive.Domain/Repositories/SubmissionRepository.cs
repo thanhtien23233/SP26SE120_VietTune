@@ -52,7 +52,6 @@ namespace VietTuneArchive.Domain.Repositories
         {
             return await _context.Submissions
                 .Where(s => s.Status == status)
-                .Where(s => s.RecordingId == null)
                 .Include(r => r.Recording)
                 .ThenInclude(r => r.RecordingInstruments)
                     .ThenInclude(ri => ri.Instrument)
@@ -71,6 +70,7 @@ namespace VietTuneArchive.Domain.Repositories
                 .Include(sv => sv.SubmissionVersions)
                 .Include(rv => rv.Reviews)
                 .Include(re => re.Reviewer)
+                .OrderByDescending(s => s.UpdatedAt)
                 .ToListAsync();
         }
     }

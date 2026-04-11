@@ -334,7 +334,7 @@ namespace VietTuneArchive.Application.Services
             }
         }
 
-        public async Task<Result<GetSubmissionDto>> GetSubmissionByExpertIdAsync(Guid expertId)
+        public async Task<Result<IEnumerable<GetSubmissionDto>>> GetSubmissionByExpertIdAsync(Guid expertId)
         {
             try
             {
@@ -342,11 +342,11 @@ namespace VietTuneArchive.Application.Services
                     throw new ArgumentException("Expert id cannot be empty", nameof(expertId));
                 var submissions = await _submissionRepo.GetByExpertIdAsync(expertId);
                 var dtos = _mapper.Map<List<GetSubmissionDto>>(submissions);
-                return Result<GetSubmissionDto>.Success(dtos.First(), $"Found {dtos.Count} submissions for expert ID {expertId}");
+                return Result<IEnumerable<GetSubmissionDto>>.Success(dtos, $"Found {dtos.Count} submissions for expert ID {expertId}");
             }
             catch (Exception ex)
             {
-                return Result<GetSubmissionDto>.Failure($"Failed to retrieve submission: {ex.Message}");
+                return Result<IEnumerable<GetSubmissionDto>>.Failure($"Failed to retrieve submission: {ex.Message}");
             }
         }
 
@@ -522,6 +522,13 @@ namespace VietTuneArchive.Application.Services
             try
             {
                 var submissions = await _submissionRepo.GetByStatusAsync(status);
+                
+                // If status is Pending, only return submissions that do NOT have a ReviewerId assigned (null)
+                if (status == SubmissionStatus.Pending)
+                {
+                    submissions = submissions.Where(s => !s.ReviewerId.HasValue).ToList();
+                }
+                
                 var dtos = _mapper.Map<List<GetSubmissionDto>>(submissions);
                 return Result<IEnumerable<GetSubmissionDto>>.Success(dtos, $"Retrieved {dtos.Count} submissions with status {status}");
             }

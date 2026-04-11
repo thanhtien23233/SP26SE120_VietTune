@@ -14,7 +14,7 @@ namespace VietTuneArchive.Application.IServices
         Task<Result<SubmissionResponseDto>> CreateAsync(SubmissionDto dto);
         Task<Result<bool>> AssignReviewer(Guid submissionId, Guid reviewerId);
         Task<Result<bool>> UnassignReviewer(Guid submissionId);
-        Task<Result<GetSubmissionDto>> GetSubmissionByExpertIdAsync(Guid expertId);
+        Task<Result<IEnumerable<GetSubmissionDto>>> GetSubmissionByExpertIdAsync(Guid expertId);
         Task<Result<bool>> ConfirmSubmit(Guid submissionId);
         Task<Result<bool>> EditRequest(Guid submissionId, Guid reviewerId);
         Task<Result<bool>> ConfirmEdit(Guid submissionId);
