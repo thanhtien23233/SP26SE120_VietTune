@@ -17,11 +17,13 @@ namespace VietTuneArchive.Application.Services
     public class EmbargoService : IEmbargoService
     {
         private readonly IEmbargoRepository _repository;
+        private readonly IRecordingRepository _recordingRepository;
         private readonly IMapper _mapper;
 
-        public EmbargoService(IEmbargoRepository repository, IMapper mapper)
+        public EmbargoService(IEmbargoRepository repository, IRecordingRepository recordingRepository, IMapper mapper)
         {
             _repository = repository;
+            _recordingRepository = recordingRepository;
             _mapper = mapper;
         }
 
@@ -33,12 +35,27 @@ namespace VietTuneArchive.Application.Services
                 return new ServiceResponse<EmbargoDto> { Success = false, Message = "Embargo not found for this recording" };
             }
 
+            // Lazy status evaluation
+            var newStatus = DetermineStatus(embargo.EmbargoStartDate, embargo.EmbargoEndDate);
+            if (newStatus != embargo.Status && embargo.Status != EmbargoStatus.Lifted)
+            {
+                embargo.Status = newStatus;
+                await _repository.UpdateAsync(embargo);
+                await SyncRecordingStatusAsync(recordingId, newStatus);
+            }
+
             return new ServiceResponse<EmbargoDto> { Data = _mapper.Map<EmbargoDto>(embargo) };
         }
 
         public async Task<ServiceResponse<EmbargoDto>> CreateOrUpdateAsync(Guid recordingId, EmbargoCreateUpdateDto dto, Guid userId)
         {
+            if (dto.EmbargoStartDate.HasValue && dto.EmbargoEndDate.HasValue && dto.EmbargoStartDate >= dto.EmbargoEndDate)
+            {
+                return new ServiceResponse<EmbargoDto> { Success = false, Message = "Start date must be before end date" };
+            }
+
             var embargo = await _repository.GetByRecordingIdAsync(recordingId);
+            var status = DetermineStatus(dto.EmbargoStartDate, dto.EmbargoEndDate);
             
             if (embargo == null)
             {
@@ -51,7 +68,7 @@ namespace VietTuneArchive.Application.Services
                     Reason = dto.Reason,
                     CreatedBy = userId,
                     CreatedAt = DateTime.UtcNow,
-                    Status = DetermineStatus(dto.EmbargoStartDate, dto.EmbargoEndDate)
+                    Status = status
                 };
                 await _repository.AddAsync(embargo);
             }
@@ -61,9 +78,12 @@ namespace VietTuneArchive.Application.Services
                 embargo.EmbargoEndDate = dto.EmbargoEndDate;
                 embargo.Reason = dto.Reason;
                 embargo.UpdatedAt = DateTime.UtcNow;
-                embargo.Status = DetermineStatus(dto.EmbargoStartDate, dto.EmbargoEndDate);
+                embargo.Status = status;
                 await _repository.UpdateAsync(embargo);
             }
+
+            // Sync with Recording Status
+            await SyncRecordingStatusAsync(recordingId, status);
 
             return new ServiceResponse<EmbargoDto> { Data = _mapper.Map<EmbargoDto>(embargo) };
         }
@@ -76,12 +96,38 @@ namespace VietTuneArchive.Application.Services
                 return new ServiceResponse<EmbargoDto> { Success = false, Message = "Embargo not found" };
             }
 
+            if (embargo.Status != EmbargoStatus.Active && embargo.Status != EmbargoStatus.Scheduled)
+            {
+                return new ServiceResponse<EmbargoDto> { Success = false, Message = "Only Active or Scheduled embargoes can be lifted" };
+            }
+
             embargo.Status = EmbargoStatus.Lifted;
             embargo.Reason = (embargo.Reason ?? "") + " | Lift Reason: " + dto.Reason;
             embargo.UpdatedAt = DateTime.UtcNow;
 
             await _repository.UpdateAsync(embargo);
+            
+            // Sync with Recording Status -> Back to Approved
+            await SyncRecordingStatusAsync(recordingId, EmbargoStatus.Lifted);
+
             return new ServiceResponse<EmbargoDto> { Data = _mapper.Map<EmbargoDto>(embargo) };
+        }
+
+        private async Task SyncRecordingStatusAsync(Guid recordingId, EmbargoStatus embargoStatus)
+        {
+            var recording = await _recordingRepository.GetByIdAsync(recordingId);
+            if (recording != null)
+            {
+                if (embargoStatus == EmbargoStatus.Active || embargoStatus == EmbargoStatus.Scheduled)
+                {
+                    recording.Status = SubmissionStatus.Embargoed;
+                }
+                else if (embargoStatus == EmbargoStatus.Expired || embargoStatus == EmbargoStatus.Lifted)
+                {
+                    recording.Status = SubmissionStatus.Approved;
+                }
+                await _recordingRepository.UpdateAsync(recording);
+            }
         }
 
         public async Task<PagedResponse<EmbargoDto>> GetPagedEmbargoesAsync(EmbargoStatus? status, int page, int pageSize, DateTime? from, DateTime? to)
@@ -92,6 +138,18 @@ namespace VietTuneArchive.Application.Services
                 (!to.HasValue || e.CreatedAt <= to.Value);
 
             var (items, totalItems) = await _repository.GetPaginatedAsync(predicate, page, pageSize);
+
+            // Lazy evaluation for the items being returned
+            foreach (var embargo in items)
+            {
+                var newStatus = DetermineStatus(embargo.EmbargoStartDate, embargo.EmbargoEndDate);
+                if (newStatus != embargo.Status && embargo.Status != EmbargoStatus.Lifted)
+                {
+                    embargo.Status = newStatus;
+                    await _repository.UpdateAsync(embargo);
+                    await SyncRecordingStatusAsync(embargo.RecordingId, newStatus);
+                }
+            }
 
             return new PagedResponse<EmbargoDto>
             {

@@ -225,6 +225,30 @@ namespace VietTuneArchive.Application.Services
             }
         }
 
+        public async Task<Result<IEnumerable<GetRecordingDto>>> SearchByTitleApprovedAsync(string title)
+        {
+            var result = await SearchByTitleAsync(title);
+            if (result.IsSuccess)
+            {
+                var filtered = result.Data.Where(r => r.Status == SubmissionStatus.Approved).ToList();
+                return Result<IEnumerable<GetRecordingDto>>.Success(filtered, $"Found {filtered.Count} approved recordings");
+            }
+            return result;
+        }
+
+        public async Task<Result<RecordingSearchResultDto>> SearchByFilterApprovedAsync(RecordingFilterDto filter)
+        {
+            var result = await SearchByFilterAsync(filter);
+            if (result.IsSuccess)
+            {
+                var filteredData = result.Data.Data.Where(r => r.Status == SubmissionStatus.Approved).ToList();
+                result.Data.Data = filteredData;
+                result.Data.Total = filteredData.Count; 
+                return Result<RecordingSearchResultDto>.Success(result.Data, $"Found {filteredData.Count} approved recordings");
+            }
+            return result;
+        }
+
         /// <summary>
         /// Get recordings by ethnic group
         /// </summary>
@@ -410,6 +434,29 @@ namespace VietTuneArchive.Application.Services
                     Errors = new List<string> { ex.Message }
                 };
             }
+        }
+
+        public async Task<PagedResponse<RecordingDto>> GetPaginatedApprovedAsync(int page, int pageSize)
+        {
+            var (items, totalItems) = await _recordingRepository.GetPaginatedAsync(r => r.Status == SubmissionStatus.Approved, page, pageSize);
+            return new PagedResponse<RecordingDto>
+            {
+                Success = true,
+                Data = _mapper.Map<List<RecordingDto>>(items),
+                Page = page,
+                PageSize = pageSize,
+                Total = totalItems
+            };
+        }
+
+        public async Task<ServiceResponse<RecordingDto>> GetByIdApprovedAsync(Guid id)
+        {
+            var recording = await _recordingRepository.GetFirstOrDefaultAsync(r => r.Id == id && r.Status == SubmissionStatus.Approved);
+            if (recording == null)
+            {
+                return new ServiceResponse<RecordingDto> { Success = false, Message = "Recording not found or not available" };
+            }
+            return new ServiceResponse<RecordingDto> { Data = _mapper.Map<RecordingDto>(recording) };
         }
 
         public override async Task<ServiceResponse<RecordingDto>> UpdateAsync(Guid id, RecordingDto dto)

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Security.Claims;
@@ -11,6 +12,7 @@ namespace VietTuneArchive.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Expert,Admin")]
     public class EmbargoController : ControllerBase
     {
         private readonly IEmbargoService _embargoService;
