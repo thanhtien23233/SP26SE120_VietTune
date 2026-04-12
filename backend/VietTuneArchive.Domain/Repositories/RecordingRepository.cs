@@ -19,7 +19,7 @@ namespace VietTuneArchive.Domain.Repositories
                 .Include(r => r.RecordingInstruments)
                     .ThenInclude(ri => ri.Instrument)
                 .Where(r => r.Title.Contains(title))
-                .Where(r => r.Status == SubmissionStatus.Approved)
+                .Where(r => r.Status == SubmissionStatus.Approved || r.Status == SubmissionStatus.Embargoed)
                 .ToListAsync();
         }
 
@@ -48,7 +48,7 @@ namespace VietTuneArchive.Domain.Repositories
                 .Include(r => r.Ceremony)
                 .Include(r => r.RecordingInstruments)
                     .ThenInclude(ri => ri.Instrument)
-                .Where(r => r.Status == SubmissionStatus.Approved);
+                .Where(r => r.Status == SubmissionStatus.Approved || r.Status == SubmissionStatus.Embargoed);
 
             // Apply filters
             if (ethnicGroupId.HasValue && ethnicGroupId.Value != Guid.Empty)

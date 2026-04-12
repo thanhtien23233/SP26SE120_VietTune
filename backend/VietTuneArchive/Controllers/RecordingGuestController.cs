@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
@@ -19,7 +19,7 @@ namespace VietTuneArchive.API.Controllers
         [HttpGet("search-by-title")]
         public async Task<IActionResult> SearchByTitle(string title)
         {
-            var result = await _service.SearchByTitleAsync(title);
+            var result = await _service.SearchByTitleApprovedAsync(title);
             if (result.IsSuccess)
             {
                 return Ok(result);
@@ -50,7 +50,7 @@ namespace VietTuneArchive.API.Controllers
                 SortOrder = sortOrder
             };
 
-            var result = await _service.SearchByFilterAsync(filter);
+            var result = await _service.SearchByFilterApprovedAsync(filter);
             if (result.IsSuccess)
             {
                 return Ok(result);
@@ -63,13 +63,13 @@ namespace VietTuneArchive.API.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            var result = await _service.GetPaginatedAsync(page, pageSize);
+            var result = await _service.GetPaginatedApprovedAsync(page, pageSize);
             return Ok(result);
         }
         [HttpGet("{id}")]
         public async Task<ActionResult<ServiceResponse<RecordingDto>>> GetById(Guid id)
         {
-            var result = await _service.GetByIdAsync(id);
+            var result = await _service.GetByIdApprovedAsync(id);
             return result.Success ? Ok(result) : NotFound(result);
         }
     }

@@ -1,4 +1,4 @@
-﻿namespace VietTuneArchive.Domain.Entities.Enum
+namespace VietTuneArchive.Domain.Entities.Enum
 {
     public enum SubmissionStatus
     {
@@ -6,6 +6,7 @@
         Pending,
         Approved,
         Rejected,
-        UpdateRequested
+        UpdateRequested,
+        Embargoed
     }
 }
