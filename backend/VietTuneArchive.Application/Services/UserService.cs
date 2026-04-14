@@ -153,6 +153,42 @@ namespace VietTuneArchive.Application.Services
 
             return Result<UpdateUserActiveStatusDTO>.Success(updateUserActiveStatusDTO, $"Cập nhật trạng thái người dùng thành công. Tài khoản đã được {statusText}.");
         }
+
+        public async Task<Result<bool>> UpdateRoleAsync(Guid userId, string newRole)
+        {
+            var validRoles = new[] { "Contributor", "Researcher", "Expert", "Staff", "Admin" };
+            if (!validRoles.Contains(newRole, StringComparer.OrdinalIgnoreCase))
+                return Result<bool>.Failure($"Role không hợp lệ. Chọn: {string.Join(", ", validRoles)}");
+
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+                return Result<bool>.Failure("Người dùng không tồn tại.");
+
+            var oldRole = user.Role;
+            user.Role = newRole;
+            user.UpdatedAt = DateTime.UtcNow;
+            await _userRepository.UpdateAsync(user);
+
+            // Gửi thông báo đổi role
+            try
+            {
+                await _notificationService.SendNotificationAsync(
+                    userId,
+                    "Vai trò tài khoản đã thay đổi",
+                    $"Vai trò của bạn đã được thay đổi từ '{oldRole}' sang '{newRole}'.",
+                    "RoleChanged",
+                    "User",
+                    userId
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send role change notification for user {UserId}", userId);
+            }
+
+            return Result<bool>.Success(true, $"Đã cập nhật role từ '{oldRole}' sang '{newRole}'.");
+        }
+
         public async Task DeleteAsync(Guid id)
         {
             var user = await _userRepository.GetByIdAsync(id);

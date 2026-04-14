@@ -1,4 +1,4 @@
-﻿using VietTuneArchive.Application.Common;
+using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.Mapper.DTOs;
 
 namespace VietTuneArchive.Application.IServices
@@ -12,6 +12,7 @@ namespace VietTuneArchive.Application.IServices
         Task<Result<UpdateNameDTO>> UpdateNameAsync(UpdateNameDTO updateUserDTO);
         Task<Result<UpdatePasswordDTO>> UpdatePasswordAsync(UpdatePasswordDTO updateUserDTO);
         Task<Result<UpdateUserActiveStatusDTO>> UpdateUserActiveStatusAsync(UpdateUserActiveStatusDTO updateUserActiveStatusDTO);
+        Task<Result<bool>> UpdateRoleAsync(Guid userId, string newRole);
         Task DeleteAsync(Guid id);
     }
 }
