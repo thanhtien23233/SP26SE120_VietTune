@@ -1,5 +1,7 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using static VietTuneArchive.Application.Mapper.DTOs.NotificationDto;
 
@@ -7,59 +9,101 @@ namespace VietTuneArchive.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize]
+    [Authorize]
     public class NotificationController : ControllerBase
     {
-        private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
+        private readonly INotificationService _notificationService;
 
-        // GET: /api/notifications?limit=20&read=false
+        public NotificationController(INotificationService notificationService)
+        {
+            _notificationService = notificationService;
+        }
+
+        private Guid CurrentUserId
+        {
+            get
+            {
+                var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
+            }
+        }
+
+        // GET: /api/Notification?page=1&pageSize=20&unreadOnly=false
         [HttpGet]
-        public ActionResult<PagedList<NotificationDto>> GetNotifications(
+        public async Task<ActionResult<PagedList<NotificationDto>>> GetNotifications(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
             [FromQuery] bool? unreadOnly = null)
         {
-            var notifications = new PagedList<NotificationDto>
-            {
-                Items = new List<NotificationDto>(),
-                Page = page,
-                PageSize = pageSize,
-                Total = 45
-            };
-            return Ok(notifications);
+            var userId = CurrentUserId;
+            if (userId == Guid.Empty)
+                return Unauthorized(new BaseResponse { Success = false, Message = "Không xác định được người dùng." });
+
+            var result = await _notificationService.GetUserNotificationsPaginatedAsync(userId, page, pageSize, unreadOnly);
+            if (!result.IsSuccess)
+                return BadRequest(new BaseResponse { Success = false, Message = result.Message });
+
+            return Ok(result.Data);
         }
 
-        // GET: /api/notifications/unread-count
+        // GET: /api/Notification/unread-count
         [HttpGet("unread-count")]
-        public ActionResult<UnreadCountDto> GetUnreadCount()
+        public async Task<ActionResult<UnreadCountDto>> GetUnreadCount()
         {
-            var count = new UnreadCountDto
-            {
-                Unread = 8,
-                Total = 45
-            };
-            return Ok(count);
+            var userId = CurrentUserId;
+            if (userId == Guid.Empty)
+                return Unauthorized(new BaseResponse { Success = false, Message = "Không xác định được người dùng." });
+
+            var result = await _notificationService.GetUnreadCountAsync(userId);
+            if (!result.IsSuccess)
+                return BadRequest(new BaseResponse { Success = false, Message = result.Message });
+
+            return Ok(result.Data);
         }
 
-        // PUT: /api/notifications/{id}/read
+        // PUT: /api/Notification/{id}/read
         [HttpPut("{id}/read")]
-        public ActionResult<BaseResponse> MarkAsRead(string id)
+        public async Task<ActionResult<BaseResponse>> MarkAsRead(Guid id)
         {
-            return Ok(new BaseResponse { Success = true, Message = "Marked as read" });
+            var userId = CurrentUserId;
+            if (userId == Guid.Empty)
+                return Unauthorized(new BaseResponse { Success = false, Message = "Không xác định được người dùng." });
+
+            var result = await _notificationService.MarkAsReadAsync(id, userId);
+            if (!result.IsSuccess)
+                return BadRequest(new BaseResponse { Success = false, Message = result.Message });
+
+            return Ok(new BaseResponse { Success = true, Message = "Đã đánh dấu là đã đọc." });
         }
 
-        // PUT: /api/notifications/read-all
+        // PUT: /api/Notification/read-all
         [HttpPut("read-all")]
-        public ActionResult<BaseResponse> MarkAllAsRead()
+        public async Task<ActionResult<BaseResponse>> MarkAllAsRead()
         {
-            return Ok(new BaseResponse { Success = true, Message = "All marked as read" });
+            var userId = CurrentUserId;
+            if (userId == Guid.Empty)
+                return Unauthorized(new BaseResponse { Success = false, Message = "Không xác định được người dùng." });
+
+            var result = await _notificationService.MarkAllAsReadAsync(userId);
+            if (!result.IsSuccess)
+                return BadRequest(new BaseResponse { Success = false, Message = result.Message });
+
+            return Ok(new BaseResponse { Success = true, Message = "Đã đánh dấu tất cả là đã đọc." });
         }
 
-        // DELETE: /api/notifications/{id}
+        // DELETE: /api/Notification/{id}
         [HttpDelete("{id}")]
-        public ActionResult<BaseResponse> DeleteNotification(string id)
+        public async Task<ActionResult<BaseResponse>> DeleteNotification(Guid id)
         {
-            return Ok(new BaseResponse { Success = true, Message = "Notification deleted" });
+            var userId = CurrentUserId;
+            if (userId == Guid.Empty)
+                return Unauthorized(new BaseResponse { Success = false, Message = "Không xác định được người dùng." });
+
+            var result = await _notificationService.DeleteNotificationAsync(id, userId);
+            if (!result.IsSuccess)
+                return BadRequest(new BaseResponse { Success = false, Message = result.Message });
+
+            return Ok(new BaseResponse { Success = true, Message = "Đã xóa thông báo." });
         }
     }
 }

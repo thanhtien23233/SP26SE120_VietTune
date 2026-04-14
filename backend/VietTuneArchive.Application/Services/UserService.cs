@@ -4,6 +4,7 @@ using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Domain.Entities;
 using VietTuneArchive.Domain.IRepositories;
+using Microsoft.Extensions.Logging;
 
 namespace VietTuneArchive.Application.Services
 {
@@ -11,10 +12,15 @@ namespace VietTuneArchive.Application.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly IMapper _mapper;
-        public UserService(IUserRepository userRepository, IMapper mapper)
+        private readonly INotificationService _notificationService;
+        private readonly ILogger<UserService> _logger;
+
+        public UserService(IUserRepository userRepository, IMapper mapper, INotificationService notificationService, ILogger<UserService> logger)
         {
             _userRepository = userRepository;
             _mapper = mapper;
+            _notificationService = notificationService;
+            _logger = logger;
         }
         public async Task<Result<IEnumerable<UserDTO>>> GetAllAsync()
         {
@@ -121,6 +127,30 @@ namespace VietTuneArchive.Application.Services
             getUser.UpdatedAt = DateTime.UtcNow;
             await _userRepository.UpdateAsync(getUser);
             var statusText = updateUserActiveStatusDTO.IsActive ? "kích hoạt" : "vô hiệu hóa";
+
+            // Gửi thông báo cho user khi tài khoản bị vô hiệu hóa hoặc kích hoạt lại
+            try
+            {
+                var notifType = updateUserActiveStatusDTO.IsActive ? "AccountActivated" : "AccountDeactivated";
+                var notifTitle = updateUserActiveStatusDTO.IsActive ? "Tài khoản đã được kích hoạt" : "Tài khoản đã bị vô hiệu hóa";
+                var notifMessage = updateUserActiveStatusDTO.IsActive
+                    ? "Tài khoản của bạn đã được kích hoạt lại. Bạn có thể tiếp tục sử dụng hệ thống."
+                    : "Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên nếu cần hỗ trợ.";
+
+                await _notificationService.SendNotificationAsync(
+                    updateUserActiveStatusDTO.UserId,
+                    notifTitle,
+                    notifMessage,
+                    notifType,
+                    "User",
+                    updateUserActiveStatusDTO.UserId
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send status change notification for user {UserId}", updateUserActiveStatusDTO.UserId);
+            }
+
             return Result<UpdateUserActiveStatusDTO>.Success(updateUserActiveStatusDTO, $"Cập nhật trạng thái người dùng thành công. Tài khoản đã được {statusText}.");
         }
         public async Task DeleteAsync(Guid id)

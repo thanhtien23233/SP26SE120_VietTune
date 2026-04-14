@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Logging;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Application.Mapper.DTOs.Request;
@@ -13,11 +14,15 @@ namespace VietTuneArchive.Application.Services
     {
         private readonly ICopyrightDisputeRepository _repository;
         private readonly IMapper _mapper;
+        private readonly INotificationService _notificationService;
+        private readonly ILogger<CopyrightDisputeService> _logger;
 
-        public CopyrightDisputeService(ICopyrightDisputeRepository repository, IMapper mapper)
+        public CopyrightDisputeService(ICopyrightDisputeRepository repository, IMapper mapper, INotificationService notificationService, ILogger<CopyrightDisputeService> logger)
         {
             _repository = repository;
             _mapper = mapper;
+            _notificationService = notificationService;
+            _logger = logger;
         }
 
         public async Task<ServiceResponse<CopyrightDisputeDto>> CreateDisputeAsync(CreateCopyrightDisputeRequest request)
@@ -111,6 +116,24 @@ namespace VietTuneArchive.Application.Services
             dispute.UpdatedAt = DateTime.UtcNow;
 
             await _repository.UpdateAsync(dispute);
+
+            // Gửi thông báo cho người báo cáo khi tranh chấp được giải quyết
+            try
+            {
+                await _notificationService.SendNotificationAsync(
+                    dispute.ReportedByUserId,
+                    "Tranh chấp bản quyền đã được giải quyết",
+                    $"Tranh chấp bản quyền của bạn đã được giải quyết. Kết quả: {request.Resolution}.",
+                    "DisputeResolved",
+                    "CopyrightDispute",
+                    disputeId
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send dispute resolved notification for dispute {DisputeId}", disputeId);
+            }
+
             return new ServiceResponse<bool> { Success = true, Data = true, Message = "Dispute resolved successfully" };
         }
 

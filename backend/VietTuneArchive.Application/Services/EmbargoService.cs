@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,12 +20,16 @@ namespace VietTuneArchive.Application.Services
         private readonly IEmbargoRepository _repository;
         private readonly IRecordingRepository _recordingRepository;
         private readonly IMapper _mapper;
+        private readonly INotificationService _notificationService;
+        private readonly ILogger<EmbargoService> _logger;
 
-        public EmbargoService(IEmbargoRepository repository, IRecordingRepository recordingRepository, IMapper mapper)
+        public EmbargoService(IEmbargoRepository repository, IRecordingRepository recordingRepository, IMapper mapper, INotificationService notificationService, ILogger<EmbargoService> logger)
         {
             _repository = repository;
             _recordingRepository = recordingRepository;
             _mapper = mapper;
+            _notificationService = notificationService;
+            _logger = logger;
         }
 
         public async Task<ServiceResponse<EmbargoDto>> GetByRecordingIdAsync(Guid recordingId)
@@ -109,6 +114,27 @@ namespace VietTuneArchive.Application.Services
             
             // Sync with Recording Status -> Back to Approved
             await SyncRecordingStatusAsync(recordingId, EmbargoStatus.Lifted);
+
+            // Gửi thông báo cho chủ bản ghi khi embargo được gỡ bỏ
+            try
+            {
+                var recording = await _recordingRepository.GetByIdAsync(recordingId);
+                if (recording != null)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        recording.UploadedById,
+                        "Embargo đã được gỡ bỏ",
+                        $"Bản ghi '{recording.Title}' đã được gỡ embargo và hiện có thể truy cập công khai.",
+                        "EmbargoLifted",
+                        "Recording",
+                        recordingId
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send embargo lifted notification for recording {RecordingId}", recordingId);
+            }
 
             return new ServiceResponse<EmbargoDto> { Data = _mapper.Map<EmbargoDto>(embargo) };
         }
