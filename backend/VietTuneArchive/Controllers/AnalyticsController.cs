@@ -21,22 +21,22 @@ namespace VietTuneArchive.API.Controllers
         /// <summary>
         /// GET /api/Analytics/overview
         /// </summary>
-        // [HttpGet("overview")]
-        // public async Task<ActionResult<ServiceResponse<OverviewMetricsDto>>> GetOverview()
-        // {
-        //     var data = new OverviewMetricsDto();
-        //     return Ok(new ServiceResponse<OverviewMetricsDto> { Success = true, Data = data, Message = "Not implemented yet" });
-        // }
+        [HttpGet("overview")]
+        public async Task<ActionResult<ServiceResponse<OverviewMetricsDto>>> GetOverview()
+        {
+            var data = new OverviewMetricsDto();
+            return Ok(new ServiceResponse<OverviewMetricsDto> { Success = true, Data = data, Message = "Not implemented yet" });
+        }
 
-        // /// <summary>
-        // /// GET /api/Analytics/submissions
-        // /// </summary>
-        // [HttpGet("submissions")]
-        // public async Task<ActionResult<ServiceResponse<SubmissionAnalyticsDto>>> GetSubmissions()
-        // {
-        //     var data = new SubmissionAnalyticsDto();
-        //     return Ok(new ServiceResponse<SubmissionAnalyticsDto> { Success = true, Data = data, Message = "Not implemented yet" });
-        // }
+        /// <summary>
+        /// GET /api/Analytics/submissions
+        /// </summary>
+        [HttpGet("submissions")]
+        public async Task<ActionResult<ServiceResponse<SubmissionAnalyticsDto>>> GetSubmissions()
+        {
+            var data = new SubmissionAnalyticsDto();
+            return Ok(new ServiceResponse<SubmissionAnalyticsDto> { Success = true, Data = data, Message = "Not implemented yet" });
+        }
 
         /// <summary>
         /// GET /api/Analytics/coverage

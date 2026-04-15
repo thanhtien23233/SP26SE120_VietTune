@@ -1,13 +1,9 @@
-ï»¿using VietTuneArchive.Application.Common;
+using AutoMapper;
+using Microsoft.Extensions.Logging;
+using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Domain.IRepositories;
-using Microsoft.Extensions.Logging;
-using AutoMapper;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using static VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto;
 
 namespace VietTuneArchive.Application.Services
@@ -34,12 +30,25 @@ namespace VietTuneArchive.Application.Services
             {
                 var coverage = await _analyticsRepository.GetCoverageByEthnicityAndRegionAsync();
 
+                // Map region code to region name (simplified mapping)
+                var regionNames = new Dictionary<string, string>
+                {
+                    { "Northwest", "Tây B?c" },
+                    { "Northeast", "?ông B?c" },
+                    { "Red River", "Sông H?ng" },
+                    { "North Central", "B?c Trung B?" },
+                    { "South Central", "Nam Trung B?" },
+                    { "Central Highlands", "Tây Nguyên" },
+                    { "Southeast", "?ông Nam B?" },
+                    { "Mekong Delta", "??ng B?ng Sông C?u Long" }
+                };
+
                 var result = coverage
                     .GroupBy(c => new { c.EthnicityName, c.RegionCode })
                     .Select(g => new CoverageChartDto
                     {
                         Name = g.Key.EthnicityName,
-                        Label = "$"{g.Key.EthnicityName} - {g.Key.RegionCode}"",
+                        Label = $"{g.Key.EthnicityName} - {(regionNames.TryGetValue(g.Key.RegionCode, out var regionName) ? regionName : g.Key.RegionCode)}",
                         Ethnicity = g.Key.EthnicityName,
                         Region = g.Key.RegionCode,
                         Count = g.Sum(c => c.Count),
@@ -60,7 +69,7 @@ namespace VietTuneArchive.Application.Services
                 return new Result<List<CoverageChartDto>>
                 {
                     IsSuccess = false,
-                    Message = "$"Error retrieving coverage data: {ex.Message}""
+                    Message = $"Error retrieving coverage data: {ex.Message}"
                 };
             }
         }
@@ -103,7 +112,7 @@ namespace VietTuneArchive.Application.Services
                 return new Result<ContentAnalyticsResponseDto>
                 {
                     IsSuccess = false,
-                    Message = "$"Error retrieving content analytics: {ex.Message}""
+                    Message = $"Error retrieving content analytics: {ex.Message}"
                 };
             }
         }
@@ -131,7 +140,7 @@ namespace VietTuneArchive.Application.Services
                         Name = e.Name,
                         Reviews = e.ReviewCount,
                         Accuracy = Math.Round(e.Accuracy, 2),
-                        AvgTime = e.AvgTime.ToString("@"hh\:mm\:ss"")
+                        AvgTime = e.AvgTime.ToString(@"hh\:mm\:ss")
                     })
                     .ToList();
 
@@ -148,7 +157,7 @@ namespace VietTuneArchive.Application.Services
                 return new Result<List<ExpertPerformanceResponseDto>>
                 {
                     IsSuccess = false,
-                    Message = "$"Error retrieving expert performance data: {ex.Message}""
+                    Message = $"Error retrieving expert performance data: {ex.Message}"
                 };
             }
         }
@@ -184,7 +193,7 @@ namespace VietTuneArchive.Application.Services
                 return new Result<List<ContributorLeaderboardDto>>
                 {
                     IsSuccess = false,
-                    Message = "$"Error retrieving contributor leaderboard: {ex.Message}""
+                    Message = $"Error retrieving contributor leaderboard: {ex.Message}"
                 };
             }
         }
