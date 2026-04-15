@@ -16,33 +16,37 @@ namespace VietTuneArchive.API.Controllers
             _service = service;
         }
         [HttpGet("get-by-conversation")]
-        public async Task<IActionResult> GetByConversationId(
+        public async Task<ActionResult<ServiceResponse<IEnumerable<QAMessageDto>>>> GetByConversationId(
             [FromQuery] Guid conversationId)
         {
             var result = await _service.GetByConversationAsync(conversationId);
-            return Ok(result);
+            if (result.IsSuccess)
+            {
+                return Ok(new ServiceResponse<IEnumerable<QAMessageDto>> { Success = true, Data = result.Data, Message = result.Message });
+            }
+            return BadRequest(new ServiceResponse<IEnumerable<QAMessageDto>> { Success = false, Errors = new List<string> { result.Message } });
         }
         [HttpPut("flagged")]
-        public async Task<IActionResult> UpdateFlaggedStatus(
+        public async Task<ActionResult<ServiceResponse<bool>>> UpdateFlaggedStatus(
             [FromQuery] Guid id)
         {
             var result = await _service.FlagMessageAsync(id);
             if (result.IsSuccess)
             {
-                return Ok(result);
+                return Ok(new ServiceResponse<bool> { Success = true, Data = result.Data, Message = result.Message });
             }
-            return BadRequest(result);
+            return BadRequest(new ServiceResponse<bool> { Success = false, Errors = new List<string> { result.Message } });
         }
         [HttpPut("unflagged")]
-        public async Task<IActionResult> UpdateUnflaggedStatus(
+        public async Task<ActionResult<ServiceResponse<bool>>> UpdateUnflaggedStatus(
     [FromQuery] Guid id)
         {
             var result = await _service.UnflagMessageAsync(id);
             if (result.IsSuccess)
             {
-                return Ok(result);
+                return Ok(new ServiceResponse<bool> { Success = true, Data = result.Data, Message = result.Message });
             }
-            return BadRequest(result);
+            return BadRequest(new ServiceResponse<bool> { Success = false, Errors = new List<string> { result.Message } });
         }
         [HttpGet]
         public async Task<ActionResult<PagedResponse<QAMessageDto>>> GetAll(
