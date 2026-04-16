@@ -369,7 +369,7 @@ public static class FormFileHelper
   },
   "transcription": null,
   "errors": {
-    "transcription": "Whisper service không khả dụng tại http://localhost:8001"
+    "transcription": "Whisper service không khả dụng tại http://localhost:8002"
   }
 }
 ```

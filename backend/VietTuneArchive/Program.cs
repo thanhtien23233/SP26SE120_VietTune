@@ -231,7 +231,7 @@ builder.Services.AddScoped<ILocalLlmService, LocalLlmService>();
 // === LOCAL WHISPER SERVICE (MỚI) ===
 builder.Services.AddHttpClient<ILocalWhisperService, LocalWhisperService>(client =>
 {
-    var baseUrl = builder.Configuration["LocalWhisperService:BaseUrl"] ?? "http://localhost:8001";
+    var baseUrl = builder.Configuration["LocalWhisperService:BaseUrl"] ?? "http://localhost:8002";
     client.BaseAddress = new Uri(baseUrl);
     
     var timeout = int.Parse(builder.Configuration["LocalWhisperService:TimeoutSeconds"] ?? "300");

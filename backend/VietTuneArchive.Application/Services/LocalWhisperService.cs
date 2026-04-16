@@ -26,7 +26,7 @@ namespace VietTuneArchive.Application.Services
             _config = config;
             _logger = logger;
 
-            _baseUrl = _config["LocalWhisperService:BaseUrl"] ?? "http://localhost:8001";
+            _baseUrl = _config["LocalWhisperService:BaseUrl"] ?? "http://localhost:8002";
             _apiKey = _config["LocalWhisperService:ApiKey"] ?? "viettune-whisper-secret-2026";
         }
 
