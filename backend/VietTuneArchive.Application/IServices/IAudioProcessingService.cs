@@ -8,5 +8,7 @@ namespace VietTuneArchive.Application.IServices
         Task<AudioProcessResultDto> ProcessAudioAsync(IFormFile audioFile, string userId);
 
         Task<AIAnalysisResultDto> AnalyzeAudioAsync(IFormFile audioFile);
+
+        Task<AIAnalysisResultDto> AnalyzeAudioFromUrlAsync(string audioUrl, string? mimeType = null);
     }
 }

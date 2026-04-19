@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 using GenerativeAI;
 using GenerativeAI.Types;
@@ -43,6 +43,15 @@ public class AudioProcessingService : IAudioProcessingService
         var mimeType = DetectMimeType(audioFile.ContentType, audioBytes);
 
         return await AnalyzeWithGoogleAIAsync(audioBytes, mimeType);
+    }
+
+    public async Task<AIAnalysisResultDto> AnalyzeAudioFromUrlAsync(string audioUrl, string? mimeType = null)
+    {
+        _logger.LogInformation("Service: Analyzing audio from URL with Gemini: {Url}", audioUrl);
+        
+        var resolvedMimeType = mimeType ?? DetectMimeTypeFromUrl(audioUrl);
+        
+        return await AnalyzeWithUrlAsync(audioUrl, resolvedMimeType);
     }
 
     public async Task<AudioProcessResultDto> ProcessAudioAsync(IFormFile audioFile, string userId)
@@ -116,6 +125,68 @@ public class AudioProcessingService : IAudioProcessingService
         {
             _logger.LogError(ex, "Gemini Analysis Failed");
             return GetDefaultResult() with { GeminiFileUri = fileUri };
+        }
+    }
+
+    private async Task<AIAnalysisResultDto> AnalyzeWithUrlAsync(string audioUrl, string mimeType)
+    {
+        try
+        {
+            string schemaJson = _enumsProvider.GetJsonSchema();
+            var structuredSchema = JsonSerializer.Deserialize<Schema>(schemaJson, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            var generationConfig = new GenerationConfig
+            {
+                ResponseMimeType = "application/json",
+                ResponseSchema = structuredSchema
+            };
+
+            var request = new GenerateContentRequest
+            {
+                Contents = new List<Content>
+                {
+                    new Content
+                    {
+                        Parts = new List<Part>
+                        {
+                            new Part { Text = _enumsProvider.GetSystemPrompt() },
+                            new Part 
+                            { 
+                                FileData = new FileData 
+                                { 
+                                    MimeType = mimeType, 
+                                    FileUri = audioUrl
+                                } 
+                            }
+                        }
+                    }
+                },
+                GenerationConfig = generationConfig
+            };
+
+            var response = await _aiModel.GenerateContentAsync(request);
+
+            var tokenUsage = ExtractTokenUsage(response);
+            _logger.LogInformation(
+                "Gemini token usage (URL mode) — Prompt: {Prompt}, Candidates: {Candidates}, Total: {Total}",
+                tokenUsage?.PromptTokenCount ?? 0,
+                tokenUsage?.CandidatesTokenCount ?? 0,
+                tokenUsage?.TotalTokenCount ?? 0);
+
+            var analysisResult = ParseResponseJson(response.Text);
+            return analysisResult with
+            {
+                GeminiFileUri = audioUrl,
+                TokenUsage = tokenUsage
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Gemini URL Analysis Failed for: {Url}", audioUrl);
+            return GetDefaultResult() with { GeminiFileUri = audioUrl };
         }
     }
 
@@ -336,6 +407,22 @@ public class AudioProcessingService : IAudioProcessingService
         if (ct.Contains("flac") || (bytes.Length >= 4 && Encoding.ASCII.GetString(bytes, 0, 4) == "fLaC")) return "audio/flac";
         if (ct.Contains("ogg") || (bytes.Length >= 4 && Encoding.ASCII.GetString(bytes, 0, 4) == "OggS")) return "audio/ogg";
         if (ct.Contains("m4a") || ct.Contains("aac")) return "audio/mp4";
+        return "audio/mpeg";
+    }
+
+    private static string DetectMimeTypeFromUrl(string url)
+    {
+        var path = url.Split('?')[0].ToLowerInvariant();
+        
+        if (path.EndsWith(".flac")) return "audio/flac";
+        if (path.EndsWith(".wav"))  return "audio/wav";
+        if (path.EndsWith(".mp3"))  return "audio/mpeg";
+        if (path.EndsWith(".ogg"))  return "audio/ogg";
+        if (path.EndsWith(".m4a"))  return "audio/mp4";
+        if (path.EndsWith(".aac"))  return "audio/aac";
+        if (path.EndsWith(".webm")) return "audio/webm";
+        if (path.EndsWith(".mp4"))  return "audio/mp4";
+        
         return "audio/mpeg";
     }
 }
