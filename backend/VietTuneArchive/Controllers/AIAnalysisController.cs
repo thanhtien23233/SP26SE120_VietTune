@@ -38,6 +38,38 @@ namespace VietTuneArchive.API.Controllers
         }
 
         /// <summary>
+        /// Phân tích audio từ public URL (Supabase Storage).
+        /// Không cần upload file — Gemini tự fetch từ URL.
+        /// Giới hạn: file ≤ 100MB, URL phải publicly accessible.
+        /// </summary>
+        [HttpPost("analyze-from-url")]
+        [AllowAnonymous]
+        public async Task<ActionResult<AIAnalysisResultDto>> AnalyzeFromUrl([FromBody] AnalyzeFromUrlRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request?.AudioUrl))
+                return BadRequest("audioUrl is required.");
+
+            // Validate URL format
+            if (!Uri.TryCreate(request.AudioUrl, UriKind.Absolute, out var uri) 
+                || (uri.Scheme != "https" && uri.Scheme != "http"))
+                return BadRequest("Invalid URL. Must be a valid HTTP/HTTPS URL.");
+
+            try
+            {
+                _logger.LogInformation("Analyzing audio from URL: {Url}", request.AudioUrl);
+                var result = await _processingService.AnalyzeAudioFromUrlAsync(
+                    request.AudioUrl, 
+                    request.MimeType);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "URL-based analysis failed for {Url}", request.AudioUrl);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Endpoint mới 1: Chỉ transcribe bằng local Whisper service
         /// </summary>
         [HttpPost("transcribe-only")]
