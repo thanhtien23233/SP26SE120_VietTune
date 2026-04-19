@@ -28,16 +28,19 @@
         public string Password { get; set; }
         public string FullName { get; set; }
     }
-    public class UpdateNameDTO
+    public class UpdateInfoDTO
     {
         public Guid UserId { get; set; }
+        public string AvatarUrl { get; set; }
         public string FullName { get; set; }
+        public string Phone { get; set; }
     }
     public class UpdatePasswordDTO
     {
         public Guid UserId { get; set; }
-        public string oldPassword { get; set; }
-        public string newPassword { get; set; }
+        public string OldPassword { get; set; }
+        public string NewPassword { get; set; }
+        public string ConfirmPassword { get; set; }
     }
     public class UpdateUserActiveStatusDTO
     {

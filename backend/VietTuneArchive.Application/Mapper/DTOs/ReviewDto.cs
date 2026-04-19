@@ -5,9 +5,18 @@ namespace VietTuneArchive.Application.Mapper.DTOs
         public Guid Id { get; set; }
         public Guid SubmissionId { get; set; }
         public Guid ReviewerId { get; set; }
-        public int Stage { get; set; }
-        public int Decision { get; set; }
         public string? Comments { get; set; }
         public DateTime CreatedAt { get; set; }
+    }
+    public class CreateReviewDto
+    {
+        public Guid SubmissionId { get; set; }
+        public Guid ReviewerId { get; set; }
+        public string? Comments { get; set; }
+    }
+    public class UpdateReviewDto
+    {
+        public Guid Id { get; set; }
+        public string? Comments { get; set; }
     }
 }

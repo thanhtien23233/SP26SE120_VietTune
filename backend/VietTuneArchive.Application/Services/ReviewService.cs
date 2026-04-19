@@ -1,4 +1,5 @@
 using AutoMapper;
+using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Application.Responses;
@@ -10,185 +11,101 @@ namespace VietTuneArchive.Application.Services
     public class ReviewService : GenericService<Review, ReviewDto>, IReviewService
     {
         private readonly IReviewRepository _reviewRepository;
-
-        public ReviewService(IReviewRepository repository, IMapper mapper)
+        private readonly IMapper _mapper;
+        private readonly ISubmissionRepository _submissionRepository;
+        private readonly IUserRepository _userRepository;
+        public ReviewService(IReviewRepository repository, IMapper mapper, ISubmissionRepository submissionRepository, IUserRepository userRepository)
             : base(repository, mapper)
         {
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _reviewRepository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _submissionRepository = submissionRepository;
+            _userRepository = userRepository;
         }
 
         /// <summary>
         /// Get reviews by submission
         /// </summary>
-        public async Task<ServiceResponse<List<ReviewDto>>> GetBySubmissionAsync(Guid submissionId)
+        public async Task<Result<IEnumerable<ReviewDto>>> GetBySubmissionAsync(Guid submissionId)
         {
             try
             {
                 if (submissionId == Guid.Empty)
                     throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
-
-                var reviews = await _reviewRepository.GetAsync(r => r.SubmissionId == submissionId);
-                var dtos = _mapper.Map<List<ReviewDto>>(reviews.OrderBy(r => r.Stage).ToList());
-                return new ServiceResponse<List<ReviewDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} reviews"
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ServiceResponse<List<ReviewDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
-            }
-        }
-
-        /// <summary>
-        /// Get reviews by reviewer
-        /// </summary>
-        public async Task<ServiceResponse<List<ReviewDto>>> GetByReviewerAsync(Guid reviewerId)
-        {
-            try
-            {
-                if (reviewerId == Guid.Empty)
-                    throw new ArgumentException("Reviewer id cannot be empty", nameof(reviewerId));
-
-                var reviews = await _reviewRepository.GetAsync(r => r.ReviewerId == reviewerId);
+                var submission = await _submissionRepository.GetByIdAsync(submissionId);
+                if (submission == null)
+                    throw new KeyNotFoundException($"Submission with id {submissionId} not found");
+                var reviews = await _reviewRepository.GetBySubmissionAsync(submissionId);
                 var dtos = _mapper.Map<List<ReviewDto>>(reviews.OrderByDescending(r => r.CreatedAt).ToList());
-                return new ServiceResponse<List<ReviewDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} reviews"
-                };
+                return Result<IEnumerable<ReviewDto>>.Success(dtos, $"Found {dtos.Count} reviews for submission {submissionId}");
             }
             catch (Exception ex)
             {
-                return new ServiceResponse<List<ReviewDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
+                return Result<IEnumerable<ReviewDto>>.Failure(ex.Message);
             }
         }
 
-        /// <summary>
-        /// Get reviews by decision
-        /// </summary>
-        public async Task<ServiceResponse<List<ReviewDto>>> GetByDecisionAsync(int decision)
+        public async Task<Result<CreateReviewDto>> CreateAsync(CreateReviewDto dto)
         {
             try
             {
-                var reviews = await _reviewRepository.GetAsync(r => r.Decision == decision);
-                var dtos = _mapper.Map<List<ReviewDto>>(reviews);
-                return new ServiceResponse<List<ReviewDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} reviews with decision {decision}"
-                };
+                if (dto == null)
+                    throw new ArgumentNullException(nameof(dto));
+                var submission = await _submissionRepository.GetByIdAsync(dto.SubmissionId);
+                if (submission == null)
+                    throw new KeyNotFoundException($"Submission with id {dto.SubmissionId} not found");
+                var reviewer = await _userRepository.GetByIdAsync(dto.ReviewerId);
+                if (reviewer == null)
+                    throw new KeyNotFoundException($"Reviewer with id {dto.ReviewerId} not found");
+                var review = _mapper.Map<Review>(dto);
+                review.Id = Guid.NewGuid();
+                review.Stage = 0;
+                review.Decision = 0;
+                review.CreatedAt = DateTime.UtcNow;
+                await _reviewRepository.AddAsync(review);
+                var createdDto = _mapper.Map<CreateReviewDto>(review);
+                return Result<CreateReviewDto>.Success(createdDto, "Review created successfully");
             }
             catch (Exception ex)
             {
-                return new ServiceResponse<List<ReviewDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
+                return Result<CreateReviewDto>.Failure(ex.Message);
             }
         }
 
-        /// <summary>
-        /// Get reviews by stage
-        /// </summary>
-        public async Task<ServiceResponse<List<ReviewDto>>> GetByStageAsync(int stage)
+        public async Task<Result<ReviewDto>> GetByIdAsync(Guid reviewId)
         {
             try
             {
-                var reviews = await _reviewRepository.GetAsync(r => r.Stage == stage);
-                var dtos = _mapper.Map<List<ReviewDto>>(reviews);
-                return new ServiceResponse<List<ReviewDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Found {dtos.Count} reviews at stage {stage}"
-                };
+                if (reviewId == Guid.Empty)
+                    throw new ArgumentException("Review id cannot be empty", nameof(reviewId));
+                var review = await _reviewRepository.GetByIdAsync(reviewId);
+                if (review == null)
+                    throw new KeyNotFoundException($"Review with id {reviewId} not found");
+                var dto = _mapper.Map<ReviewDto>(review);
+                return Result<ReviewDto>.Success(dto, $"Found review with id {reviewId}");
             }
             catch (Exception ex)
             {
-                return new ServiceResponse<List<ReviewDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
+                return Result<ReviewDto>.Failure(ex.Message);
             }
         }
 
-        /// <summary>
-        /// Get recent reviews
-        /// </summary>
-        public async Task<ServiceResponse<List<ReviewDto>>> GetRecentAsync(int count = 10)
+        public async Task<Result<bool>> UpdateAsync(UpdateReviewDto dto)
         {
             try
             {
-                if (count <= 0)
-                    throw new ArgumentException("Count must be greater than 0", nameof(count));
-
-                var reviews = await _reviewRepository.GetAllAsync();
-                var recentReviews = reviews
-                    .OrderByDescending(r => r.CreatedAt)
-                    .Take(count)
-                    .ToList();
-
-                var dtos = _mapper.Map<List<ReviewDto>>(recentReviews);
-                return new ServiceResponse<List<ReviewDto>>
-                {
-                    Success = true,
-                    Data = dtos,
-                    Message = $"Retrieved {dtos.Count} recent reviews"
-                };
+                if (dto == null)
+                    throw new ArgumentNullException(nameof(dto));
+                var review = await _reviewRepository.GetByIdAsync(dto.Id);
+                if (review == null)
+                    throw new KeyNotFoundException($"Review with id {dto.Id} not found");
+                _mapper.Map(dto, review);
+                await _reviewRepository.UpdateAsync(review);
+                return Result<bool>.Success(true, "Review updated successfully");
             }
             catch (Exception ex)
             {
-                return new ServiceResponse<List<ReviewDto>>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
-            }
-        }
-
-        /// <summary>
-        /// Get pending reviews count
-        /// </summary>
-        public async Task<ServiceResponse<int>> GetPendingCountAsync()
-        {
-            try
-            {
-                var count = await _reviewRepository.CountAsync(r => r.Decision == 0); // 0 = pending
-                return new ServiceResponse<int>
-                {
-                    Success = true,
-                    Data = count,
-                    Message = "Pending reviews count retrieved successfully"
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ServiceResponse<int>
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Errors = new List<string> { ex.Message }
-                };
+                return Result<bool>.Failure(ex.Message);
             }
         }
     }
