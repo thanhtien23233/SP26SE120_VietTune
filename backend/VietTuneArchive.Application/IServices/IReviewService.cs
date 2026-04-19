@@ -1,3 +1,4 @@
+using VietTuneArchive.Application.Common;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Application.Responses;
 
@@ -5,11 +6,9 @@ namespace VietTuneArchive.Application.IServices
 {
     public interface IReviewService : IGenericService<ReviewDto>
     {
-        Task<ServiceResponse<List<ReviewDto>>> GetBySubmissionAsync(Guid submissionId);
-        Task<ServiceResponse<List<ReviewDto>>> GetByReviewerAsync(Guid reviewerId);
-        Task<ServiceResponse<List<ReviewDto>>> GetByDecisionAsync(int decision);
-        Task<ServiceResponse<List<ReviewDto>>> GetByStageAsync(int stage);
-        Task<ServiceResponse<List<ReviewDto>>> GetRecentAsync(int count = 10);
-        Task<ServiceResponse<int>> GetPendingCountAsync();
+        Task<Result<IEnumerable<ReviewDto>>> GetBySubmissionAsync(Guid submissionId);
+        Task<Result<CreateReviewDto>> CreateAsync(CreateReviewDto dto);
+        Task<Result<bool>> UpdateAsync(UpdateReviewDto dto);
+        Task<Result<ReviewDto>> GetByIdAsync(Guid reviewId);
     }
 }

@@ -22,6 +22,7 @@ namespace VietTuneArchive.API.Controllers
             var Users = await _userService.GetAllAsync();
             return Ok(Users);
         }
+
         [HttpGet("GetById")]
         [Authorize(Roles = "Admin,Contributor,Researcher,Expert")]
         public async Task<IActionResult> GetById(Guid id)
@@ -32,6 +33,35 @@ namespace VietTuneArchive.API.Controllers
 
             return Ok(user);
         }
+
+        [HttpPut("update-password")]
+        [Authorize(Roles = "Admin,Contributor,Researcher,Expert")]
+        public async Task<IActionResult> UpdatePassword([FromBody] UpdatePasswordDTO updatePasswordDTO)
+        {
+            if (updatePasswordDTO == null)
+                return BadRequest("Invalid data.");
+            var result = await _userService.UpdatePasswordAsync(updatePasswordDTO);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
+        [HttpPut("update-profile")]
+        [Authorize(Roles = "Admin,Contributor,Researcher,Expert")]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateInfoDTO updateProfileDTO)
+        {
+            if (updateProfileDTO == null)
+                return BadRequest("Invalid data.");
+            var result = await _userService.UpdateInfoAsync(updateProfileDTO);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
         [HttpPut]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update([FromBody] UpdateUserDTO updateUserDTO)
@@ -42,6 +72,7 @@ namespace VietTuneArchive.API.Controllers
             var result = await _userService.UpdateAsync(updateUserDTO);
             return Ok(result);
         }
+
         [HttpDelete("{id:guid}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(Guid id)

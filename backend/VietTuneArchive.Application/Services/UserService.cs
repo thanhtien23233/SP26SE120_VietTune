@@ -84,20 +84,18 @@ namespace VietTuneArchive.Application.Services
             await _userRepository.UpdateAsync(getUser);
             return Result<UpdateUserDTO>.Success(updateUserDTO, "Cập nhật thông tin người dùng thành công.");
         }
-        public async Task<Result<UpdateNameDTO>> UpdateNameAsync(UpdateNameDTO updateUserDTO)
+        public async Task<Result<UpdateInfoDTO>> UpdateInfoAsync(UpdateInfoDTO updateUserDTO)
         {
             var getUser = await _userRepository.GetByIdAsync(updateUserDTO.UserId);
             if (getUser == null)
             {
-                return Result<UpdateNameDTO>.Failure("Người dùng không tồn tại! Kiểm tra lại Id.");
+                return Result<UpdateInfoDTO>.Failure("Người dùng không tồn tại! Kiểm tra lại Id.");
             }
-            if (!getUser.Role.Equals("Contributor"))
-            {
-                return Result<UpdateNameDTO>.Failure("Chỉ có thể cập nhật tên cho người đóng góp.");
-            }
+            getUser.Phone = updateUserDTO.Phone;
+            getUser.AvatarUrl = updateUserDTO.AvatarUrl;
             getUser.FullName = updateUserDTO.FullName;
             await _userRepository.UpdateAsync(getUser);
-            return Result<UpdateNameDTO>.Success(updateUserDTO, "Cập nhật tên thành công.");
+            return Result<UpdateInfoDTO>.Success(updateUserDTO, "Cập nhật tên thành công.");
         }
         public async Task<Result<UpdatePasswordDTO>> UpdatePasswordAsync(UpdatePasswordDTO updateUserDTO)
         {
@@ -106,12 +104,17 @@ namespace VietTuneArchive.Application.Services
             {
                 return Result<UpdatePasswordDTO>.Failure("Người dùng không tồn tại! Kiểm tra lại Id.");
             }
-            if (!getUser.Password.Equals(updateUserDTO.oldPassword))
+            if (!getUser.Password.Equals(updateUserDTO.OldPassword))
             {
                 return Result<UpdatePasswordDTO>.Failure("Mật khẩu cũ không đúng. Vui lòng thử lại.");
             }
-            var passwordHash = HashPassword(updateUserDTO.newPassword);
-            getUser.Password = updateUserDTO.newPassword;
+            if (!updateUserDTO.NewPassword.Equals(updateUserDTO.ConfirmPassword)
+                || string.IsNullOrWhiteSpace(updateUserDTO.NewPassword))
+            {
+                return Result<UpdatePasswordDTO>.Failure("Mật khẩu mới không khớp với nhau hoặc để trống! Vui lòng thử lại.");
+            }
+            var passwordHash = HashPassword(updateUserDTO.NewPassword);
+            getUser.Password = updateUserDTO.NewPassword;
             getUser.PasswordHash = passwordHash;
             await _userRepository.UpdateAsync(getUser);
             return Result<UpdatePasswordDTO>.Success(updateUserDTO, "Cập nhật mật khẩu thành công.");

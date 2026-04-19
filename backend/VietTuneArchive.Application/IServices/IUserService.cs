@@ -9,7 +9,7 @@ namespace VietTuneArchive.Application.IServices
         Task<Result<UserDTO>> GetByIdAsync(Guid id);
         Task<Result<CreateExpertUserDTO>> AddAsync(CreateExpertUserDTO userDTO);
         Task<Result<UpdateUserDTO>> UpdateAsync(UpdateUserDTO updateUserDTO);
-        Task<Result<UpdateNameDTO>> UpdateNameAsync(UpdateNameDTO updateUserDTO);
+        Task<Result<UpdateInfoDTO>> UpdateInfoAsync(UpdateInfoDTO updateUserDTO);
         Task<Result<UpdatePasswordDTO>> UpdatePasswordAsync(UpdatePasswordDTO updateUserDTO);
         Task<Result<UpdateUserActiveStatusDTO>> UpdateUserActiveStatusAsync(UpdateUserActiveStatusDTO updateUserActiveStatusDTO);
         Task<Result<bool>> UpdateRoleAsync(Guid userId, string newRole);
