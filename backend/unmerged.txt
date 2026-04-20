@@ -1,0 +1,7 @@
+﻿backend/VietTuneArchive.Domain/Context/Migrations/20260305135743_InitMigration.Designer.cs
+backend/VietTuneArchive.Domain/Context/Migrations/20260305135743_InitMigration.cs
+backend/VietTuneArchive.Domain/Migrations/20260307043734_InitialPostgres.Designer.cs
+backend/VietTuneArchive.Domain/Migrations/20260307043734_InitialPostgres.cs
+backend/VietTuneArchive.Domain/Migrations/20260308112403_InitMigration.Designer.cs
+backend/VietTuneArchive.Domain/Migrations/20260308112403_InitMigration.cs
+backend/VietTuneArchive.Domain/Migrations/DBContextModelSnapshot.cs

@@ -1,11 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace VietTuneArchive.Domain.Context
 {
@@ -13,8 +8,9 @@ namespace VietTuneArchive.Domain.Context
     {
         public DBContext CreateDbContext(string[] args)
         {
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
-            var path = Path.Combine(Directory.GetParent(Directory.GetCurrentDirectory()).FullName, "EVStation-basedRentalSystem");
+            var path = Path.Combine(Directory.GetParent(Directory.GetCurrentDirectory()).FullName, "VietTuneArchive");
             var config = new ConfigurationBuilder()
                 .SetBasePath(path)
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
@@ -23,7 +19,7 @@ namespace VietTuneArchive.Domain.Context
             var optionsBuilder = new DbContextOptionsBuilder<DBContext>();
             var connectionString = config.GetConnectionString("Database");
 
-            optionsBuilder.UseSqlServer(connectionString);
+            optionsBuilder.UseNpgsql(connectionString);
 
             return new DBContext(optionsBuilder.Options);
         }

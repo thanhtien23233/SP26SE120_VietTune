@@ -1,0 +1,18 @@
+using VietTuneArchive.Application.Common;
+using VietTuneArchive.Application.Mapper.DTOs;
+
+namespace VietTuneArchive.Application.IServices
+{
+    public interface IUserService
+    {
+        Task<Result<IEnumerable<UserDTO>>> GetAllAsync();
+        Task<Result<UserDTO>> GetByIdAsync(Guid id);
+        Task<Result<CreateExpertUserDTO>> AddAsync(CreateExpertUserDTO userDTO);
+        Task<Result<UpdateUserDTO>> UpdateAsync(UpdateUserDTO updateUserDTO);
+        Task<Result<UpdateInfoDTO>> UpdateInfoAsync(UpdateInfoDTO updateUserDTO);
+        Task<Result<UpdatePasswordDTO>> UpdatePasswordAsync(UpdatePasswordDTO updateUserDTO);
+        Task<Result<UpdateUserActiveStatusDTO>> UpdateUserActiveStatusAsync(UpdateUserActiveStatusDTO updateUserActiveStatusDTO);
+        Task<Result<bool>> UpdateRoleAsync(Guid userId, string newRole);
+        Task DeleteAsync(Guid id);
+    }
+}
