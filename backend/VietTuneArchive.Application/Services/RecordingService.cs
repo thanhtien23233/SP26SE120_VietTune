@@ -436,27 +436,94 @@ namespace VietTuneArchive.Application.Services
             }
         }
 
-        public async Task<PagedResponse<RecordingDto>> GetPaginatedApprovedAsync(int page, int pageSize)
+        public async Task<PagedResponse<GetRecordingDto>> GetPaginatedApprovedAsync(int page, int pageSize)
         {
             var (items, totalItems) = await _recordingRepository.GetPaginatedAsync(r => r.Status == SubmissionStatus.Approved, page, pageSize);
-            return new PagedResponse<RecordingDto>
+            return new PagedResponse<GetRecordingDto>
             {
                 Success = true,
-                Data = _mapper.Map<List<RecordingDto>>(items),
+                Data = _mapper.Map<List<GetRecordingDto>>(items),
                 Page = page,
                 PageSize = pageSize,
                 Total = totalItems
             };
         }
 
-        public async Task<ServiceResponse<RecordingDto>> GetByIdApprovedAsync(Guid id)
+        public async Task<PagedResponse<GetRecordingDto>> GetAllRecordingsAsync(int page, int pageSize)
+        {
+            try
+            {
+                if (page < 1)
+                    throw new ArgumentException("Page number must be greater than 0", nameof(page));
+                if (pageSize < 1)
+                    throw new ArgumentException("Page size must be greater than 0", nameof(pageSize));
+
+                var (entities, total) = await _recordingRepository.GetPaginatedAsync(page, pageSize);
+                var dtos = _mapper.Map<List<GetRecordingDto>>(entities);
+
+                return new PagedResponse<GetRecordingDto>
+                {
+                    Success = true,
+                    Data = dtos,
+                    Total = total,
+                    Page = page,
+                    PageSize = pageSize,
+                    Message = "Retrieved successfully"
+                };
+            }
+            catch (Exception ex)
+            {
+                return new PagedResponse<GetRecordingDto>
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Errors = new List<string> { ex.Message }
+                };
+            }
+        }
+
+        public async Task<ServiceResponse<GetRecordingDto>> GetRecordingByIdAsync(Guid id)
+        {
+            try
+            {
+                if (id == Guid.Empty)
+                    throw new ArgumentException("Id cannot be empty", nameof(id));
+
+                var entity = await _recordingRepository.GetByIdAsync(id);
+                if (entity == null)
+                    return new ServiceResponse<GetRecordingDto>
+                    {
+                        Success = false,
+                        Message = "Entity not found"
+                    };
+
+                var dto = _mapper.Map<GetRecordingDto>(entity);
+                return new ServiceResponse<GetRecordingDto>
+                {
+                    Success = true,
+                    Data = dto,
+                    Message = "Retrieved successfully"
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse<GetRecordingDto>
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Errors = new List<string> { ex.Message }
+                };
+            }
+        }
+
+        public async Task<ServiceResponse<GetRecordingDto>> GetByIdApprovedAsync(Guid id)
         {
             var recording = await _recordingRepository.GetFirstOrDefaultAsync(r => r.Id == id && r.Status == SubmissionStatus.Approved);
             if (recording == null)
             {
-                return new ServiceResponse<RecordingDto> { Success = false, Message = "Recording not found or not available" };
+                return new ServiceResponse<GetRecordingDto> { Success = false, Message = "Recording not found or not available" };
             }
-            return new ServiceResponse<RecordingDto> { Data = _mapper.Map<RecordingDto>(recording) };
+            return new ServiceResponse<GetRecordingDto> { Data = _mapper.Map<GetRecordingDto>(recording) };
         }
 
         public override async Task<ServiceResponse<RecordingDto>> UpdateAsync(Guid id, RecordingDto dto)

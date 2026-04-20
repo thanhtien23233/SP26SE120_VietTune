@@ -59,7 +59,7 @@ namespace VietTuneArchive.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<PagedResponse<RecordingDto>>> GetAll(
+        public async Task<ActionResult<PagedResponse<GetRecordingDto>>> GetAll(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
@@ -67,7 +67,7 @@ namespace VietTuneArchive.API.Controllers
             return Ok(result);
         }
         [HttpGet("{id}")]
-        public async Task<ActionResult<ServiceResponse<RecordingDto>>> GetById(Guid id)
+        public async Task<ActionResult<ServiceResponse<GetRecordingDto>>> GetById(Guid id)
         {
             var result = await _service.GetByIdApprovedAsync(id);
             return result.Success ? Ok(result) : NotFound(result);

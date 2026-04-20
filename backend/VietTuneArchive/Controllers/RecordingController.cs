@@ -64,19 +64,19 @@ namespace VietTuneArchive.API.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin,Contributor,Expert,Researcher")]
-        public async Task<ActionResult<PagedResponse<RecordingDto>>> GetAll(
+        public async Task<ActionResult<PagedResponse<GetRecordingDto>>> GetAll(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            var result = await _service.GetPaginatedAsync(page, pageSize);
+            var result = await _service.GetAllRecordingsAsync(page, pageSize);
             return Ok(result);
         }
 
         [HttpGet("{id}")]
         [Authorize(Roles = "Admin,Contributor,Expert,Researcher")]
-        public async Task<ActionResult<ServiceResponse<RecordingDto>>> GetById(Guid id)
+        public async Task<ActionResult<ServiceResponse<GetRecordingDto>>> GetById(Guid id)
         {
-            var result = await _service.GetByIdAsync(id);
+            var result = await _service.GetRecordingByIdAsync(id);
             return result.Success ? Ok(result) : NotFound(result);
         }
 

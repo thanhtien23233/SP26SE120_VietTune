@@ -33,7 +33,7 @@ namespace VietTuneArchive.Application.Services
                 var recording = await _recordingRepository.GetByIdAsync(recordingId);
                 if (recording == null)
                     return Result<IEnumerable<AnnotationDto>>.Failure("Recording not found");
-                var annotations = await _annotationRepository.GetAsync(a => a.RecordingId == recordingId);
+                var annotations = await _annotationRepository.GetByRecordingIdAsync(recordingId);
                 var dtos = _mapper.Map<List<AnnotationDto>>(annotations.OrderByDescending(a => a.CreatedAt).ToList());
                 return Result<IEnumerable<AnnotationDto>>.Success(dtos, $"Found {dtos.Count} annotations");
             }
