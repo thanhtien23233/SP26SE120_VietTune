@@ -1,0 +1,23 @@
+# ==============================================================
+# YAMNet Fine-tuning Dependencies
+# ==============================================================
+# Core ML framework
+tensorflow
+tensorflow-hub
+
+# Audio processing
+librosa
+soundfile
+resampy
+
+# Data processing
+numpy
+scikit-learn
+
+# ONNX export & verify
+tf2onnx
+onnx
+onnxruntime
+
+# Visualization
+matplotlib
