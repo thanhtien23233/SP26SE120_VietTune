@@ -17,7 +17,9 @@ namespace VietTuneArchive.Application.IServices
         Task<ServiceResponse<List<RecordingDto>>> GetByDateRangeAsync(DateTime startDate, DateTime endDate);
         Task<ServiceResponse<List<RecordingDto>>> GetByCeremonyAsync(Guid ceremonyId);
         Task<ServiceResponse<List<RecordingDto>>> GetRecentAsync(int count = 10);
-        Task<PagedResponse<RecordingDto>> GetPaginatedApprovedAsync(int page, int pageSize);
-        Task<ServiceResponse<RecordingDto>> GetByIdApprovedAsync(Guid id);
+        Task<PagedResponse<GetRecordingDto>> GetPaginatedApprovedAsync(int page, int pageSize);
+        Task<PagedResponse<GetRecordingDto>> GetAllRecordingsAsync(int page, int pageSize);
+        Task<ServiceResponse<GetRecordingDto>> GetByIdApprovedAsync(Guid id);
+        Task<ServiceResponse<GetRecordingDto>> GetRecordingByIdAsync(Guid id);
     }
 }
