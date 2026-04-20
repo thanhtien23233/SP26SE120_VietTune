@@ -1,0 +1,27 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.eggs/
+
+# Data files (quá lớn cho git)
+data/raw/**/*.wav
+data/raw/**/*.mp3
+data/raw/**/*.flac
+data/processed/*.npy
+
+# Models (quá lớn cho git)
+models/*.keras
+models/*.onnx
+models/*.h5
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TensorFlow Hub cache
+/tmp/tfhub_modules/
