@@ -120,12 +120,22 @@ namespace VietTuneArchive.Application.Services
             if (string.IsNullOrEmpty(answerText))
                 answerText = "Xin lỗi, hiện tại tôi không thể trả lời.";
 
-            var recIds = docs.Where(d => d.SourceType == "Recording").Select(d => d.SourceId).ToList();
-            var kbIds = docs.Where(d => d.SourceType == "KBEntry").Select(d => d.SourceId).ToList();
+            // Filter sources based on actual mention in AI's content
+            var filteredDocs = docs.Where(d => 
+                answerText.Contains(d.SourceId.ToString()) || 
+                (!string.IsNullOrEmpty(d.Title) && answerText.Contains(d.Title))
+            ).ToList();
+
+            // If AI didn't explicitly cite but docs were found, we might want to keep the highest score one as "fallback context" 
+            // OR strictly stick to what AI mentioned. User asked to packaging based on AI output content.
+            // If filteredDocs is empty but answer mentions "Nguồn: ...", it might be a partial match issue.
+            
+            var recIds = filteredDocs.Where(d => d.SourceType == "Recording").Select(d => d.SourceId).ToList();
+            var kbIds = filteredDocs.Where(d => d.SourceType == "KBEntry").Select(d => d.SourceId).ToList();
 
             // 4. Save Assistant Message
-            decimal confidence = docs.Any() ? 0.9m : 0.5m;
-            if (docs.Any(d => d.RelevanceScore >= 1.0))
+            decimal confidence = filteredDocs.Any() ? 0.9m : 0.5m;
+            if (filteredDocs.Any(d => d.RelevanceScore >= 1.0))
             {
                 confidence = 1.0m;
             }
@@ -147,7 +157,7 @@ namespace VietTuneArchive.Application.Services
                 Content = assistantMsg.Content,
                 CreatedAt = assistantMsg.CreatedAt,
                 ConfidenceScore = assistantMsg.ConfidenceScore,
-                Sources = docs.Select(d => new SourceReference
+                Sources = filteredDocs.Select(d => new SourceReference
                 {
                     Type = d.SourceType,
                     Id = d.SourceId,
