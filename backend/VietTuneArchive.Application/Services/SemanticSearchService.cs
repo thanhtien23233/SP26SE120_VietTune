@@ -43,10 +43,11 @@ namespace VietTuneArchive.Application.Services
             // 2. Load embeddings từ DB khớp với model version
             var allEmbeddings = await _db.VectorEmbeddings
                 .Where(v => v.RecordingId != null && v.ModelVersion == modelVer)
-                .Select(v => new { RecordingId = v.RecordingId.Value, v.EmbeddingJson })
+                .Select(v => new { RecordingId = v.RecordingId.Value, v.EmbeddingJson, Title = v.Recording != null ? v.Recording.Title : null })
                 .ToListAsync(ct);
 
             // 3. Tính cosine similarity
+            var lowerQuery = query.ToLower();
             var scored = new List<(Guid RecordingId, float Score)>();
             foreach (var item in allEmbeddings)
             {
@@ -54,6 +55,13 @@ namespace VietTuneArchive.Application.Services
                 if (vector == null) continue;
 
                 var score = CosineSimilarity(queryVector, vector);
+                
+                // Boost confident khi trùng tiêu đề (giống logic trong RAG chat)
+                if (item.Title != null && (item.Title.ToLower() == lowerQuery || item.Title.ToLower().Contains(lowerQuery) || lowerQuery.Contains(item.Title.ToLower())))
+                {
+                    score = Math.Max(score, 1.0f);
+                }
+
                 if (score >= minScore)
                     scored.Add((item.RecordingId, score));
             }
@@ -113,10 +121,11 @@ namespace VietTuneArchive.Application.Services
             // 2. Load embeddings từ DB khớp với model version
             var allEmbeddings = await _db.VectorEmbeddings
                 .Where(v => v.RecordingId != null && v.ModelVersion == modelVer)
-                .Select(v => new { RecordingId = v.RecordingId.Value, v.EmbeddingJson })
+                .Select(v => new { RecordingId = v.RecordingId.Value, v.EmbeddingJson, Title = v.Recording != null ? v.Recording.Title : null })
                 .ToListAsync(ct);
 
             // 3. Tính cosine similarity
+            var lowerQuery = query.ToLower();
             var scored = new List<(Guid RecordingId, float Score)>();
             foreach (var item in allEmbeddings)
             {
@@ -124,6 +133,13 @@ namespace VietTuneArchive.Application.Services
                 if (vector == null) continue;
 
                 var score = CosineSimilarity(queryVector, vector);
+
+                // Boost confident khi trùng tiêu đề (768-dim version)
+                if (item.Title != null && (item.Title.ToLower() == lowerQuery || item.Title.ToLower().Contains(lowerQuery) || lowerQuery.Contains(item.Title.ToLower())))
+                {
+                    score = Math.Max(score, 1.0f);
+                }
+
                 if (score >= minScore)
                     scored.Add((item.RecordingId, score));
             }

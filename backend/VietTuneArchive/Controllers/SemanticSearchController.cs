@@ -5,7 +5,7 @@ namespace VietTuneArchive.API.Controllers
 {
     [ApiController]
     [Route("api/search")]
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin, Expert, Researcher")] // Allowing all authenticated users (or specific roles)
+    [Microsoft.AspNetCore.Authorization.Authorize] // Allowing all authenticated users
     public class SemanticSearchController : ControllerBase
     {
         private readonly ISemanticSearchService _searchService;
