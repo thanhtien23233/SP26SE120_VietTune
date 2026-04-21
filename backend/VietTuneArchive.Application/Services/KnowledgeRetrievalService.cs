@@ -38,13 +38,19 @@ namespace VietTuneArchive.Application.Services
 
                     if (rec != null)
                     {
+                        double score = recMatch.Score;
+                        if (rec.Title != null && (rec.Title.ToLower() == lowerQuery || rec.Title.ToLower().Contains(lowerQuery) || lowerQuery.Contains(rec.Title.ToLower())))
+                        {
+                            score = Math.Max(score, 1.0); // Boost to 1.0 if title match
+                        }
+
                         docs.Add(new RetrievedDocument
                         {
                             SourceType = "Recording",
                             SourceId = rec.Id,
                             Title = rec.Title ?? "Unknown Recording",
                             Content = $"Id: {rec.Id}, Mo ta: {rec.Description}, Dan toc: {rec.EthnicGroup?.Name}, Nghi le: {rec.Ceremony?.Name}",
-                            RelevanceScore = recMatch.Score
+                            RelevanceScore = score
                         });
                     }
                 }
@@ -56,13 +62,19 @@ namespace VietTuneArchive.Application.Services
                     var kb = await _context.KBEntries.FirstOrDefaultAsync(k => k.Id == kbMatch.EntryId && k.Status == 1);
                     if (kb != null)
                     {
+                        double score = kbMatch.Score;
+                        if (kb.Title.ToLower() == lowerQuery || kb.Title.ToLower().Contains(lowerQuery) || lowerQuery.Contains(kb.Title.ToLower()))
+                        {
+                            score = Math.Max(score, 1.0); // Boost to 1.0 if title match
+                        }
+
                         docs.Add(new RetrievedDocument
                         {
                             SourceType = "KBEntry",
                             SourceId = kb.Id,
                             Title = kb.Title,
                             Content = kb.Content.Length > 500 ? kb.Content.Substring(0, 500) : kb.Content,
-                            RelevanceScore = kbMatch.Score
+                            RelevanceScore = score
                         });
                     }
                 }
@@ -85,13 +97,19 @@ namespace VietTuneArchive.Application.Services
 
                 foreach (var kb in kbEntries)
                 {
+                    double score = 0.5;
+                    if (kb.Title.ToLower() == lowerQuery || kb.Title.ToLower().Contains(lowerQuery) || lowerQuery.Contains(kb.Title.ToLower()))
+                    {
+                        score = 1.0; // Boost to 1.0 if title match even in fallback
+                    }
+
                     docs.Add(new RetrievedDocument
                     {
                         SourceType = "KBEntry",
                         SourceId = kb.Id,
                         Title = kb.Title,
                         Content = kb.Content.Substring(0, Math.Min(kb.Content.Length, 500)),
-                        RelevanceScore = 0.5 // Lower score for keyword match fallback
+                        RelevanceScore = score
                     });
                 }
             }
@@ -104,13 +122,19 @@ namespace VietTuneArchive.Application.Services
 
             foreach (var inst in instruments)
             {
+                double score = 0.7;
+                if (inst.Name.ToLower() == lowerQuery || inst.Name.ToLower().Contains(lowerQuery) || lowerQuery.Contains(inst.Name.ToLower()))
+                {
+                    score = 1.0; // Boost to 1.0 if title match
+                }
+
                 docs.Add(new RetrievedDocument
                 {
                     SourceType = "Instrument",
                     SourceId = inst.Id,
                     Title = inst.Name,
                     Content = $"Phan loai: {inst.Category}, Mo ta: {inst.Description}",
-                    RelevanceScore = 0.7
+                    RelevanceScore = score
                 });
             }
 

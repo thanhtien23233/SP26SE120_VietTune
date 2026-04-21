@@ -124,6 +124,12 @@ namespace VietTuneArchive.Application.Services
             var kbIds = docs.Where(d => d.SourceType == "KBEntry").Select(d => d.SourceId).ToList();
 
             // 4. Save Assistant Message
+            decimal confidence = docs.Any() ? 0.9m : 0.5m;
+            if (docs.Any(d => d.RelevanceScore >= 1.0))
+            {
+                confidence = 1.0m;
+            }
+
             var assistantMsg = await _repository.AddMessageAsync(new QAMessage
             {
                 ConversationId = conversationId,
@@ -131,7 +137,7 @@ namespace VietTuneArchive.Application.Services
                 Content = answerText,
                 SourceRecordingIdsJson = JsonSerializer.Serialize(recIds),
                 SourceKBEntryIdsJson = JsonSerializer.Serialize(kbIds),
-                ConfidenceScore = docs.Any() ? 0.9m : 0.5m
+                ConfidenceScore = confidence
             });
 
             return new RagChatMessageResponse
