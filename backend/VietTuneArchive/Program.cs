@@ -280,11 +280,13 @@ builder.Services.AddSignalR();
 
 builder.Services.AddCors(o =>
 {
-    o.AddPolicy("AllowReactApp", p =>
+    o.AddPolicy("AllowReactAndFlutter", p =>
     {
         var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+
         if (origins != null && origins.Length > 0)
         {
+            // Cấu hình từ appsettings.json
             p.WithOrigins(origins)
              .AllowAnyHeader()
              .AllowAnyMethod()
@@ -292,6 +294,8 @@ builder.Services.AddCors(o =>
         }
         else
         {
+            // Development mode: cho phép tất cả origins
+            // ⚠️ Chỉ dùng cho development, không dùng cho production
             p.AllowAnyOrigin()
              .AllowAnyHeader()
              .AllowAnyMethod();
@@ -317,7 +321,7 @@ if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowReactApp");
+app.UseCors("AllowReactAndFlutter");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
