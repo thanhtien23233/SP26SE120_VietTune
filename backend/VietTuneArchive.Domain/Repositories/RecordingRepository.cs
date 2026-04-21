@@ -1,8 +1,10 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using VietTuneArchive.Domain.Context;
 using VietTuneArchive.Domain.Entities;
 using VietTuneArchive.Domain.Entities.Enum;
 using VietTuneArchive.Domain.IRepositories;
+using System.Globalization;
+using System.Text;
 
 namespace VietTuneArchive.Domain.Repositories
 {
@@ -13,14 +15,64 @@ namespace VietTuneArchive.Domain.Repositories
         {
             _context = context;
         }
+
+        /// <summary>
+        /// Remove Vietnamese diacritical marks from text
+        /// E.g.: "Ngôi Sao" -> "Ngoi Sao"
+        /// </summary>
+        private static readonly string[] VietnameseSigns = new string[]
+        {
+    "aAeEoOuUiIdDyY",
+    "áàạảãâấầậẩẫăắằặẳẵ",
+    "ÁÀẠẢÃÂẤẦẬẨẪĂẮẰẶẲẴ",
+    "éèẹẻẽêếềệểễ",
+    "ÉÈẸẺẼÊẾỀỆỂỄ",
+    "óòọỏõôốồộổỗơớờợởỡ",
+    "ÓÒỌỎÕÔỐỒỘỔỖƠỚỜỢỞỠ",
+    "úùụủũưứừựửữ",
+    "ÚÙỤỦŨƯỨỪỰỬỮ",
+    "íìịỉĩ",
+    "ÍÌỊỈĨ",
+    "đ",
+    "Đ",
+    "ýỳỵỷỹ",
+    "ÝỲỴỶỸ"
+        };
+
+        public static string RemoveVietnameseDiacritics(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return text;
+
+            for (int i = 1; i < VietnameseSigns.Length; i++)
+            {
+                for (int j = 0; j < VietnameseSigns[i].Length; j++)
+                {
+                    text = text.Replace(VietnameseSigns[i][j], VietnameseSigns[0][i - 1]);
+                }
+            }
+            return text;
+        }
+
         public async Task<IEnumerable<Recording>> SearchByTitle(string title)
         {
-            return await _context.Recordings
+            if (string.IsNullOrWhiteSpace(title))
+                return new List<Recording>();
+
+            // Remove diacritics from search input
+            string normalizedSearchTitle = RemoveVietnameseDiacritics(title).ToLower();
+
+            // Fetch all approved/embargoed recordings and filter in-memory
+            var recordings = await _context.Recordings
                 .Include(r => r.RecordingInstruments)
                     .ThenInclude(ri => ri.Instrument)
-                .Where(r => r.Title.Contains(title))
                 .Where(r => r.Status == SubmissionStatus.Approved || r.Status == SubmissionStatus.Embargoed)
                 .ToListAsync();
+
+            // Filter using normalized titles (client-side)
+            return recordings
+                .Where(r => RemoveVietnameseDiacritics(r.Title ?? "").ToLower().Contains(normalizedSearchTitle))
+                .ToList();
         }
 
         public async Task<(IEnumerable<Recording> Data, int Total)> SearchByFilterAsync(
