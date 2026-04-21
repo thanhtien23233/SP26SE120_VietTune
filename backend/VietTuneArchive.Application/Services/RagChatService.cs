@@ -102,6 +102,10 @@ namespace VietTuneArchive.Application.Services
             // 2. Retrieve Context
             var docs = await _retrievalService.RetrieveAsync(request.Content, 5);
 
+            // Filter out irrelevant context shards (noise reduction)
+            // Score >= 0.75 ensures we only keep title matches (1.0) or very strong semantic matches
+            docs = docs.Where(d => d.RelevanceScore >= 0.75).ToList();
+
             var contextBuilder = new StringBuilder();
             foreach (var doc in docs)
             {
@@ -111,21 +115,35 @@ namespace VietTuneArchive.Application.Services
             // 3. Prepare Local LLM Request
             var sysPrompt = _config["RagChat:SystemPrompt"] ?? "Bạn là chuyên gia về âm nhạc cổ truyền Việt Nam. Trả lời câu hỏi dựa trên thông tin được cung cấp.";
 
-            var msgs = conv.QAMessages?.OrderBy(m => m.CreatedAt).TakeLast(6).ToList();
+            // Giữ lịch sử thuần túy (chỉ role/content), giới hạn 4 tin nhắn gần nhất để tránh loãng context
+            var msgs = conv.QAMessages?.OrderBy(m => m.CreatedAt).TakeLast(4).ToList();
             var history = msgs?.Select(m => new ChatMessageDto { Role = m.Role, Content = m.Content }).ToList() ?? new List<ChatMessageDto>();
 
-            var fullPrompt = $"Context:\n{contextBuilder}\n\nUser: {request.Content}";
+            // Chỉ gắn context vào câu hỏi hiện tại (fullPrompt), history sẽ là mảng riêng
+            var fullPrompt = docs.Any() 
+                ? $"Dưới đây là thông tin tham khảo:\n{contextBuilder}\n\nHãy trả lời câu hỏi sau dựa trên thông tin trên: {request.Content}" 
+                : request.Content;
 
             var answerText = await _llmService.GenerateAsync(sysPrompt, fullPrompt, history);
             if (string.IsNullOrEmpty(answerText))
                 answerText = "Xin lỗi, hiện tại tôi không thể trả lời.";
 
-            var recIds = docs.Where(d => d.SourceType == "Recording").Select(d => d.SourceId).ToList();
-            var kbIds = docs.Where(d => d.SourceType == "KBEntry").Select(d => d.SourceId).ToList();
+            // Filter sources based on actual mention in AI's content (case-insensitive for titles)
+            var filteredDocs = docs.Where(d => 
+                answerText.Contains(d.SourceId.ToString()) || 
+                (!string.IsNullOrEmpty(d.Title) && answerText.Contains(d.Title, StringComparison.OrdinalIgnoreCase))
+            ).ToList();
+
+            // If AI didn't explicitly cite but docs were found, we might want to keep the highest score one as "fallback context" 
+            // OR strictly stick to what AI mentioned. User asked to packaging based on AI output content.
+            // If filteredDocs is empty but answer mentions "Nguồn: ...", it might be a partial match issue.
+            
+            var recIds = filteredDocs.Where(d => d.SourceType == "Recording").Select(d => d.SourceId).ToList();
+            var kbIds = filteredDocs.Where(d => d.SourceType == "KBEntry").Select(d => d.SourceId).ToList();
 
             // 4. Save Assistant Message
-            decimal confidence = docs.Any() ? 0.9m : 0.5m;
-            if (docs.Any(d => d.RelevanceScore >= 1.0))
+            decimal confidence = filteredDocs.Any() ? 0.9m : 0.5m;
+            if (filteredDocs.Any(d => d.RelevanceScore >= 1.0))
             {
                 confidence = 1.0m;
             }
@@ -147,7 +165,7 @@ namespace VietTuneArchive.Application.Services
                 Content = assistantMsg.Content,
                 CreatedAt = assistantMsg.CreatedAt,
                 ConfidenceScore = assistantMsg.ConfidenceScore,
-                Sources = docs.Select(d => new SourceReference
+                Sources = filteredDocs.Select(d => new SourceReference
                 {
                     Type = d.SourceType,
                     Id = d.SourceId,

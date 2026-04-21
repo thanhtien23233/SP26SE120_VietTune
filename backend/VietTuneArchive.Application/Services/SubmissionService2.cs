@@ -18,9 +18,9 @@ namespace VietTuneArchive.Application.Services
         private readonly IUserRepository _userRepository;
         private readonly IRecordingRepository _recordingRepository;
         private readonly INotificationService _notificationService;
-        private readonly IVectorEmbeddingService _vectorEmbeddingService;
+        private readonly IEmbeddingService _localEmbeddingService;
         private readonly ILogger<SubmissionService2> _logger;
-        public SubmissionService2(IGenericRepository<Submission> repository, ISubmissionRepository submissionRepo, IMapper mapper, IUserRepository userRepository, IRecordingRepository recordingRepository, INotificationService notificationService, IVectorEmbeddingService vectorEmbeddingService, ILogger<SubmissionService2> logger)
+        public SubmissionService2(IGenericRepository<Submission> repository, ISubmissionRepository submissionRepo, IMapper mapper, IUserRepository userRepository, IRecordingRepository recordingRepository, INotificationService notificationService, IEmbeddingService localEmbeddingService, ILogger<SubmissionService2> logger)
             : base(repository, mapper)
         {
             _submissionRepository = repository ?? throw new ArgumentNullException(nameof(repository));
@@ -29,7 +29,7 @@ namespace VietTuneArchive.Application.Services
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _recordingRepository = recordingRepository ?? throw new ArgumentNullException(nameof(recordingRepository));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
-            _vectorEmbeddingService = vectorEmbeddingService ?? throw new ArgumentNullException(nameof(vectorEmbeddingService));
+            _localEmbeddingService = localEmbeddingService ?? throw new ArgumentNullException(nameof(localEmbeddingService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
         public async Task<Result<SubmissionResponseDto>> CreateAsync(SubmissionDto dto)
@@ -253,11 +253,12 @@ namespace VietTuneArchive.Application.Services
                 // <<< THÊM: Sinh embedding sau khi duyệt >>>
                 try
                 {
-                    await _vectorEmbeddingService.GenerateAndSaveAsync(recording.Id);
+                    // Sync Local Embedding (384-dim) for RAG chat efficiency
+                    await _localEmbeddingService.GenerateEmbeddingForRecordingAsync(recording.Id);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to generate embedding for newly approved Recording {Id}", recording.Id);
+                    _logger.LogWarning(ex, "Failed to generate local embedding for newly approved Recording {Id}", recording.Id);
                 }
 
                 return Result<bool>.Success(true, "Submission approved successfully");
