@@ -120,10 +120,10 @@ namespace VietTuneArchive.Application.Services
             if (string.IsNullOrEmpty(answerText))
                 answerText = "Xin lỗi, hiện tại tôi không thể trả lời.";
 
-            // Filter sources based on actual mention in AI's content
+            // Filter sources based on actual mention in AI's content (case-insensitive for titles)
             var filteredDocs = docs.Where(d => 
                 answerText.Contains(d.SourceId.ToString()) || 
-                (!string.IsNullOrEmpty(d.Title) && answerText.Contains(d.Title))
+                (!string.IsNullOrEmpty(d.Title) && answerText.Contains(d.Title, StringComparison.OrdinalIgnoreCase))
             ).ToList();
 
             // If AI didn't explicitly cite but docs were found, we might want to keep the highest score one as "fallback context" 
