@@ -102,6 +102,10 @@ namespace VietTuneArchive.Application.Services
             // 2. Retrieve Context
             var docs = await _retrievalService.RetrieveAsync(request.Content, 5);
 
+            // Filter out irrelevant context shards (noise reduction)
+            // Score >= 0.75 ensures we only keep title matches (1.0) or very strong semantic matches
+            docs = docs.Where(d => d.RelevanceScore >= 0.75).ToList();
+
             var contextBuilder = new StringBuilder();
             foreach (var doc in docs)
             {
@@ -111,10 +115,14 @@ namespace VietTuneArchive.Application.Services
             // 3. Prepare Local LLM Request
             var sysPrompt = _config["RagChat:SystemPrompt"] ?? "Bạn là chuyên gia về âm nhạc cổ truyền Việt Nam. Trả lời câu hỏi dựa trên thông tin được cung cấp.";
 
-            var msgs = conv.QAMessages?.OrderBy(m => m.CreatedAt).TakeLast(6).ToList();
+            // Giữ lịch sử thuần túy (chỉ role/content), giới hạn 4 tin nhắn gần nhất để tránh loãng context
+            var msgs = conv.QAMessages?.OrderBy(m => m.CreatedAt).TakeLast(4).ToList();
             var history = msgs?.Select(m => new ChatMessageDto { Role = m.Role, Content = m.Content }).ToList() ?? new List<ChatMessageDto>();
 
-            var fullPrompt = $"Context:\n{contextBuilder}\n\nUser: {request.Content}";
+            // Chỉ gắn context vào câu hỏi hiện tại (fullPrompt), history sẽ là mảng riêng
+            var fullPrompt = docs.Any() 
+                ? $"Dưới đây là thông tin tham khảo:\n{contextBuilder}\n\nHãy trả lời câu hỏi sau dựa trên thông tin trên: {request.Content}" 
+                : request.Content;
 
             var answerText = await _llmService.GenerateAsync(sysPrompt, fullPrompt, history);
             if (string.IsNullOrEmpty(answerText))
