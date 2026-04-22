@@ -8,7 +8,7 @@ import type {
 import { legacyGet, legacyPost, legacyPut } from '@/api/legacyHttp';
 import { logServiceError, logServiceWarn } from '@/services/serviceLogger';
 import { getItem, setItem, removeItem, sessionSetItem } from '@/services/storageService';
-import { User, LoginForm, RegisterForm, ApiResponse, UserRole } from '@/types';
+import { User, LoginForm, ApiResponse, UserRole } from '@/types';
 import { uiToast } from '@/uiToast';
 import { isJwtExpired } from '@/utils/jwtExpiry';
 
@@ -88,8 +88,8 @@ export const authService = {
     }
   },
 
-  // Register
-  register: async (data: RegisterForm) => {
+  // Register as Contributor
+  register: async (data: import('@/types').RegisterResearcherForm) => {
     const payload: ApiAuthRegisterModel = {
       email: data.email,
       password: data.password,

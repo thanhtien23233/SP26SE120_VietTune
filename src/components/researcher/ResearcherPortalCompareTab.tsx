@@ -28,6 +28,45 @@ function isLikelyVideoSource(src: string): boolean {
   );
 }
 
+function asObject(input: unknown): Record<string, unknown> | null {
+  return input && typeof input === 'object' && !Array.isArray(input)
+    ? (input as Record<string, unknown>)
+    : null;
+}
+
+function readExtraString(rec: Recording | undefined, keys: string[]): string {
+  const row = asObject(rec);
+  if (!row) return '';
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+function readObjectString(obj: Record<string, unknown> | null, keys: string[]): string {
+  if (!obj) return '';
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+function resolvePlayableSource(rec: Recording | undefined): string {
+  if (!rec) return '';
+  const metadata = asObject(rec.metadata);
+  const candidates = [
+    rec.audioUrl,
+    readExtraString(rec, ['audioFileUrl', 'audioData', 'mediaUrl', 'url']),
+    readObjectString(metadata, ['audioUrl', 'audioFileUrl', 'sourceUrl']),
+  ];
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim()) return c.trim();
+  }
+  return '';
+}
+
 export default function ResearcherPortalCompareTab({
   approvedRecordings,
   compareLeftId,
@@ -45,8 +84,8 @@ export default function ResearcherPortalCompareTab({
   const rightTranscript = getTranscriptText(rightRecording);
   const transcriptDiff = highlightTranscriptDiff(leftTranscript, rightTranscript);
   const expertNotes = buildExpertComparativeNotes(leftRecording, rightRecording);
-  const leftMediaSrc = (leftRecording?.audioUrl ?? '').trim();
-  const rightMediaSrc = (rightRecording?.audioUrl ?? '').trim();
+  const leftMediaSrc = resolvePlayableSource(leftRecording);
+  const rightMediaSrc = resolvePlayableSource(rightRecording);
   const compareHasVideoMedia =
     isLikelyVideoSource(leftMediaSrc) || isLikelyVideoSource(rightMediaSrc);
 
@@ -134,6 +173,8 @@ export default function ResearcherPortalCompareTab({
               <DualAudioComparePlayer
                 leftRecording={leftRecording}
                 rightRecording={rightRecording}
+                leftSource={leftMediaSrc}
+                rightSource={rightMediaSrc}
               />
             )
           ) : (

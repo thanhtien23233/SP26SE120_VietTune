@@ -107,7 +107,9 @@ export default function Header() {
                   alt="VietTune Logo"
                   className="h-9 w-9 object-contain rounded-lg"
                   loading="eager"
-                  fetchPriority="high"
+                  // @ts-expect-error -- fetchpriority is valid HTML but React types lag behind
+                  // eslint-disable-next-line react/no-unknown-property
+                  fetchpriority="high"
                   decoding="async"
                   width={36}
                   height={36}

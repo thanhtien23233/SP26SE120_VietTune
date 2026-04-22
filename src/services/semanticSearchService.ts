@@ -23,7 +23,7 @@ export const searchSemantic = async (
   const query: ApiSemanticSearchQuery = {
     q: params.q,
     topK: params.topK ?? 10,
-    minScore: params.minScore ?? 0.5,
+    minScore: params.minScore ?? 0.7,
   };
   return apiOk(
     asApiEnvelope<SemanticSearchResult[]>(

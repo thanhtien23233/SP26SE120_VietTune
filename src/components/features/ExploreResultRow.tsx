@@ -9,26 +9,62 @@ import { cn } from '@/utils/helpers';
 
 const MAX_ROW_METADATA = 5;
 
-function getEthnicityLabel(rec: Recording): string {
-  if (rec.ethnicity && typeof rec.ethnicity === 'object') {
-    return rec.ethnicity.nameVietnamese || rec.ethnicity.name || '';
+function asObject(input: unknown): Record<string, unknown> | null {
+  return input && typeof input === 'object' && !Array.isArray(input)
+    ? (input as Record<string, unknown>)
+    : null;
+}
+
+function readExtraString(rec: Recording, keys: string[]): string {
+  const row = asObject(rec);
+  if (!row) return '';
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return '';
 }
 
+function getEthnicityLabel(rec: Recording): string {
+  if (rec.ethnicity && typeof rec.ethnicity === 'object') {
+    return (
+      rec.ethnicity.nameVietnamese ||
+      rec.ethnicity.name ||
+      readExtraString(rec, ['ethnicityName', 'ethnicGroupName', 'ethnicName'])
+    );
+  }
+  return readExtraString(rec, ['ethnicityName', 'ethnicGroupName', 'ethnicName']);
+}
+
 function getRegionLabel(rec: Recording): string {
-  if (!rec.region) return '';
-  return REGION_NAMES[rec.region as keyof typeof REGION_NAMES] || String(rec.region);
+  const named = readExtraString(rec, ['regionName', 'regionLabel']);
+  if (named) return named;
+  if (rec.region) return REGION_NAMES[rec.region as keyof typeof REGION_NAMES] || String(rec.region);
+  return readExtraString(rec, ['region', 'provinceName', 'recordingLocation']);
 }
 
 function getInstrumentLabel(rec: Recording): string {
-  return (rec.instruments ?? [])
+  const fromList = (rec.instruments ?? [])
     .map((i) => i.nameVietnamese || i.name || '')
     .filter(Boolean)
     .join(', ');
+  if (fromList) return fromList;
+
+  const row = asObject(rec);
+  if (!row) return '';
+  const names = row.instrumentNames;
+  if (Array.isArray(names)) {
+    const list = names.map((x) => (typeof x === 'string' ? x.trim() : '')).filter(Boolean);
+    if (list.length > 0) return list.join(', ');
+  }
+  return '';
 }
 
 function getCeremonyLabel(rec: Recording): string {
+  const byMetadata = rec.metadata?.ritualContext ?? '';
+  if (byMetadata) return byMetadata;
+  const fromExtra = readExtraString(rec, ['ceremonyName', 'eventTypeName', 'ritualName']);
+  if (fromExtra) return fromExtra;
   const fromTags = (rec.tags ?? []).find(
     (t) =>
       t.toLowerCase().includes('lễ') ||
@@ -39,6 +75,15 @@ function getCeremonyLabel(rec: Recording): string {
 }
 
 function getCommuneLabel(rec: Recording): string {
+  const row = asObject(rec);
+  const communeObject = asObject(row?.commune);
+  const fromMeta = asObject(row?.metadata);
+  const byName =
+    readExtraString(rec, ['communeName', 'recordingLocation', 'provinceName']) ||
+    (typeof communeObject?.name === 'string' ? communeObject.name : '') ||
+    (typeof fromMeta?.communeName === 'string' ? fromMeta.communeName : '');
+  if (byName.trim()) return byName.trim();
+
   const fromTags = (rec.tags ?? []).find(
     (t) =>
       t.toLowerCase().includes('phường') ||

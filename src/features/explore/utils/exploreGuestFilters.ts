@@ -17,7 +17,16 @@ export function applyGuestFilters(rows: Recording[], filters: SearchFilters): Re
       const title = normalizeSearchText(`${r.title ?? ''} ${r.titleVietnamese ?? ''}`);
       const desc = normalizeSearchText(r.description ?? '');
       const tagText = normalizeSearchText((r.tags ?? []).join(' '));
-      const haystack = `${title} ${desc} ${tagText}`;
+      const instText = normalizeSearchText(
+        (r.instruments ?? []).map((i) => `${i.name ?? ''} ${i.nameVietnamese ?? ''}`).join(' '),
+      );
+      const ethText = normalizeSearchText(
+        `${r.ethnicity?.name ?? ''} ${r.ethnicity?.nameVietnamese ?? ''}`,
+      );
+      const perfText = normalizeSearchText(
+        (r.performers ?? []).map((p) => `${p.name ?? ''} ${p.nameVietnamese ?? ''}`).join(' '),
+      );
+      const haystack = `${title} ${desc} ${tagText} ${instText} ${ethText} ${perfText}`;
       if (!haystack.includes(query)) return false;
     }
     if (selectedRegions.length > 0 && !selectedRegions.includes(r.region)) return false;

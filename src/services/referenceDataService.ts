@@ -237,14 +237,16 @@ export const referenceDataService = {
       const key = `districts_prov_${provinceId}`;
       const entry = cache[key];
       if (entry && Date.now() - entry.ts < CACHE_TTL_MS) return entry.data as DistrictItem[];
-      const res = await apiOk(
-        apiFetch.GET('/api/District/get-by-province/{provinceId}', {
-          params: { path: { provinceId } },
-        }),
-      );
-      const data = Array.isArray(res)
-        ? (res as DistrictItem[])
-        : (normalizePagedResponse<DistrictItem>(res as unknown).items ?? []);
+      const { data: res, response } = await apiFetch.GET('/api/District/get-by-province/{provinceId}', {
+        params: { path: { provinceId } },
+      });
+      let parsed: unknown = res;
+      if (parsed == null && response.ok) {
+        try { parsed = await response.clone().json(); } catch { /* empty body */ }
+      }
+      const data = Array.isArray(parsed)
+        ? (parsed as DistrictItem[])
+        : (normalizePagedResponse<DistrictItem>(parsed as unknown).items ?? []);
       cache[key] = { data, ts: Date.now() };
       return data;
     })(),
@@ -259,14 +261,16 @@ export const referenceDataService = {
       const key = `communes_dist_${districtId}`;
       const entry = cache[key];
       if (entry && Date.now() - entry.ts < CACHE_TTL_MS) return entry.data as CommuneItem[];
-      const res = await apiOk(
-        apiFetch.GET('/api/Commune/get-by-district/{districtId}', {
-          params: { path: { districtId } },
-        }),
-      );
-      const data = Array.isArray(res)
-        ? (res as CommuneItem[])
-        : (normalizePagedResponse<CommuneItem>(res as unknown).items ?? []);
+      const { data: res, response } = await apiFetch.GET('/api/Commune/get-by-district/{districtId}', {
+        params: { path: { districtId } },
+      });
+      let parsed: unknown = res;
+      if (parsed == null && response.ok) {
+        try { parsed = await response.clone().json(); } catch { /* empty body */ }
+      }
+      const data = Array.isArray(parsed)
+        ? (parsed as CommuneItem[])
+        : (normalizePagedResponse<CommuneItem>(parsed as unknown).items ?? []);
       cache[key] = { data, ts: Date.now() };
       return data;
     })(),

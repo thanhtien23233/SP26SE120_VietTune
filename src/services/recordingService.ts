@@ -291,24 +291,18 @@ export const recordingService = {
     pageSize: number = 20,
     opts?: { signal?: AbortSignal },
   ) => {
-    const params = new URLSearchParams();
-    if (filters.query) params.append('q', filters.query);
-    params.append('page', String(page));
-    params.append('pageSize', String(pageSize));
-    if (filters.regions?.length) params.append('region', filters.regions.join(','));
-    if (filters.recordingTypes?.length) params.append('type', filters.recordingTypes.join(','));
-    if (filters.tags?.length) params.append('tags', filters.tags.join(','));
+    const ethnicNames = filters.ethnicityIds?.join(',') || undefined;
+    const genreTags = filters.tags?.join(',') || undefined;
     return apiOk(
       asApiEnvelope<PaginatedResponse<Recording>>(
         apiFetch.GET('/api/Search/songs', {
           params: {
             query: openApiQueryRecord({
               q: filters.query,
+              ethnic: ethnicNames,
+              genre: genreTags,
               page,
               pageSize,
-              region: filters.regions?.join(','),
-              type: filters.recordingTypes?.join(','),
-              tags: filters.tags?.join(','),
             }),
           },
           signal: opts?.signal,

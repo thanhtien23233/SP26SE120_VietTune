@@ -1,4 +1,4 @@
-import { Edit, Trash2, Check, X } from 'lucide-react';
+import { Edit, Check, X } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -47,7 +47,6 @@ export default function ApprovedRecordingsPage() {
     useApprovedRecordings(user?.id);
 
   const [deleteTarget, setDeleteTarget] = useState<
-    | { type: 'direct'; id: string; title: string }
     | { type: 'request'; req: DeleteRecordingRequest }
     | null
   >(null);
@@ -57,28 +56,17 @@ export default function ApprovedRecordingsPage() {
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     try {
-      if (deleteTarget.type === 'request') {
-        await recordingRequestService.completeDeleteRecording(
-          deleteTarget.req.id,
-          removeLocalRecording,
-        );
-        await recordingRequestService.addNotification({
-          type: 'recording_deleted',
-          title: 'Bản thu đã bị xóa',
-          body: `"${deleteTarget.req.recordingTitle}" đã bị xóa theo yêu cầu.`,
-          forRoles: [UserRole.CONTRIBUTOR],
-          recordingId: deleteTarget.req.recordingId,
-        });
-      } else {
-        await removeLocalRecording(deleteTarget.id);
-        await recordingRequestService.addNotification({
-          type: 'recording_deleted',
-          title: 'Bản thu đã được xóa khỏi hệ thống',
-          body: `Bản thu "${deleteTarget.title}" đã được xóa hoàn toàn khỏi hệ thống.`,
-          forRoles: [UserRole.ADMIN, UserRole.CONTRIBUTOR, UserRole.EXPERT],
-          recordingId: deleteTarget.id,
-        });
-      }
+      await recordingRequestService.completeDeleteRecording(
+        deleteTarget.req.id,
+        removeLocalRecording,
+      );
+      await recordingRequestService.addNotification({
+        type: 'recording_deleted',
+        title: 'Bản thu đã bị xóa',
+        body: `"${deleteTarget.req.recordingTitle}" đã bị xóa theo yêu cầu.`,
+        forRoles: [UserRole.CONTRIBUTOR],
+        recordingId: deleteTarget.req.recordingId,
+      });
       setDeleteTarget(null);
       void load();
       await refreshRequestQueues();
@@ -234,7 +222,6 @@ export default function ApprovedRecordingsPage() {
             </div>
           </div>
 
-          {/* Action Buttons — Mờ khi bản thu đang có yêu cầu xóa chờ xử lý (cho đến khi expert từ chối) */}
           <div className="ml-4 flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => !hasPendingDeleteRequest && navigate(`/recordings/${it.id}/edit`)}
@@ -247,25 +234,6 @@ export default function ApprovedRecordingsPage() {
             >
               <Edit className="h-4 w-4" strokeWidth={2.5} />
               Chỉnh sửa bản thu
-            </button>
-            <button
-              onClick={() =>
-                !hasPendingDeleteRequest &&
-                setDeleteTarget({
-                  type: 'direct',
-                  id: it.id ?? '',
-                  title: it.basicInfo?.title || it.title || 'Không có tiêu đề',
-                })
-              }
-              disabled={hasPendingDeleteRequest}
-              className={
-                hasPendingDeleteRequest
-                  ? 'px-4 py-2 rounded-full bg-neutral-100 text-neutral-400 text-sm whitespace-nowrap flex items-center gap-2 cursor-not-allowed'
-                  : 'px-4 py-2 rounded-full bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-sm whitespace-nowrap flex items-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer'
-              }
-            >
-              <Trash2 className="h-4 w-4" strokeWidth={2.5} />
-              Xoá bản thu
             </button>
           </div>
         </div>
@@ -423,9 +391,7 @@ export default function ApprovedRecordingsPage() {
         title="Xác nhận xóa bản thu"
         message={
           deleteTarget
-            ? deleteTarget.type === 'request'
-              ? `Bạn có chắc muốn xóa bản thu "${deleteTarget.req.recordingTitle}" khỏi hệ thống?`
-              : `Bạn có chắc muốn xóa bản thu "${deleteTarget.title}" khỏi hệ thống?`
+            ? `Bạn có chắc muốn xóa bản thu "${deleteTarget.req.recordingTitle}" khỏi hệ thống?`
             : ''
         }
         description="Bản thu sẽ bị xóa hoàn toàn. Người đóng góp, Chuyên gia và Quản trị viên sẽ nhận thông báo. Hành động không thể hoàn tác."

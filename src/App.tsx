@@ -16,6 +16,7 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import LoadingState from './components/common/LoadingState';
 import ScrollToTop from './components/common/ScrollToTop';
 import MainLayout from './components/layout/MainLayout';
+import ResearcherPortalPage from './pages/researcher/ResearcherPortalPage';
 
 const SearchPage = lazy(() => import('./pages/SearchPage'));
 const SemanticSearchPage = lazy(() => import('./pages/SemanticSearchPage'));
@@ -36,7 +37,6 @@ const KnowledgeBasePage = lazy(() => import('./pages/admin/KnowledgeBasePage'));
 const CreateExpertPage = lazy(() => import('./pages/admin/CreateExpertPage'));
 const ModerationPage = lazy(() => import('./pages/ModerationPage'));
 const ApprovedRecordingsPage = lazy(() => import('./pages/ApprovedRecordingsPage'));
-const ResearcherPortalPage = lazy(() => import('./pages/researcher/ResearcherPortalPage'));
 const EditRecordingPage = lazy(() => import('./pages/EditRecordingPage'));
 const ExplorePage = lazy(() => import('./pages/ExplorePage'));
 const NotificationPage = lazy(() => import('./pages/NotificationPage'));

@@ -1,3 +1,4 @@
+import { BookOpen, Music } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, Link } from 'react-router-dom';
@@ -11,12 +12,16 @@ import { authService } from '@/services/authService';
 import { sessionGetItem, sessionRemoveItem } from '@/services/storageService';
 import { RegisterForm } from '@/types';
 import { uiToast, notifyLine } from '@/uiToast';
+import { cn } from '@/utils/helpers';
 import { validatePassword } from '@/utils/validation';
+
+type RegisterRole = 'contributor' | 'researcher';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<RegisterRole>('contributor');
   const fromLogout = typeof window !== 'undefined' && sessionGetItem('fromLogout') === '1';
 
   const {
@@ -28,7 +33,6 @@ export default function RegisterPage() {
 
   const password = watch('password');
 
-  // Clear fromLogout when entering Register so that returning to Login shows "Trở về".
   useEffect(() => {
     void sessionRemoveItem('fromLogout');
   }, []);
@@ -42,9 +46,11 @@ export default function RegisterPage() {
         fullName: data.fullName,
         phoneNumber: data.phoneNumber,
       };
-      const result = await authService.registerResearcher(payload);
+      const result =
+        selectedRole === 'researcher'
+          ? await authService.registerResearcher(payload)
+          : await authService.register(payload);
 
-      // Since axios only resolves on 2xx, reaching here means success
       const msg =
         result &&
         typeof result === 'object' &&
@@ -88,7 +94,9 @@ export default function RegisterPage() {
             className="w-20 h-20 object-contain mb-4 rounded-2xl cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => navigate('/')}
             loading="eager"
-            fetchPriority="high"
+            // @ts-expect-error -- fetchpriority is valid HTML but React types lag behind
+            // eslint-disable-next-line react/no-unknown-property
+            fetchpriority="high"
             decoding="async"
             width={80}
             height={80}
@@ -101,6 +109,47 @@ export default function RegisterPage() {
 
         {/* Form Section */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Role selector */}
+          <fieldset>
+            <legend className="text-sm font-semibold text-white/90 mb-3 text-center">
+              Bạn muốn tham gia với vai trò nào?
+            </legend>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedRole('contributor')}
+                className={cn(
+                  'flex flex-col items-center gap-2 rounded-2xl border-2 px-4 py-4 text-center transition-all duration-200',
+                  selectedRole === 'contributor'
+                    ? 'border-secondary-400 bg-white/15 text-white shadow-lg shadow-secondary-500/20 scale-[1.02]'
+                    : 'border-white/20 bg-white/5 text-white/70 hover:border-white/40 hover:bg-white/10',
+                )}
+              >
+                <Music className="h-6 w-6 shrink-0" strokeWidth={2} />
+                <span className="text-sm font-bold">Người đóng góp</span>
+                <span className="text-[11px] leading-tight opacity-80">
+                  Tải lên và chia sẻ bản thu âm nhạc dân tộc
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedRole('researcher')}
+                className={cn(
+                  'flex flex-col items-center gap-2 rounded-2xl border-2 px-4 py-4 text-center transition-all duration-200',
+                  selectedRole === 'researcher'
+                    ? 'border-secondary-400 bg-white/15 text-white shadow-lg shadow-secondary-500/20 scale-[1.02]'
+                    : 'border-white/20 bg-white/5 text-white/70 hover:border-white/40 hover:bg-white/10',
+                )}
+              >
+                <BookOpen className="h-6 w-6 shrink-0" strokeWidth={2} />
+                <span className="text-sm font-bold">Nhà nghiên cứu</span>
+                <span className="text-[11px] leading-tight opacity-80">
+                  Phân tích, so sánh và khai thác kho dữ liệu
+                </span>
+              </button>
+            </div>
+          </fieldset>
+
           <div className="space-y-4">
             <Input
               labelColor="light"

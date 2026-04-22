@@ -104,7 +104,7 @@ export function ModerationClaimActions({
           Bản thu đã bị từ chối vĩnh viễn và không thể chỉnh sửa bởi bất kỳ ai.
         </p>
       )}
-      {item.id && (
+      {item.id && status !== ModerationStatus.APPROVED && (
         <Button
           type="button"
           onClick={() => item.id && onRequestDelete(item.id)}

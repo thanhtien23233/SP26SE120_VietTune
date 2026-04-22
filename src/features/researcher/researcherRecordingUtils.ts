@@ -87,6 +87,24 @@ export function tokenize(text: string): string[] {
     .filter(Boolean);
 }
 
+const VIET_STOP_WORDS: ReadonlySet<string> = new Set([
+  'la', 'cua', 'va', 'co', 'khong', 'nhu', 'the', 'nao', 'gi', 'bao',
+  'khi', 'o', 'dau', 'tai', 'sao', 'duoc', 'da', 'dang', 'se', 'roi',
+  'ma', 'thi', 'de', 'cho', 'voi', 'tu', 'den', 'trong', 'tren', 'duoi',
+  'truoc', 'sau', 'day', 'do', 'nay', 'ay', 'mot', 'nhieu', 'it', 'moi',
+  'tat', 'ca', 'cac', 'nhung', 'rat', 'lam', 'hon', 'cung', 'them', 'nua',
+  'xuat', 'hien', 'biet', 'hay', 'hoac', 'neu', 'vi', 'nen', 'tuy',
+  'nhien', 'vay', 'gio', 'luc', 'noi', 'gi', 'ai', 'dieu', 'chinh',
+]);
+
+function toContentTokens(tokens: string[]): string[] {
+  return tokens.filter((t) => t.length > 1 && !VIET_STOP_WORDS.has(t));
+}
+
+function normalizeToSearchable(text: string): string {
+  return text.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+}
+
 export function scoreRecording(r: Recording, tokens: string[]): number {
   const title = (r.title || '') + ' ' + (r.titleVietnamese || '');
   const desc = r.description || '';
@@ -101,15 +119,31 @@ export function scoreRecording(r: Recording, tokens: string[]): number {
     getCeremonyLabel(r, []),
     getCommuneName(r),
   ].join(' ');
-  const searchable = [title, desc, ethnicityName, tags, more]
-    .join(' ')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '');
-  let score = 0;
-  for (const t of tokens) {
-    if (searchable.includes(t)) score += 1;
+  const searchable = normalizeToSearchable([title, desc, ethnicityName, tags, more].join(' '));
+
+  const contentTokens = toContentTokens(tokens);
+  if (contentTokens.length === 0) return 0;
+
+  let matchCount = 0;
+  for (const t of contentTokens) {
+    if (searchable.includes(t)) matchCount += 1;
   }
+
+  if (matchCount === 0) return 0;
+  const matchRatio = matchCount / contentTokens.length;
+  if (matchRatio < 0.5) return 0;
+
+  let score = matchCount;
+
+  for (let i = 0; i < tokens.length - 1; i++) {
+    const bigram = tokens[i] + ' ' + tokens[i + 1];
+    if (searchable.includes(bigram)) score += 3;
+  }
+  for (let i = 0; i < tokens.length - 2; i++) {
+    const trigram = tokens[i] + ' ' + tokens[i + 1] + ' ' + tokens[i + 2];
+    if (searchable.includes(trigram)) score += 5;
+  }
+
   return score;
 }
 
@@ -180,9 +214,11 @@ export function buildExpertComparativeNotes(left?: Recording, right?: Recording)
 export function buildCitationCandidates(question: string, recordings: Recording[]): ChatCitation[] {
   const tokens = tokenize(question);
   if (tokens.length === 0) return [];
+  const contentTokens = toContentTokens(tokens);
+  const minScore = Math.max(2, contentTokens.length);
   return recordings
     .map((r) => ({ r, score: scoreRecording(r, tokens) }))
-    .filter((x) => x.score > 0)
+    .filter((x) => x.score >= minScore)
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
     .map(({ r }) => {

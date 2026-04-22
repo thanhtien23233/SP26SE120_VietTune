@@ -538,6 +538,11 @@ export default function ModerationPage() {
     if (portalModal?.kind !== 'delete') return;
     const id = portalModal.submissionId;
     const toDelete = allItems.find((it) => it.id === id);
+    if (toModerationUiStatus(toDelete?.moderation?.status) === ModerationStatus.APPROVED) {
+      uiToast.error('Không thể xóa bản thu đã được duyệt.');
+      setPortalModal(null);
+      return;
+    }
     const recordingTitle = toDelete?.basicInfo?.title || toDelete?.title || 'Không có tiêu đề';
     try {
       await removeLocalRecording(id);

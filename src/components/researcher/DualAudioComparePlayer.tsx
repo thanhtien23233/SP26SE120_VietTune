@@ -9,6 +9,8 @@ type AudioFocusMode = 'both' | 'left' | 'right';
 interface DualAudioComparePlayerProps {
   leftRecording?: Recording;
   rightRecording?: Recording;
+  leftSource?: string;
+  rightSource?: string;
   className?: string;
 }
 
@@ -19,18 +21,32 @@ function formatTime(value: number): string {
   return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
+function safeDestroy(ws: WaveSurfer | null) {
+  if (!ws) return;
+  try {
+    ws.destroy();
+  } catch {
+    /* AbortError from BodyStreamBuffer is expected during teardown */
+  }
+}
+
 export default function DualAudioComparePlayer({
   leftRecording,
   rightRecording,
+  leftSource,
+  rightSource,
   className = '',
 }: DualAudioComparePlayerProps) {
-  const leftSrc = (leftRecording?.audioUrl ?? '').trim();
-  const rightSrc = (rightRecording?.audioUrl ?? '').trim();
+  const FALLBACK_REVEAL_DELAY_MS = 3000;
+  const leftSrc = (leftSource ?? leftRecording?.audioUrl ?? '').trim();
+  const rightSrc = (rightSource ?? rightRecording?.audioUrl ?? '').trim();
 
   const leftContainerRef = useRef<HTMLDivElement | null>(null);
   const rightContainerRef = useRef<HTMLDivElement | null>(null);
   const leftWaveRef = useRef<WaveSurfer | null>(null);
   const rightWaveRef = useRef<WaveSurfer | null>(null);
+  const leftReadyRef = useRef(false);
+  const rightReadyRef = useRef(false);
   const syncIntervalRef = useRef<number | null>(null);
   const isSyncApplyingRef = useRef(false);
 
@@ -43,12 +59,16 @@ export default function DualAudioComparePlayer({
   const [rightDuration, setRightDuration] = useState(0);
   const [leftError, setLeftError] = useState(false);
   const [rightError, setRightError] = useState(false);
+  const [leftFallbackEnabled, setLeftFallbackEnabled] = useState(false);
+  const [rightFallbackEnabled, setRightFallbackEnabled] = useState(false);
   const [focusMode, setFocusMode] = useState<AudioFocusMode>('both');
 
   const maxDuration = Math.max(leftDuration, rightDuration);
   const timelineValue = Math.max(leftTime, rightTime);
   const bothReady = leftReady && rightReady;
   const hasBothSources = leftSrc.length > 0 && rightSrc.length > 0;
+  const leftFallbackVisible = leftError || leftFallbackEnabled;
+  const rightFallbackVisible = rightError || rightFallbackEnabled;
 
   const stopSyncInterval = () => {
     if (syncIntervalRef.current !== null) {
@@ -73,6 +93,10 @@ export default function DualAudioComparePlayer({
   useEffect(() => {
     if (!leftContainerRef.current || !leftSrc) return;
     setLeftError(false);
+    setLeftFallbackEnabled(false);
+    const fallbackTimer = window.setTimeout(() => {
+      if (!leftReadyRef.current) setLeftFallbackEnabled(true);
+    }, FALLBACK_REVEAL_DELAY_MS);
     const ws = WaveSurfer.create({
       container: leftContainerRef.current,
       url: leftSrc,
@@ -85,11 +109,16 @@ export default function DualAudioComparePlayer({
       cursorColor: '#9B2C2C',
       cursorWidth: 2,
       normalize: true,
+      fetchParams: {
+        credentials: 'omit',
+      },
     });
     leftWaveRef.current = ws;
 
     ws.on('ready', () => {
+      leftReadyRef.current = true;
       setLeftReady(true);
+      setLeftFallbackEnabled(false);
       setLeftDuration(ws.getDuration() || 0);
       setLeftTime(0);
     });
@@ -98,7 +127,7 @@ export default function DualAudioComparePlayer({
     });
     ws.on('timeupdate', (t) => {
       setLeftTime(t);
-      if (!isSyncApplyingRef.current && rightWaveRef.current && rightReady) {
+      if (!isSyncApplyingRef.current && rightWaveRef.current && rightReadyRef.current) {
         const drift = Math.abs((rightWaveRef.current.getCurrentTime() || 0) - t);
         if (drift > 0.35) {
           isSyncApplyingRef.current = true;
@@ -117,19 +146,25 @@ export default function DualAudioComparePlayer({
     });
 
     return () => {
-      ws.destroy();
+      window.clearTimeout(fallbackTimer);
+      safeDestroy(ws);
       leftWaveRef.current = null;
+      leftReadyRef.current = false;
       setLeftReady(false);
       setLeftTime(0);
       setLeftDuration(0);
       setIsPlaying(false);
       stopSyncInterval();
     };
-  }, [leftSrc, rightReady]);
+  }, [leftSrc]);
 
   useEffect(() => {
     if (!rightContainerRef.current || !rightSrc) return;
     setRightError(false);
+    setRightFallbackEnabled(false);
+    const fallbackTimer = window.setTimeout(() => {
+      if (!rightReadyRef.current) setRightFallbackEnabled(true);
+    }, FALLBACK_REVEAL_DELAY_MS);
     const ws = WaveSurfer.create({
       container: rightContainerRef.current,
       url: rightSrc,
@@ -142,11 +177,16 @@ export default function DualAudioComparePlayer({
       cursorColor: '#1D4ED8',
       cursorWidth: 2,
       normalize: true,
+      fetchParams: {
+        credentials: 'omit',
+      },
     });
     rightWaveRef.current = ws;
 
     ws.on('ready', () => {
+      rightReadyRef.current = true;
       setRightReady(true);
+      setRightFallbackEnabled(false);
       setRightDuration(ws.getDuration() || 0);
       setRightTime(0);
     });
@@ -155,7 +195,7 @@ export default function DualAudioComparePlayer({
     });
     ws.on('timeupdate', (t) => {
       setRightTime(t);
-      if (!isSyncApplyingRef.current && leftWaveRef.current && leftReady) {
+      if (!isSyncApplyingRef.current && leftWaveRef.current && leftReadyRef.current) {
         const drift = Math.abs((leftWaveRef.current.getCurrentTime() || 0) - t);
         if (drift > 0.35) {
           isSyncApplyingRef.current = true;
@@ -174,15 +214,17 @@ export default function DualAudioComparePlayer({
     });
 
     return () => {
-      ws.destroy();
+      window.clearTimeout(fallbackTimer);
+      safeDestroy(ws);
       rightWaveRef.current = null;
+      rightReadyRef.current = false;
       setRightReady(false);
       setRightTime(0);
       setRightDuration(0);
       setIsPlaying(false);
       stopSyncInterval();
     };
-  }, [rightSrc, leftReady]);
+  }, [rightSrc]);
 
   useEffect(() => {
     return () => {
@@ -293,7 +335,9 @@ export default function DualAudioComparePlayer({
             <span>{formatTime(leftTime)}</span>
             <span>{formatTime(leftDuration)}</span>
           </div>
-          {leftError && <audio controls preload="metadata" src={leftSrc} className="mt-2 w-full" />}
+          {leftFallbackVisible && (
+            <audio controls preload="metadata" src={leftSrc} className="mt-2 w-full" />
+          )}
         </div>
 
         <div className="rounded-xl border border-blue-200/80 bg-blue-50/40 p-3">
@@ -305,7 +349,9 @@ export default function DualAudioComparePlayer({
             <span>{formatTime(rightTime)}</span>
             <span>{formatTime(rightDuration)}</span>
           </div>
-          {rightError && <audio controls preload="metadata" src={rightSrc} className="mt-2 w-full" />}
+          {rightFallbackVisible && (
+            <audio controls preload="metadata" src={rightSrc} className="mt-2 w-full" />
+          )}
         </div>
       </div>
 

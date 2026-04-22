@@ -85,6 +85,26 @@ async function fetchApprovedLocalFallback(): Promise<Recording[]> {
 }
 
 /**
+ * Fetch verified catalog from all available sources (submissions → filter API → local IDB).
+ * Every step is individually wrapped so a single 500 does not break the chain.
+ */
+async function fetchFullCatalog(signal?: AbortSignal): Promise<Recording[]> {
+  let pool: Recording[] = [];
+  try {
+    pool = await fetchVerifiedSubmissionsAsRecordings({ signal });
+  } catch { /* backend may 500 — continue */ }
+  if (pool.length === 0) {
+    try {
+      pool = await fetchRecordingsSearchByFilter({ page: 1, pageSize: 500 });
+    } catch { /* continue */ }
+  }
+  if (pool.length === 0) {
+    pool = await fetchApprovedLocalFallback();
+  }
+  return pool;
+}
+
+/**
  * Single Explore fetch path: keyword vs semantic, guest vs auth, with optional AbortSignal.
  */
 export async function loadExploreRecordings(input: ExploreLoadInput): Promise<ExploreLoadSuccess> {
@@ -94,11 +114,13 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
   const facetOnly: SearchFilters = { ...filters };
   if (exploreMode === 'semantic') delete facetOnly.query;
 
-  try {
-    let response: ApiResponseType;
+  let response: ApiResponseType;
+  let fetchWarning: string | undefined;
 
+  try {
+    // ── Semantic search ──────────────────────────────────────────────────
     if (exploreMode === 'semantic' && sqActive) {
-      if (!isAuthenticated) {
+      try {
         const semanticResponse = await semanticSearchService.searchSemantic({
           q: sqActive,
           topK: 10,
@@ -107,21 +129,22 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
           ...r.recording,
           _semanticScore: r.similarityScore,
         }));
-        const pooled = applyGuestFilters(ranked, facetOnly);
+        const needFacet = !isAuthenticated || Object.keys(facetOnly).length > 0;
+        const pooled = needFacet ? applyGuestFilters(ranked, facetOnly) : ranked;
         response = { items: pooled, total: pooled.length, totalPages: 1 };
-      } else {
-        const semanticResponse = await semanticSearchService.searchSemantic({
-          q: sqActive,
-          topK: 10,
-        });
-        const ranked = semanticResponse.map((r) => ({
-          ...r.recording,
-          _semanticScore: r.similarityScore,
-        }));
-        const pooled =
-          Object.keys(facetOnly).length > 0 ? applyGuestFilters(ranked, facetOnly) : ranked;
-        response = { items: pooled, total: pooled.length, totalPages: 1 };
+      } catch (semErr) {
+        if (isExploreRequestAborted(semErr)) throw semErr;
+        const catalog = await fetchFullCatalog(signal);
+        const clientFiltered = applyGuestFilters(catalog, { ...facetOnly, query: sqActive });
+        response = { items: clientFiltered, total: clientFiltered.length, totalPages: 1 };
+        if (clientFiltered.length > 0) {
+          fetchWarning = 'Tìm ngữ nghĩa tạm lỗi — hiển thị kết quả từ kho dữ liệu.';
+        } else {
+          fetchWarning = 'Hệ thống tìm kiếm ngữ nghĩa tạm thời không khả dụng.';
+        }
       }
+
+    // ── Guest keyword / facets ───────────────────────────────────────────
     } else if (!isAuthenticated) {
       const guestRes = await recordingService.getGuestRecordings(currentPage, 20, apiOpts);
       const activeFilters = exploreMode === 'semantic' ? facetOnly : filters;
@@ -134,32 +157,35 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
         total: filteredGuestItems.length,
         totalPages: 1,
       };
+
+    // ── Authenticated keyword / facets ───────────────────────────────────
     } else if (Object.keys(exploreMode === 'semantic' ? facetOnly : filters).length > 0) {
       const activeFilters = exploreMode === 'semantic' ? facetOnly : filters;
       const res = await recordingService.searchRecordings(activeFilters, currentPage, 20, apiOpts);
       response = asApiResponse(res);
-    } else {
-      // Authenticated default Explore view should prioritize verified submissions.
-      let verified: Recording[] = [];
-      try {
-        verified = await fetchVerifiedSubmissionsAsRecordings({ signal });
-      } catch {
-        verified = [];
-      }
-      if (verified.length === 0) {
+
+      if (response.items.length === 0 && activeFilters.query) {
         try {
-          // Backup source for verified catalog when submission-based endpoint is restricted.
-          verified = await fetchRecordingsSearchByFilter({
-            page: 1,
-            pageSize: 500,
-          });
+          const catalog = await fetchFullCatalog(signal);
+          const clientFiltered = applyGuestFilters(catalog, activeFilters);
+          if (clientFiltered.length > 0) {
+            const pageSize = 20;
+            const start = Math.max(0, (currentPage - 1) * pageSize);
+            const paged = clientFiltered.slice(start, start + pageSize);
+            response = {
+              items: paged,
+              total: clientFiltered.length,
+              totalPages: Math.max(1, Math.ceil(clientFiltered.length / pageSize)),
+            };
+          }
         } catch {
-          verified = [];
+          /* keep original empty response */
         }
       }
-      if (verified.length === 0) {
-        verified = await fetchApprovedLocalFallback();
-      }
+
+    // ── Authenticated default view (no filters) ─────────────────────────
+    } else {
+      const verified = await fetchFullCatalog(signal);
       const sorted = sortByUploadedDesc(verified);
       const pageSize = 20;
       const start = Math.max(0, (currentPage - 1) * pageSize);
@@ -170,83 +196,55 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
         totalPages: Math.max(1, Math.ceil(sorted.length / pageSize)),
       };
     }
-
-    const apiItems = Array.isArray(response?.items) ? response.items : [];
-    const apiTotal = typeof response?.total === 'number' ? response.total : apiItems.length;
-    let dataSource: ExploreDataSource = 'empty';
-    const hasActiveFilters = Object.keys(exploreMode === 'semantic' ? facetOnly : filters).length > 0;
-
-    if (exploreMode === 'semantic' && sqActive) {
-      dataSource = apiItems.length > 0 ? 'searchApi' : 'empty';
-    } else if (!isAuthenticated) {
-      dataSource = apiItems.length > 0 ? 'recordingGuest' : 'empty';
-    } else if (hasActiveFilters) {
-      dataSource = apiItems.length > 0 ? 'searchApi' : 'empty';
-    } else {
-      dataSource = apiItems.length > 0 ? 'recordingApi' : 'empty';
-    }
-
-    // Default "Bản thu mới nhất": if listing API returns empty, fallback to verified submissions.
-    const isDefaultLatestView = exploreMode !== 'semantic' && !sqActive && !hasActiveFilters;
-    if (isDefaultLatestView && apiItems.length === 0) {
-      try {
-        const fallback = await fetchVerifiedSubmissionsAsRecordings({ signal });
-        if (fallback.length > 0) {
-          const sortedFallback = sortByUploadedDesc(fallback);
-          return {
-            recordings: sortedFallback.slice(0, 20),
-            totalResults: sortedFallback.length,
-            dataSource: 'archiveFallback',
-          };
-        }
-      } catch {
-        // Keep empty result if fallback is unavailable.
-      }
-    }
-
-    return {
-      recordings: sortByUploadedDesc(apiItems),
-      totalResults: apiTotal,
-      dataSource,
-    };
   } catch (error) {
     if (isExploreRequestAborted(error)) throw error;
-    const warning = 'Không tải được dữ liệu. Bạn có thể thử lại sau.';
     try {
-      const apiFallback = await fetchVerifiedSubmissionsAsRecordings({ signal });
+      const catalog = await fetchFullCatalog(signal);
       if (signal?.aborted) throw error;
-
-      const localFallback = await fetchApprovedLocalFallback();
-
-      const combined = [...apiFallback, ...localFallback];
-      const uniqueFallbackMap = new Map<string, Recording>();
-      for (const r of combined) {
-        if (r.id && !uniqueFallbackMap.has(r.id)) {
-          uniqueFallbackMap.set(r.id, r);
-        }
-      }
-      const uniqueFallback = Array.from(uniqueFallbackMap.values());
-
       const activeFilters = exploreMode === 'semantic' ? facetOnly : filters;
       const filteredFallback = !isAuthenticated
-        ? applyGuestFilters(uniqueFallback, activeFilters)
-        : uniqueFallback;
+        ? applyGuestFilters(catalog, activeFilters)
+        : catalog;
       const sorted = sortByUploadedDesc(filteredFallback);
       const sliceLen = exploreMode === 'semantic' && sqActive ? sorted.length : 20;
-      return {
-        recordings: sorted.slice(0, sliceLen),
-        totalResults: sorted.length,
-        dataSource: sorted.length > 0 ? 'archiveFallback' : 'empty',
-        fetchWarning: warning,
+      response = {
+        items: sorted.slice(0, sliceLen),
+        total: sorted.length,
+        totalPages: Math.max(1, Math.ceil(sorted.length / Math.max(sliceLen, 1))),
       };
+      if (sorted.length === 0) {
+        fetchWarning = 'Không tải được dữ liệu. Bạn có thể thử lại sau.';
+      }
     } catch (inner) {
       if (isExploreRequestAborted(inner)) throw inner;
       return {
         recordings: [],
         totalResults: 0,
         dataSource: 'empty',
-        fetchWarning: warning,
+        fetchWarning: 'Không tải được dữ liệu. Bạn có thể thử lại sau.',
       };
     }
   }
+
+  const apiItems = Array.isArray(response?.items) ? response.items : [];
+  const apiTotal = typeof response?.total === 'number' ? response.total : apiItems.length;
+  const hasActiveFilters = Object.keys(exploreMode === 'semantic' ? facetOnly : filters).length > 0;
+  let dataSource: ExploreDataSource = 'empty';
+
+  if (exploreMode === 'semantic' && sqActive) {
+    dataSource = apiItems.length > 0 ? 'searchApi' : 'empty';
+  } else if (!isAuthenticated) {
+    dataSource = apiItems.length > 0 ? 'recordingGuest' : 'empty';
+  } else if (hasActiveFilters) {
+    dataSource = apiItems.length > 0 ? 'searchApi' : 'empty';
+  } else {
+    dataSource = apiItems.length > 0 ? 'recordingApi' : 'empty';
+  }
+
+  return {
+    recordings: sortByUploadedDesc(apiItems),
+    totalResults: apiTotal,
+    dataSource,
+    fetchWarning,
+  };
 }
