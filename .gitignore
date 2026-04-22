@@ -49,9 +49,8 @@ lerna-debug.log*
 # Agent assets/workflows chỉ dùng local
 .agent/
 
-# Docs: local scratch by default; version top-level PLAN-*.md only
-docs/*
-!docs/PLAN-*.md
+# Docs: local planning notes only (not versioned)
+docs/
 
 # Local scratch / script output (repo root)
 /lint_output.txt
