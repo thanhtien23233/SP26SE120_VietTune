@@ -24,7 +24,7 @@ namespace VietTuneArchive.Application.Services
             {
                 if (provinceId == Guid.Empty)
                     return Result<IEnumerable<DistrictDto>>.Failure("Province id cannot be empty");
-                var districts = await _districtRepository.GetAsync(d => d.ProvinceId == provinceId);
+                var districts = await _districtRepository.GetByProvinceAsync(provinceId);
                 var dtos = _mapper.Map<List<DistrictDto>>(districts);
                 return Result<IEnumerable<DistrictDto>>.Success(dtos, $"Found {dtos.Count} districts");
             }

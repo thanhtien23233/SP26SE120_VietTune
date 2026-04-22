@@ -27,7 +27,7 @@ namespace VietTuneArchive.Application.Services
             {
                 if (districtId == Guid.Empty)
                     return Result<IEnumerable<CommuneDto>>.Failure("District id cannot be empty");
-                var communes = await _communeRepository.GetAsync(c => c.DistrictId == districtId);
+                var communes = await _communeRepository.GetByDistrictIdAsync(districtId);
                 var dtos = _mapper.Map<List<CommuneDto>>(communes);
                 return Result<IEnumerable<CommuneDto>>.Success(dtos, $"Found {dtos.Count} communes");
             }
