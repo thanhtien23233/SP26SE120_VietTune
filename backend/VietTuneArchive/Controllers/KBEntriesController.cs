@@ -116,7 +116,7 @@ namespace VietTuneArchive.API.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteEntry(Guid id)
         {
-            await _kbEntryService.DeleteEntryAsync(id);
+            await _kbEntryService.DeleteEntryAsync(id, GetCurrentUserId());
             return NoContent();
         }
 

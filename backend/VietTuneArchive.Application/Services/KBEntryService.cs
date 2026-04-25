@@ -15,12 +15,16 @@ namespace VietTuneArchive.Application.Services
     {
         private readonly IKBEntryRepository _repo;
         private readonly IEmbeddingService _embeddingService;
+        private readonly IUserRepository _userRepository;
+        private readonly IRecordingRepository _recordingRepository;
         private readonly string[] _validCategories = { "Instrument", "Ceremony", "MusicalTerm", "EthnicGroup", "VocalStyle" };
 
-        public KBEntryService(IKBEntryRepository repo, IEmbeddingService embeddingService)
+        public KBEntryService(IKBEntryRepository repo, IEmbeddingService embeddingService, IUserRepository userRepository, IRecordingRepository recordingRepository)
         {
             _repo = repo;
             _embeddingService = embeddingService;
+            _userRepository = userRepository;
+            _recordingRepository = recordingRepository;
         }
 
         public async Task<PagedResponse<KBEntryListItemResponse>> GetEntriesAsync(KBEntryQueryParams queryParams)
@@ -52,6 +56,13 @@ namespace VietTuneArchive.Application.Services
 
         public async Task<KBEntryDetailResponse> CreateEntryAsync(Guid currentUserId, CreateKBEntryRequest request)
         {
+            var user = await _userRepository.GetByIdAsync(currentUserId);
+            if (user == null || user.Role == "Contributor" || user.Role == "Researcher")
+                throw new UnauthorizedAccessException("Unauthorized: Only Expert or Admin can create KB entries.");
+
+            if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Content) || string.IsNullOrWhiteSpace(request.Category))
+                throw new BadRequestException("Missing required fields.");
+
             if (!_validCategories.Contains(request.Category))
                 throw new BadRequestException("Invalid category.");
 
@@ -101,6 +112,10 @@ namespace VietTuneArchive.Application.Services
 
         public async Task<KBEntryDetailResponse> UpdateEntryAsync(Guid currentUserId, Guid entryId, UpdateKBEntryRequest request)
         {
+            var user = await _userRepository.GetByIdAsync(currentUserId);
+            if (user == null || user.Role == "Contributor" || user.Role == "Researcher")
+                throw new UnauthorizedAccessException("Unauthorized: Only Expert or Admin can edit KB entries.");
+
             var entry = await _repo.GetByIdAsync(entryId);
             if (entry == null) throw new NotFoundException("Entry not found.");
 
@@ -152,8 +167,18 @@ namespace VietTuneArchive.Application.Services
             }
         }
 
-        public async Task DeleteEntryAsync(Guid entryId)
+        public async Task DeleteEntryAsync(Guid entryId, Guid currentUserId)
         {
+            var user = await _userRepository.GetByIdAsync(currentUserId);
+            if (user == null || user.Role != "Admin")
+                throw new UnauthorizedAccessException("Unauthorized: Only Admin can delete KB entries.");
+
+            var entry = await _repo.GetByIdAsync(entryId);
+            if (entry == null) throw new NotFoundException("Entry not found.");
+
+            if (entry.KBCitations != null && entry.KBCitations.Any())
+                throw new BadRequestException("Cannot delete entry with active citations.");
+
             await _repo.DeleteAsync(entryId);
         }
 

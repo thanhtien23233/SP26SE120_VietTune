@@ -10,11 +10,15 @@ namespace VietTuneArchive.Application.Services
     public class KBRevisionService : GenericService<KBRevision, KBRevisionDto>, IKBRevisionService
     {
         private readonly IKBRevisionRepository _revisionRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly IKBEntryRepository _entryRepository;
 
-        public KBRevisionService(IKBRevisionRepository repository, IMapper mapper)
+        public KBRevisionService(IKBRevisionRepository repository, IMapper mapper, IUserRepository userRepository, IKBEntryRepository entryRepository)
             : base(repository, mapper)
         {
             _revisionRepository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _userRepository = userRepository;
+            _entryRepository = entryRepository;
         }
 
         /// <summary>
@@ -173,6 +177,47 @@ namespace VietTuneArchive.Application.Services
                     Message = ex.Message,
                     Errors = new List<string> { ex.Message }
                 };
+            }
+        }
+
+        public async Task<ServiceResponse<bool>> RollbackAsync(Guid entryId, Guid revisionId, Guid currentUserId)
+        {
+            try
+            {
+                var user = await _userRepository.GetByIdAsync(currentUserId);
+                if (user == null || user.Role == "Contributor")
+                    return new ServiceResponse<bool> { Success = false, Message = "Forbidden: Unauthorized to rollback" };
+
+                var entry = await _entryRepository.GetByIdAsync(entryId);
+                if (entry == null)
+                    return new ServiceResponse<bool> { Success = false, Message = "Entry not found" };
+
+                var revisionToRollback = await _revisionRepository.GetByIdAsync(revisionId);
+                if (revisionToRollback == null || revisionToRollback.EntryId != entryId)
+                    return new ServiceResponse<bool> { Success = false, Message = "Revision not found" };
+
+                // Restore entry content
+                entry.Content = revisionToRollback.Content;
+                entry.UpdatedAt = DateTime.UtcNow;
+                await _entryRepository.UpdateAsync(entry);
+
+                // Create new revision to track rollback
+                var newRevision = new KBRevision
+                {
+                    Id = Guid.NewGuid(),
+                    EntryId = entryId,
+                    EditorId = currentUserId,
+                    Content = revisionToRollback.Content,
+                    RevisionNote = $"Rollback to revision {revisionId}",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _entryRepository.CreateRevisionAsync(newRevision);
+
+                return new ServiceResponse<bool> { Success = true, Message = "Rollback successful", Data = true };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse<bool> { Success = false, Message = ex.Message, Errors = new List<string> { ex.Message } };
             }
         }
     }

@@ -85,7 +85,7 @@ Run `dotnet test --filter "ReviewServiceTests"` — all must be green.
 Fix any errors before proceeding.
 
 Then create the file:
-VietTuneArchive.Tests/Unit/Services/REVIEW_TEST_REPORT.md
+VietTuneArchive.Tests/Report/REVIEW_TEST_REPORT.md
 
 Report must include:
 - Date generated

@@ -11,7 +11,7 @@ namespace VietTuneArchive.Application.IServices
         Task<KBEntryDetailResponse> CreateEntryAsync(Guid currentUserId, CreateKBEntryRequest request);
         Task<KBEntryDetailResponse> UpdateEntryAsync(Guid currentUserId, Guid entryId, UpdateKBEntryRequest request);
         Task UpdateEntryStatusAsync(Guid currentUserId, Guid entryId, UpdateKBEntryStatusRequest request);
-        Task DeleteEntryAsync(Guid entryId);
+        Task DeleteEntryAsync(Guid entryId, Guid currentUserId);
 
         Task<KBCitationResponse> AddCitationAsync(Guid entryId, CreateKBCitationRequest request);
         Task<KBCitationResponse> UpdateCitationAsync(Guid citationId, UpdateKBCitationRequest request);
