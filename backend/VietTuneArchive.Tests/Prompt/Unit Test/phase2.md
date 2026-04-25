@@ -145,7 +145,7 @@ Then run reportgenerator and check:
 All tests must be green before proceeding.
 
 ## REPORT
-Create VietTuneArchive.Tests/Unit/Services/RECORDING_TEST_REPORT.md
+Create VietTuneArchive.Tests/Report/RECORDING_TEST_REPORT.md
 
 Include:
 - Date generated
