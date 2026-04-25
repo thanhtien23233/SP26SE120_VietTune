@@ -94,6 +94,13 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddSingleton<Mock<IKnowledgeRetrievalService>>(RetrievalServiceMock);
             services.AddSingleton<IKnowledgeRetrievalService>(RetrievalServiceMock.Object);
 
+            // Register "Owner" policy with permissive rule (authenticated = owner in tests)
+            // Production registers this policy based on real ownership; tests skip that check
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy("Owner", policy => policy.RequireAuthenticatedUser());
+            });
+
             // EmailService has no interface — configure with dummy settings so it
             // doesn't crash on startup. Real emails will not be sent in test env.
             services.Configure<GmailApiSettings>(opts =>

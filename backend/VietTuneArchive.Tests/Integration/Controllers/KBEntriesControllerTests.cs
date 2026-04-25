@@ -22,7 +22,7 @@ public class KBEntriesControllerTests : ApiTestBase
         {
             Title = uniqueTitle,
             Content = "Nội dung bài viết kiểm thử.",
-            Category = "Music"
+            Category = "Instrument"
         };
         var response = await PostAsync("/api/kb-entries", payload);
         response.EnsureSuccessStatusCode();
@@ -179,7 +179,7 @@ public class KBEntriesControllerTests : ApiTestBase
             {
                 Title = $"Expert KB Entry {Guid.NewGuid()}",
                 Content = "Content here",
-                Category = "Music"
+                Category = "Instrument"
             };
             var response = await PostAsync("/api/kb-entries", payload);
 
@@ -199,7 +199,7 @@ public class KBEntriesControllerTests : ApiTestBase
             {
                 Title = "Forbidden Entry",
                 Content = "Content",
-                Category = "Music"
+                Category = "Instrument"
             };
             var response = await PostAsync("/api/kb-entries", payload);
             response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -209,7 +209,7 @@ public class KBEntriesControllerTests : ApiTestBase
         public async Task CreateEntry_MissingTitle_Returns400()
         {
             AuthenticateAs("Expert");
-            var response = await PostAsync("/api/kb-entries", new { Content = "No title here", Category = "Music" });
+            var response = await PostAsync("/api/kb-entries", new { Content = "No title here", Category = "Instrument" });
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
 
@@ -226,7 +226,7 @@ public class KBEntriesControllerTests : ApiTestBase
             {
                 Title = uniqueTitle,
                 Content = "Test content",
-                Category = "Music"
+                Category = "Instrument"
             };
             var response = await PostAsync("/api/kb-entries", payload);
             response.EnsureSuccessStatusCode();
@@ -255,7 +255,7 @@ public class KBEntriesControllerTests : ApiTestBase
             {
                 Title = "Updated Title",
                 Content = "Updated content",
-                Category = "Updated Category",
+                Category = "Ceremony",
                 RevisionNote = "Fixed typo"
             };
             var response = await PutAsync($"/api/kb-entries/{id}", payload);
@@ -275,7 +275,7 @@ public class KBEntriesControllerTests : ApiTestBase
             {
                 Title = "Updated for Revision",
                 Content = "New content",
-                Category = "Music"
+                Category = "Instrument"
             };
             await PutAsync($"/api/kb-entries/{id}", payload);
 
@@ -295,7 +295,7 @@ public class KBEntriesControllerTests : ApiTestBase
             {
                 Title = "Hacked",
                 Content = "Hacked content",
-                Category = "Music"
+                Category = "Instrument"
             };
             var response = await PutAsync($"/api/kb-entries/{id}", payload);
             response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -469,13 +469,13 @@ public class KBEntriesControllerTests : ApiTestBase
             AuthenticateAs("Expert");
             await PutAsync($"/api/kb-entries/{id}", new UpdateKBEntryRequest
             {
-                Title = "Edit 1", Content = "Content 1", Category = "Music"
+                Title = "Edit 1", Content = "Content 1", Category = "Instrument"
             });
 
             // Second edit
             await PutAsync($"/api/kb-entries/{id}", new UpdateKBEntryRequest
             {
-                Title = "Edit 2", Content = "Content 2", Category = "Music"
+                Title = "Edit 2", Content = "Content 2", Category = "Instrument"
             });
 
             var response = await GetAsync($"/api/kb-entries/{id}/revisions");
@@ -546,7 +546,7 @@ public class KBEntriesControllerTests : ApiTestBase
             {
                 Title = "E2E Updated Title",
                 Content = "E2E Updated Content",
-                Category = "Music"
+                Category = "Instrument"
             });
             editResp.StatusCode.Should().Be(HttpStatusCode.OK);
 

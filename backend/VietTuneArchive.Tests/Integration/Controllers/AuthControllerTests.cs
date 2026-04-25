@@ -140,9 +140,15 @@ public class AuthControllerTests : ApiTestBase
             {
                 Id = Guid.NewGuid(),
                 Email = email,
+                FullName = "Unconfirmed User",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Test@1234"),
+                Password = "Test@1234",
                 ConfirmEmailToken = token,
                 IsEmailConfirmed = false,
-                Role = "Contributor"
+                IsActive = false,
+                Role = "Contributor",
+                ContributionScore = 0,
+                CreatedAt = DateTime.UtcNow
             });
             await DbContext.SaveChangesAsync();
 
@@ -204,15 +210,21 @@ public class AuthControllerTests : ApiTestBase
             {
                 Id = Guid.NewGuid(),
                 Email = email,
+                FullName = "Reset User",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("OldPass@1234"),
+                Password = "OldPass@1234",
                 ResetPasswordToken = token,
                 ResetPasswordTokenExpiry = DateTime.UtcNow.AddMinutes(15),
+                IsEmailConfirmed = true,
                 IsActive = true,
-                Role = "Contributor"
+                Role = "Contributor",
+                ContributionScore = 0,
+                CreatedAt = DateTime.UtcNow
             });
             await DbContext.SaveChangesAsync();
 
-            var payload = new 
-            { 
+            var payload = new
+            {
                 email = email,
                 otp = token,
                 newPassword = "NewValidPassword123!"
@@ -240,10 +252,16 @@ public class AuthControllerTests : ApiTestBase
             {
                 Id = Guid.NewGuid(),
                 Email = email,
+                FullName = "Expired Reset User",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("OldPass@1234"),
+                Password = "OldPass@1234",
                 ResetPasswordToken = token,
                 ResetPasswordTokenExpiry = DateTime.UtcNow.AddMinutes(-5), // Expired
+                IsEmailConfirmed = true,
                 IsActive = true,
-                Role = "Contributor"
+                Role = "Contributor",
+                ContributionScore = 0,
+                CreatedAt = DateTime.UtcNow
             });
             await DbContext.SaveChangesAsync();
 
