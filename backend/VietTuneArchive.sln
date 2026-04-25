@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VietTuneArchive.Domain", "V
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VietTuneArchive.Application", "VietTuneArchive.Application\VietTuneArchive.Application.csproj", "{4F1F202E-96CC-40FF-A25D-2975DD77C7E2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VietTuneArchive.Tests", "VietTuneArchive.Tests\VietTuneArchive.Tests.csproj", "{8D8A6A6A-B903-4C65-8D02-C5E65982DC53}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{4F1F202E-96CC-40FF-A25D-2975DD77C7E2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4F1F202E-96CC-40FF-A25D-2975DD77C7E2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4F1F202E-96CC-40FF-A25D-2975DD77C7E2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8D8A6A6A-B903-4C65-8D02-C5E65982DC53}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8D8A6A6A-B903-4C65-8D02-C5E65982DC53}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8D8A6A6A-B903-4C65-8D02-C5E65982DC53}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8D8A6A6A-B903-4C65-8D02-C5E65982DC53}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
