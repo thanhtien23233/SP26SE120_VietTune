@@ -66,6 +66,12 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll(typeof(EmailService));
             services.AddTransient(_ => new Mock<EmailService>().Object);
 
+            services.RemoveAll(typeof(IEmbeddingService));
+            // Register a mock we can retrieve later
+            var embeddingMock = new Mock<IEmbeddingService>();
+            services.AddSingleton(embeddingMock);
+            services.AddSingleton(embeddingMock.Object);
+
             // Apply migrations and seed data on startup
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
@@ -73,6 +79,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             
             // Ensure created creates schema, can also use db.Database.Migrate() if EF migrations exist
             db.Database.EnsureCreated();
+            DatabaseFixture.SeedAsync(db);
         });
     }
 }
