@@ -14,13 +14,21 @@ namespace VietTuneArchive.Application.Services
         private readonly IMapper _mapper;
         private readonly ISubmissionRepository _submissionRepository;
         private readonly IUserRepository _userRepository;
-        public ReviewService(IReviewRepository repository, IMapper mapper, ISubmissionRepository submissionRepository, IUserRepository userRepository)
+        private readonly INotificationService _notificationService;
+
+        public ReviewService(
+            IReviewRepository repository, 
+            IMapper mapper, 
+            ISubmissionRepository submissionRepository, 
+            IUserRepository userRepository,
+            INotificationService notificationService)
             : base(repository, mapper)
         {
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _reviewRepository = repository ?? throw new ArgumentNullException(nameof(repository));
             _submissionRepository = submissionRepository;
             _userRepository = userRepository;
+            _notificationService = notificationService;
         }
 
         /// <summary>
@@ -102,6 +110,83 @@ namespace VietTuneArchive.Application.Services
                 _mapper.Map(dto, review);
                 await _reviewRepository.UpdateAsync(review);
                 return Result<bool>.Success(true, "Review updated successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<bool>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<Result<bool>> SubmitReviewAsync(Guid submissionId, Guid reviewerId, int decision, string comments)
+        {
+            try
+            {
+                var submission = await _submissionRepository.GetByIdAsync(submissionId);
+                if (submission == null) return Result<bool>.Failure("Submission not found");
+
+                if (submission.Status == Domain.Entities.Enum.SubmissionStatus.Approved || 
+                    submission.Status == Domain.Entities.Enum.SubmissionStatus.Rejected)
+                {
+                    return Result<bool>.Failure("Cannot review an already decided submission");
+                }
+
+                var reviewer = await _userRepository.GetByIdAsync(reviewerId);
+                if (reviewer == null || reviewer.Role != "Expert")
+                {
+                    return Result<bool>.Failure("Unauthorized: Only Expert can review");
+                }
+
+                if (submission.ReviewerId != reviewerId)
+                {
+                    return Result<bool>.Failure("Forbidden: You are not assigned to review this submission");
+                }
+
+                if (string.IsNullOrWhiteSpace(comments) && (decision == 1 || decision == 2))
+                {
+                    return Result<bool>.Failure("Validation Error: Feedback is required when rejecting or requesting edits");
+                }
+
+                var review = new Review
+                {
+                    Id = Guid.NewGuid(),
+                    SubmissionId = submissionId,
+                    ReviewerId = reviewerId,
+                    Decision = decision,
+                    Stage = submission.CurrentStage,
+                    Comments = comments,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _reviewRepository.AddAsync(review);
+
+                if (decision == 1) // Reject
+                {
+                    submission.Status = Domain.Entities.Enum.SubmissionStatus.Rejected;
+                    await _notificationService.SendNotificationAsync(submission.ContributorId, "Submission Rejected", "Your submission was rejected.", "SubmissionRejected", "Submission", submission.Id);
+                }
+                else if (decision == 0) // Approve/Pass
+                {
+                    if (submission.CurrentStage == 0) // Screening
+                    {
+                        submission.CurrentStage = 1; // Verification
+                        await _notificationService.SendNotificationAsync(submission.ContributorId, "Screening Passed", "Your submission passed screening.", "ScreeningPassed", "Submission", submission.Id);
+                    }
+                    else if (submission.CurrentStage == 1) // Verification
+                    {
+                        submission.CurrentStage = 2; // Approval
+                        await _notificationService.SendNotificationAsync(submission.ContributorId, "Verification Passed", "Your submission passed verification.", "VerificationPassed", "Submission", submission.Id);
+                    }
+                    else if (submission.CurrentStage == 2) // Final Approval
+                    {
+                        submission.Status = Domain.Entities.Enum.SubmissionStatus.Approved;
+                        await _notificationService.SendNotificationAsync(submission.ContributorId, "Submission Approved", "Your submission is approved.", "SubmissionApproved", "Submission", submission.Id);
+                    }
+                }
+
+                submission.UpdatedAt = DateTime.UtcNow;
+                await _submissionRepository.UpdateAsync(submission);
+
+                return Result<bool>.Success(true, "Review submitted successfully");
             }
             catch (Exception ex)
             {
