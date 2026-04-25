@@ -19,9 +19,9 @@ public class SubmissionControllerTests : ApiTestBase
     protected async Task<Guid> CreateDraftSubmission(string role = "Contributor")
     {
         AuthenticateAs(role);
-        
+
         var user = await DbContext.Users.FirstAsync(u => u.Role == "Contributor");
-        
+
         var payload = new SubmissionDto
         {
             AudioFileUrl = "http://test.com/audio.mp3",
@@ -31,9 +31,27 @@ public class SubmissionControllerTests : ApiTestBase
         var response = await PostAsync("/api/Submission/create-submission", payload);
         response.EnsureSuccessStatusCode();
 
-        var result = await response.Content.ReadFromJsonAsync<dynamic>();
-        string subIdStr = result.GetProperty("submissionId").GetString();
-        return Guid.Parse(subIdStr);
+        // Controller returns Ok(result) where result is Result<SubmissionResponseDto>
+        // JSON shape: { "isSuccess": true, "data": { "submissionId": "...", ... } }
+        var result = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        string subIdStr = result.GetProperty("data").GetProperty("submissionId").GetString()!;
+        var subId = Guid.Parse(subIdStr);
+
+        // ConfirmSubmit checks recording.Status == Pending before allowing the transition
+        // Draft → Pending. The upload pipeline would normally set the recording to Pending
+        // after audio is verified. Simulate that here so state-machine tests proceed cleanly.
+        var sub = await DbContext.Submissions.FindAsync(subId);
+        if (sub?.RecordingId != null)
+        {
+            var rec = await DbContext.Recordings.FindAsync(sub.RecordingId.Value);
+            if (rec != null)
+            {
+                rec.Status = SubmissionStatus.Pending;
+                await DbContext.SaveChangesAsync();
+            }
+        }
+
+        return subId;
     }
 
     protected async Task AdvanceToPending(Guid submissionId)
@@ -77,8 +95,9 @@ public class SubmissionControllerTests : ApiTestBase
             var response = await PostAsync("/api/Submission/create-submission", payload);
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var result = await response.Content.ReadFromJsonAsync<dynamic>();
-            string submissionId = result.GetProperty("submissionId").GetString();
+            // Result<SubmissionResponseDto>: { "isSuccess": true, "data": { "submissionId": "..." } }
+            var result = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+            string submissionId = result.GetProperty("data").GetProperty("submissionId").GetString()!;
             submissionId.Should().NotBeNullOrEmpty();
             
             var dbSub = await DbContext.Submissions.FirstOrDefaultAsync(s => s.Id == Guid.Parse(submissionId));

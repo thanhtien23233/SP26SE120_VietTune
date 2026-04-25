@@ -18,7 +18,12 @@ public abstract class ApiTestBase : IAsyncLifetime
     protected ApiTestBase(WebAppFactory factory)
     {
         Factory = factory;
-        Client = Factory.CreateClient();
+        // AllowAutoRedirect=false so redirect tests receive the 302 instead of
+        // the client chasing external URLs (storage.example.com, etc.)
+        Client = Factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
     }
 
     public virtual Task InitializeAsync()
