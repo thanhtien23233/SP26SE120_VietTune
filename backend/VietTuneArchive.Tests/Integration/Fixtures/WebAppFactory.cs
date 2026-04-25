@@ -9,7 +9,6 @@ using Testcontainers.PostgreSql;
 using VietTuneArchive.Application.Common.Email;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Domain.Context;
-using Xunit;
 using static VietTuneArchive.Application.Mapper.DTOs.Response.RagChatResponse;
 
 namespace VietTuneArchive.Tests.Integration.Fixtures;
@@ -44,6 +43,13 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public async Task InitializeAsync()
     {
         await _dbContainer.StartAsync();
+
+        // Tạo app một lần để trigger ConfigureWebHost, sau đó seed DB
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DBContext>();
+        await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
+        db.Database.EnsureCreated();
+        DatabaseFixture.SeedAsync(db);
     }
 
     public new async Task DisposeAsync()
@@ -78,28 +84,30 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll(typeof(ILocalWhisperService));
             services.AddScoped(_ => new Mock<ILocalWhisperService>().Object);
 
-            // Expose LLM and Retrieval mocks as Singletons so tests can configure / verify them
+            // Expose LLM mock — must use generic overload to register as interface
             services.RemoveAll(typeof(ILocalLlmService));
-            services.AddSingleton(LlmServiceMock);
-            services.AddSingleton(LlmServiceMock.Object);
+            services.AddSingleton<Mock<ILocalLlmService>>(LlmServiceMock);
+            services.AddSingleton<ILocalLlmService>(LlmServiceMock.Object);
 
+            // Expose Retrieval mock
             services.RemoveAll(typeof(IKnowledgeRetrievalService));
-            services.AddSingleton(RetrievalServiceMock);
-            services.AddSingleton(RetrievalServiceMock.Object);
+            services.AddSingleton<Mock<IKnowledgeRetrievalService>>(RetrievalServiceMock);
+            services.AddSingleton<IKnowledgeRetrievalService>(RetrievalServiceMock.Object);
 
-            services.RemoveAll(typeof(EmailService));
-            services.AddTransient(_ => new Mock<EmailService>().Object);
+            // EmailService has no interface — configure with dummy settings so it
+            // doesn't crash on startup. Real emails will not be sent in test env.
+            services.Configure<GmailApiSettings>(opts =>
+            {
+                opts.ClientId = "test-client-id";
+                opts.ClientSecret = "test-client-secret";
+                opts.RefreshToken = "test-refresh-token";
+                opts.SenderEmail = "noreply@test.com";
+            });
 
+            // Expose Embedding mock
             services.RemoveAll(typeof(IEmbeddingService));
-            services.AddSingleton(EmbeddingServiceMock);
-            services.AddSingleton(EmbeddingServiceMock.Object);
-
-            // Seed database
-            var sp = services.BuildServiceProvider();
-            using var scope = sp.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<DBContext>();
-            db.Database.EnsureCreated();
-            DatabaseFixture.SeedAsync(db);
+            services.AddSingleton<Mock<IEmbeddingService>>(EmbeddingServiceMock);
+            services.AddSingleton<IEmbeddingService>(EmbeddingServiceMock.Object);
         });
     }
 }

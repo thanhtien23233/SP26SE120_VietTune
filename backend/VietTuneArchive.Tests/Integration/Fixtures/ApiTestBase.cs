@@ -35,11 +35,27 @@ public abstract class ApiTestBase : IAsyncLifetime
         return Task.CompletedTask;
     }
 
+    // Fixed seeded user IDs — must stay in sync with DatabaseFixture
+    private static readonly Dictionary<string, (string Id, string Email)> SeededUsers = new()
+    {
+        ["Contributor"] = ("aaaaaaaa-0001-0001-0001-aaaaaaaaaaaa", "contrib@test.com"),
+        ["Expert"]      = ("bbbbbbbb-0002-0002-0002-bbbbbbbbbbbb", "expert@test.com"),
+        ["Admin"]       = ("cccccccc-0003-0003-0003-cccccccccccc", "admin@test.com"),
+        ["Researcher"]  = ("dddddddd-0004-0004-0004-dddddddddddd", "researcher@test.com"),
+    };
+
     protected void AuthenticateAs(string role)
     {
-        var token = JwtTokenHelper.GenerateToken(Guid.NewGuid().ToString(), "test@test.com", role);
-        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (id, email) = SeededUsers.TryGetValue(role, out var u)
+            ? u
+            : (Guid.NewGuid().ToString(), "unknown@test.com");
+        var token = JwtTokenHelper.GenerateToken(id, email, role);
+        Client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
     }
+
+    protected void ClearAuth() =>
+        Client.DefaultRequestHeaders.Authorization = null;
 
     protected async Task<HttpResponseMessage> GetAsync(string url)
     {

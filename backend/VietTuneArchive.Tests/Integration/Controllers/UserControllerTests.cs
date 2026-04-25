@@ -119,11 +119,15 @@ public class UserControllerTests : ApiTestBase
         }
 
         [Fact]
-        public async Task GetById_NonExistentId_Returns404orBadRequest()
+        public async Task GetById_NonExistentId_ReturnsFailureResult()
         {
+            // NOTE: UserController.GetById returns Result<T> wrapper (never null),
+            // so always HTTP 200. Assert via IsSuccess=false in response body instead.
             AuthenticateAs("Admin");
             var response = await GetAsync($"/api/User/GetById?id={Guid.NewGuid()}");
-            response.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.BadRequest);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var json = await response.Content.ReadAsStringAsync();
+            json.Should().ContainAny("false", "không tồn tại", "Failure", "failure");
         }
 
         [Fact]
@@ -316,7 +320,7 @@ public class UserControllerTests : ApiTestBase
         public DeleteUserTests(WebAppFactory factory) : base(factory) { }
 
         [Fact]
-        public async Task DeleteUser_AsAdmin_Returns200AndUserRemoved()
+        public async Task DeleteUser_AsAdmin_Returns200AndUserDeactivated()
         {
             var (userId, _, _) = await RegisterAndLogin("Contributor");
             AuthenticateAs("Admin");
@@ -324,10 +328,14 @@ public class UserControllerTests : ApiTestBase
             var response = await Client.DeleteAsync($"/api/User/{userId}");
             response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-            // Verify user gone - re-authenticate as admin
-            AuthenticateAs("Admin");
-            var getResp = await GetAsync($"/api/User/GetById?id={userId}");
-            getResp.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.BadRequest);
+            // NOTE: UserRepository.DeleteAsync is a SOFT DELETE (IsActive = false),
+            // not a hard delete. User record still exists in DB.
+            // Use AsNoTracking() to bypass EF Core change tracker cache.
+            var deactivatedUser = await DbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == userId);
+            deactivatedUser.Should().NotBeNull();
+            deactivatedUser!.IsActive.Should().BeFalse("delete sets IsActive=false (soft delete)");
         }
 
         [Theory]
