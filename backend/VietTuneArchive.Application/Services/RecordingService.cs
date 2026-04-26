@@ -523,7 +523,7 @@ namespace VietTuneArchive.Application.Services
             {
                 return new ServiceResponse<GetRecordingDto> { Success = false, Message = "Recording not found or not available" };
             }
-            return new ServiceResponse<GetRecordingDto> { Data = _mapper.Map<GetRecordingDto>(recording) };
+            return new ServiceResponse<GetRecordingDto> { Success = true, Data = _mapper.Map<GetRecordingDto>(recording) };
         }
 
         public override async Task<ServiceResponse<RecordingDto>> UpdateAsync(Guid id, RecordingDto dto)

@@ -54,43 +54,55 @@ namespace VietTuneArchive.Application.Services
 
         public async Task<ServiceResponse<EmbargoDto>> CreateOrUpdateAsync(Guid recordingId, EmbargoCreateUpdateDto dto, Guid userId)
         {
-            if (dto.EmbargoStartDate.HasValue && dto.EmbargoEndDate.HasValue && dto.EmbargoStartDate >= dto.EmbargoEndDate)
+            try
             {
-                return new ServiceResponse<EmbargoDto> { Success = false, Message = "Start date must be before end date" };
-            }
-
-            var embargo = await _repository.GetByRecordingIdAsync(recordingId);
-            var status = DetermineStatus(dto.EmbargoStartDate, dto.EmbargoEndDate);
-            
-            if (embargo == null)
-            {
-                embargo = new Embargo
+                if (dto.EmbargoStartDate.HasValue && dto.EmbargoEndDate.HasValue && dto.EmbargoStartDate >= dto.EmbargoEndDate)
                 {
-                    Id = Guid.NewGuid(),
-                    RecordingId = recordingId,
-                    EmbargoStartDate = dto.EmbargoStartDate,
-                    EmbargoEndDate = dto.EmbargoEndDate,
-                    Reason = dto.Reason,
-                    CreatedBy = userId,
-                    CreatedAt = DateTime.UtcNow,
-                    Status = status
-                };
-                await _repository.AddAsync(embargo);
+                    return new ServiceResponse<EmbargoDto> { Success = false, Message = "Start date must be before end date" };
+                }
+
+                var embargo = await _repository.GetByRecordingIdAsync(recordingId);
+                var status = DetermineStatus(dto.EmbargoStartDate, dto.EmbargoEndDate);
+
+                if (embargo == null)
+                {
+                    embargo = new Embargo
+                    {
+                        Id = Guid.NewGuid(),
+                        RecordingId = recordingId,
+                        EmbargoStartDate = dto.EmbargoStartDate,
+                        EmbargoEndDate = dto.EmbargoEndDate,
+                        Reason = dto.Reason,
+                        CreatedBy = userId,
+                        CreatedAt = DateTime.UtcNow,
+                        Status = status
+                    };
+                    await _repository.AddAsync(embargo);
+                }
+                else
+                {
+                    embargo.EmbargoStartDate = dto.EmbargoStartDate;
+                    embargo.EmbargoEndDate = dto.EmbargoEndDate;
+                    embargo.Reason = dto.Reason;
+                    embargo.UpdatedAt = DateTime.UtcNow;
+                    embargo.Status = status;
+                    await _repository.UpdateAsync(embargo);
+                }
+
+                // Sync with Recording Status
+                await SyncRecordingStatusAsync(recordingId, status);
+
+                return new ServiceResponse<EmbargoDto> { Success = true, Data = _mapper.Map<EmbargoDto>(embargo) };
             }
-            else
+            catch (Exception ex)
             {
-                embargo.EmbargoStartDate = dto.EmbargoStartDate;
-                embargo.EmbargoEndDate = dto.EmbargoEndDate;
-                embargo.Reason = dto.Reason;
-                embargo.UpdatedAt = DateTime.UtcNow;
-                embargo.Status = status;
-                await _repository.UpdateAsync(embargo);
+                _logger.LogError(ex, "Failed to create or update embargo for recording {RecordingId}", recordingId);
+                return new ServiceResponse<EmbargoDto>
+                {
+                    Success = false,
+                    Message = $"Failed to create or update embargo: {ex.InnerException?.Message ?? ex.Message}"
+                };
             }
-
-            // Sync with Recording Status
-            await SyncRecordingStatusAsync(recordingId, status);
-
-            return new ServiceResponse<EmbargoDto> { Data = _mapper.Map<EmbargoDto>(embargo) };
         }
 
         public async Task<ServiceResponse<EmbargoDto>> LiftEmbargoAsync(Guid recordingId, EmbargoLiftDto dto)

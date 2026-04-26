@@ -48,6 +48,7 @@ public class SubmissionControllerTests : ApiTestBase
             {
                 rec.Status = SubmissionStatus.Pending;
                 await DbContext.SaveChangesAsync();
+                DbContext.ChangeTracker.Clear();
             }
         }
 
@@ -74,6 +75,7 @@ public class SubmissionControllerTests : ApiTestBase
         var sub = await DbContext.Submissions.FirstAsync(s => s.Id == submissionId);
         sub.Status = SubmissionStatus.Pending; // UnderReview not in enum; Pending simulates reviewer-assigned state
         await DbContext.SaveChangesAsync();
+        DbContext.ChangeTracker.Clear();
     }
 
     public class CreateSubmissionTests : SubmissionControllerTests
@@ -100,6 +102,7 @@ public class SubmissionControllerTests : ApiTestBase
             string submissionId = result.GetProperty("data").GetProperty("submissionId").GetString()!;
             submissionId.Should().NotBeNullOrEmpty();
             
+            DbContext.ChangeTracker.Clear();
             var dbSub = await DbContext.Submissions.FirstOrDefaultAsync(s => s.Id == Guid.Parse(submissionId));
             dbSub.Should().NotBeNull();
             dbSub!.Status.Should().Be(SubmissionStatus.Draft);
@@ -134,6 +137,7 @@ public class SubmissionControllerTests : ApiTestBase
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             
+            DbContext.ChangeTracker.Clear();
             var sub = await DbContext.Submissions.FirstAsync(s => s.Id == id);
             sub.Status.Should().Be(SubmissionStatus.Pending);
         }
@@ -164,6 +168,7 @@ public class SubmissionControllerTests : ApiTestBase
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             
+            DbContext.ChangeTracker.Clear();
             var sub = await DbContext.Submissions.FirstAsync(s => s.Id == id);
             sub.Status.Should().Be(SubmissionStatus.UpdateRequested);
         }
@@ -188,6 +193,7 @@ public class SubmissionControllerTests : ApiTestBase
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             
+            DbContext.ChangeTracker.Clear();
             var sub = await DbContext.Submissions.FirstAsync(s => s.Id == id);
             sub.Status.Should().Be(SubmissionStatus.Pending);
         }
@@ -208,6 +214,7 @@ public class SubmissionControllerTests : ApiTestBase
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             
+            DbContext.ChangeTracker.Clear();
             var sub = await DbContext.Submissions.Include(s => s.Recording).FirstAsync(s => s.Id == id);
             sub.Status.Should().Be(SubmissionStatus.Approved);
             // Recording.Status also updated to Approved after submission approved
@@ -259,7 +266,8 @@ public class SubmissionControllerTests : ApiTestBase
             AuthenticateAs("Expert");
             var approveResp = await PutAsync($"/api/Submission/approve-submission?submissionId={id}", new { });
             approveResp.StatusCode.Should().Be(HttpStatusCode.OK);
-
+            
+            DbContext.ChangeTracker.Clear();
             var finalSub = await DbContext.Submissions.FirstAsync(s => s.Id == id);
             finalSub.Status.Should().Be(SubmissionStatus.Approved);
         }

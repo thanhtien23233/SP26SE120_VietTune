@@ -213,6 +213,7 @@ public class NotificationControllerTests : ApiTestBase
             var response = await PutAsync($"/api/Notification/{notifId}/read", new { });
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
+            DbContext.ChangeTracker.Clear(); // avoid stale tracked entity from seeding
             var dbNotif = await DbContext.Notifications.FindAsync(notifId);
             dbNotif!.IsRead.Should().BeTrue();
         }
@@ -274,6 +275,7 @@ public class NotificationControllerTests : ApiTestBase
             var response = await PutAsync("/api/Notification/read-all", new { });
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
+            DbContext.ChangeTracker.Clear(); // avoid stale tracked entities from seeding
             var dbNotifs = await DbContext.Notifications
                 .Where(n => n.UserId == userId).ToListAsync();
             dbNotifs.Should().OnlyContain(n => n.IsRead);
@@ -343,6 +345,7 @@ public class NotificationControllerTests : ApiTestBase
             var response = await Client.DeleteAsync($"/api/Notification/{notifId}");
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
+            DbContext.ChangeTracker.Clear(); // avoid stale tracked entity from seeding
             var dbNotif = await DbContext.Notifications.FindAsync(notifId);
             dbNotif.Should().BeNull();
         }

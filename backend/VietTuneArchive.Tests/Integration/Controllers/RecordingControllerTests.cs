@@ -121,7 +121,8 @@ public class RecordingControllerTests : ApiTestBase
             var payload = new RecordingDto
             {
                 Title = "Updated Title",
-                Description = "Updated Desc"
+                Description = "Updated Desc",
+                AudioFileUrl = "http://test.com/audio.mp3"
             };
 
             var response = await PutAsync($"/api/Recording/{id}/upload", payload);
@@ -249,7 +250,7 @@ public class RecordingControllerTests : ApiTestBase
             AuthenticateAs("Expert");
             var id = await SeedRecording(SubmissionStatus.Draft);
 
-            var payload = new RecordingDto { Title = "Valid Update" };
+            var payload = new RecordingDto { Title = "Valid Update", AudioFileUrl = "http://test.com/audio.mp3" };
             var response = await PutAsync($"/api/Recording/{id}/upload", payload);
 
             // Core assertion: upload succeeds

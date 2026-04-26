@@ -556,12 +556,13 @@ public class KBEntriesControllerTests : ApiTestBase
 
             // 4. Publish
             await PublishEntry(id, "Expert");
+            DbContext.ChangeTracker.Clear(); // clear stale tracked entity so we read fresh from DB
             dbEntry = await DbContext.KBEntries.FindAsync(id);
             dbEntry!.Status.Should().Be(1);
 
             // 5. Verify anonymous can see it
             Client.DefaultRequestHeaders.Authorization = null;
-            var slugResp = await GetAsync($"/api/kb-entries/by-slug/{slug}");
+            var slugResp = await GetAsync($"/api/kb-entries/by-slug/{dbEntry!.Slug}");
             slugResp.StatusCode.Should().Be(HttpStatusCode.OK);
 
             // 6. Add citation
@@ -573,6 +574,12 @@ public class KBEntriesControllerTests : ApiTestBase
             var citResp = await GetAsync($"/api/kb-entries/{id}/citations");
             citResp.StatusCode.Should().Be(HttpStatusCode.OK);
 
+            // 7b. Delete citation before deleting entry
+            // (Service throws BadRequestException when entry still has citations)
+            AuthenticateAs("Expert");
+            var deleteCitResp = await Client.DeleteAsync($"/api/kb-entries/citations/{citationId}");
+            deleteCitResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
             // 8. Delete entry
             AuthenticateAs("Admin");
             var deleteResp = await Client.DeleteAsync($"/api/kb-entries/{id}");
@@ -580,7 +587,7 @@ public class KBEntriesControllerTests : ApiTestBase
 
             // 9. Verify anonymous can no longer get by slug
             Client.DefaultRequestHeaders.Authorization = null;
-            var afterDeleteResp = await GetAsync($"/api/kb-entries/by-slug/{slug}");
+            var afterDeleteResp = await GetAsync($"/api/kb-entries/by-slug/{dbEntry!.Slug}");
             afterDeleteResp.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.Forbidden);
         }
     }
