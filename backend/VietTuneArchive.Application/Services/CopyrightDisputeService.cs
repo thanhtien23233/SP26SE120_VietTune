@@ -27,34 +27,46 @@ namespace VietTuneArchive.Application.Services
 
         public async Task<ServiceResponse<CopyrightDisputeDto>> CreateDisputeAsync(CreateCopyrightDisputeRequest request)
         {
-            var dispute = new CopyrightDispute
+            try
             {
-                Id = Guid.NewGuid(),
-                RecordingId = request.RecordingId,
-                SubmissionId = request.SubmissionId,
-                ReportedByUserId = request.ReportedByUserId,
-                Description = request.Description,
-                EvidenceUrls = request.EvidenceUrls,
-                CreatedAt = DateTime.UtcNow,
-                Status = CopyrightDisputeStatus.Pending
-            };
+                var dispute = new CopyrightDispute
+                {
+                    Id = Guid.NewGuid(),
+                    RecordingId = request.RecordingId,
+                    SubmissionId = request.SubmissionId,
+                    ReportedByUserId = request.ReportedByUserId,
+                    Description = request.Description,
+                    EvidenceUrls = request.EvidenceUrls,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = CopyrightDisputeStatus.Pending
+                };
 
-            if (Enum.TryParse<CopyrightDisputeReason>(request.ReasonCode, true, out var reason))
-            {
-                dispute.ReasonCode = reason;
-            }
-            else
-            {
-                dispute.ReasonCode = CopyrightDisputeReason.Other;
-            }
+                if (Enum.TryParse<CopyrightDisputeReason>(request.ReasonCode, true, out var reason))
+                {
+                    dispute.ReasonCode = reason;
+                }
+                else
+                {
+                    dispute.ReasonCode = CopyrightDisputeReason.Other;
+                }
 
-            await _repository.AddAsync(dispute);
-            return new ServiceResponse<CopyrightDisputeDto> 
-            { 
-                Success = true,
-                Data = _mapper.Map<CopyrightDisputeDto>(dispute),
-                Message = "Dispute created successfully" 
-            };
+                await _repository.AddAsync(dispute);
+                return new ServiceResponse<CopyrightDisputeDto>
+                {
+                    Success = true,
+                    Data = _mapper.Map<CopyrightDisputeDto>(dispute),
+                    Message = "Dispute created successfully"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create copyright dispute");
+                return new ServiceResponse<CopyrightDisputeDto>
+                {
+                    Success = false,
+                    Message = $"Failed to create dispute: {ex.InnerException?.Message ?? ex.Message}"
+                };
+            }
         }
 
         public async Task<PagedResponse<CopyrightDisputeDto>> ListDisputesAsync(

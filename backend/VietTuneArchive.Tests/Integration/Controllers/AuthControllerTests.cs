@@ -156,6 +156,7 @@ public class AuthControllerTests : ApiTestBase
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             
+            DbContext.ChangeTracker.Clear();
             var updatedUser = await DbContext.Users.FirstAsync(u => u.Email == email);
             updatedUser.IsEmailConfirmed.Should().BeTrue();
             updatedUser.IsActive.Should().BeTrue();
@@ -234,6 +235,7 @@ public class AuthControllerTests : ApiTestBase
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
 
+            DbContext.ChangeTracker.Clear();
             var updatedUser = await DbContext.Users.FirstAsync(u => u.Email == email);
             updatedUser.ResetPasswordToken.Should().BeNull();
             

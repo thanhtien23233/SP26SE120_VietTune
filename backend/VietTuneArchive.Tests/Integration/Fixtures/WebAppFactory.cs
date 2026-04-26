@@ -1,3 +1,5 @@
+using System.Net;
+using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -13,6 +15,28 @@ using static VietTuneArchive.Application.Mapper.DTOs.Response.RagChatResponse;
 
 namespace VietTuneArchive.Tests.Integration.Fixtures;
 
+/// <summary>
+/// Intercepts ALL outbound HTTP calls from EmailService and returns a fake 200 response
+/// so that Gmail OAuth / send calls don't fail in the test environment.
+/// </summary>
+internal class NoOpEmailHttpHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        // Return a fake token response for OAuth and a success for send
+        var responseBody = request.RequestUri?.Host?.Contains("oauth2") == true
+            ? """{"access_token":"fake-test-token","expires_in":3600,"token_type":"Bearer"}"""
+            : """{"id":"fake-message-id"}""";
+
+        var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(responseBody, Encoding.UTF8, "application/json")
+        };
+        return Task.FromResult(response);
+    }
+}
+
 public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder()
@@ -26,6 +50,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public Mock<ILocalLlmService> LlmServiceMock { get; } = new Mock<ILocalLlmService>();
     public Mock<IKnowledgeRetrievalService> RetrievalServiceMock { get; } = new Mock<IKnowledgeRetrievalService>();
     public Mock<IEmbeddingService> EmbeddingServiceMock { get; } = new Mock<IEmbeddingService>();
+    public Mock<IVectorEmbeddingService> VectorEmbeddingServiceMock { get; } = new Mock<IVectorEmbeddingService>();
 
     public WebAppFactory()
     {
@@ -94,6 +119,13 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddSingleton<Mock<IKnowledgeRetrievalService>>(RetrievalServiceMock);
             services.AddSingleton<IKnowledgeRetrievalService>(RetrievalServiceMock.Object);
 
+            // Stub VectorEmbeddingService so no real embedding calls are made.
+            // RecordingService calls GenerateAndSaveAsync only for Approved recordings;
+            // stub returns a safe default so any accidental call doesn't blow up.
+            services.RemoveAll(typeof(IVectorEmbeddingService));
+            services.AddSingleton<Mock<IVectorEmbeddingService>>(VectorEmbeddingServiceMock);
+            services.AddSingleton<IVectorEmbeddingService>(VectorEmbeddingServiceMock.Object);
+
             // Register "Owner" policy with permissive rule (authenticated = owner in tests)
             // Production registers this policy based on real ownership; tests skip that check
             services.AddAuthorization(options =>
@@ -101,8 +133,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 options.AddPolicy("Owner", policy => policy.RequireAuthenticatedUser());
             });
 
-            // EmailService has no interface — configure with dummy settings so it
-            // doesn't crash on startup. Real emails will not be sent in test env.
+            // EmailService has no interface — it is registered via AddHttpClient<EmailService>().
+            // Override the named HttpClient handler with a NoOp so that Gmail OAuth and send
+            // calls don't fail in the test environment (they would throw with dummy credentials).
             services.Configure<GmailApiSettings>(opts =>
             {
                 opts.ClientId = "test-client-id";
@@ -110,6 +143,8 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 opts.RefreshToken = "test-refresh-token";
                 opts.SenderEmail = "noreply@test.com";
             });
+            services.AddHttpClient<EmailService>()
+                .ConfigurePrimaryHttpMessageHandler(() => new NoOpEmailHttpHandler());
 
             // Expose Embedding mock
             services.RemoveAll(typeof(IEmbeddingService));
