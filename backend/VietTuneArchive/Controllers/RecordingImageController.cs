@@ -15,7 +15,12 @@ namespace VietTuneArchive.API.Controllers
         {
             _service = service;
         }
-
+        /// <summary>
+        /// Get all recording images with pagination. Default page is 1 and page size is 10. You can specify page and pageSize query parameters to customize the pagination.
+        /// </summary>
+        /// <param name="page"></param>
+        /// <param name="pageSize"></param>
+        /// <returns></returns>
         [HttpGet]
         public async Task<ActionResult<PagedResponse<RecordingImageDto>>> GetAll(
             [FromQuery] int page = 1,
