@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "object",
   "properties": {
     "title": {
@@ -35,9 +35,15 @@
         "type": "object",
         "properties": {
           "id": { "type": "string" },
-          "name": { "type": "string" }
+          "name": { "type": "string" },
+          "confidence": { "type": "number", "description": "Độ tin cậy của phân tích nhạc cụ (0.0 - 1.0)" },
+          "max_confidence": { "type": "number" },
+          "overall_average": { "type": "number" },
+          "frame_ratio": { "type": "number" },
+          "dominant_frames": { "type": "integer" },
+          "total_frames": { "type": "integer" }
         },
-        "required": ["id", "name"]
+        "required": ["id", "name", "confidence"]
       },
       "description": "Nhạc cụ — lấy từ DB Reference"
     },
