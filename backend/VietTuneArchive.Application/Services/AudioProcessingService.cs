@@ -272,7 +272,7 @@ public class AudioProcessingService : IAudioProcessingService
                 KeySignature: SafeGetString(root, "keySignature"),
                 EthnicGroup: SafeGetDbRef(root, "ethnicGroup"),
                 Language: SafeGetString(root, "language"),
-                Instruments: SafeGetDbRefList(root, "instruments"),
+                Instruments: SafeGetInstrumentList(root, "instruments"),
                 Genre: SafeGetString(root, "genre"),
                 PerformanceContext: SafeGetString(root, "performanceContext"),
 
@@ -345,6 +345,63 @@ public class AudioProcessingService : IAudioProcessingService
         return list;
     }
 
+    private static List<InstrumentRefDto> SafeGetInstrumentList(JsonElement element, string property)
+    {
+        var list = new List<InstrumentRefDto>();
+
+        if (!element.TryGetProperty(property, out var prop))
+            return list;
+
+        if (prop.ValueKind != JsonValueKind.Array)
+            return list;
+
+        foreach (var item in prop.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var idStr = SafeGetString(item, "id");
+            var name = SafeGetString(item, "name");
+            var confidence = SafeGetDouble(item, "confidence");
+            var maxConfidence = SafeGetNullableDouble(item, "max_confidence");
+            var overallAverage = SafeGetNullableDouble(item, "overall_average");
+            var frameRatio = SafeGetNullableDouble(item, "frame_ratio");
+            var dominantFrames = SafeGetNullableInt(item, "dominant_frames");
+            var totalFrames = SafeGetNullableInt(item, "total_frames");
+
+            if (idStr != "unknown" && Guid.TryParse(idStr, out var guid))
+            {
+                list.Add(new InstrumentRefDto(guid, name, confidence, maxConfidence, overallAverage, frameRatio, dominantFrames, totalFrames));
+            }
+        }
+
+        return list;
+    }
+
+    private static double? SafeGetNullableDouble(JsonElement element, string property)
+    {
+        if (element.TryGetProperty(property, out var prop))
+        {
+            if (prop.ValueKind == JsonValueKind.Number && prop.TryGetDouble(out var value))
+                return value;
+            if (prop.ValueKind == JsonValueKind.String && double.TryParse(prop.GetString(), out var parsed))
+                return parsed;
+        }
+        return null;
+    }
+
+    private static int? SafeGetNullableInt(JsonElement element, string property)
+    {
+        if (element.TryGetProperty(property, out var prop))
+        {
+            if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt32(out var value))
+                return value;
+            if (prop.ValueKind == JsonValueKind.String && int.TryParse(prop.GetString(), out var parsed))
+                return parsed;
+        }
+        return null;
+    }
+
     private static double SafeGetDouble(JsonElement element, string property)
     {
         if (element.TryGetProperty(property, out var prop))
@@ -383,7 +440,7 @@ public class AudioProcessingService : IAudioProcessingService
             KeySignature: "unknown",
             EthnicGroup: null,
             Language: "unknown",
-            Instruments: new List<DbRefDto>(),
+            Instruments: new List<InstrumentRefDto>(),
             Genre: "unknown",
             PerformanceContext: "unknown"
         );
