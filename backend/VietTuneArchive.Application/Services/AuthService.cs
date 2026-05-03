@@ -151,6 +151,26 @@ namespace VietTuneArchive.Application.Services
             var successMsg = new AuthDTO { Message = "Đăng ký thành công! Vui lòng kiểm tra email để xác nhận." };
             return Result<AuthDTO>.Success(successMsg);
         }
+        public async Task<Result<bool>> ResendConfirmationEmailAsync(string email)
+        {
+            var user = await _userRepository.GetByEmailAsync(email);
+            if (user == null || user.IsEmailConfirmed)
+            {
+                return Result<bool>.Failure("Người dùng không tồn tại hoặc đã xác nhận email.");
+            }
+
+            // Generate new token
+            user.ConfirmEmailToken = GenerateEmailToken();
+            user.UpdatedAt = DateTime.UtcNow;
+
+            // Save new token to database first
+            await _userRepository.UpdateAsync(user);
+
+            // Send email with new token
+            await _emailService.SendConfirmationEmail(user.Email, user.ConfirmEmailToken);
+
+            return Result<bool>.Success(true, "Email xác nhận đã được gửi lại.");
+        }
         public async Task ForgotPasswordAsync(string email)
         {
             var user = await _userRepository.GetByEmailAsync(email);

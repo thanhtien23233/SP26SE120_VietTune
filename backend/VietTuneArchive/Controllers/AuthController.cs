@@ -93,7 +93,20 @@ namespace VietTuneArchive.API.Controllers
             return BadRequest(result);
         }
 
-        [HttpGet("confirm-email")]
+        [HttpPut("resend-confirmation-email")]
+        public async Task<IActionResult> ResendConfirmationEmail([FromForm] string email)
+        {
+            var result = await _authService.ResendConfirmationEmailAsync(email);
+
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
+
+        [HttpPut("confirm-email")]
         public async Task<IActionResult> ConfirmEmail(string token)
         {
             var user = await _userRepository.GetByConfirmationTokenAsync(token);
@@ -112,8 +125,8 @@ namespace VietTuneArchive.API.Controllers
             return Ok("Email đã được xác nhận thành công.");
         }
 
-        [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordModel model)
+        [HttpPut("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromForm] ForgotPasswordModel model)
         {
             if (string.IsNullOrWhiteSpace(model.Email))
                 return BadRequest("Email không được để trống.");
@@ -123,8 +136,8 @@ namespace VietTuneArchive.API.Controllers
             return Ok("Mã reset đã được gửi. Kiểm tra hộp thư của bạn.");
         }
 
-        [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordModel model)
+        [HttpPut("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromForm] ResetPasswordModel model)
         {
             var success = await _authService.ResetPasswordAsync(model.Email, model.OTP, model.NewPassword);
 

@@ -117,6 +117,41 @@ namespace VietTuneArchive.API.Controllers
             return BadRequest(result);
         }
 
+        [HttpPut("done-stage-one")]
+        [Authorize(Roles = "Admin,Expert")]
+        public async Task<IActionResult> DoneStageOne(Guid submissionId)
+        {
+            var result = await _submissionService.DoneStageOneAsync(submissionId);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
+        [HttpPut("done-stage-two")]
+        [Authorize(Roles = "Admin,Expert")]
+        public async Task<IActionResult> DoneStageTwo(Guid submissionId)
+        {
+            var result = await _submissionService.DoneStageTwoAsync(submissionId);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+        [HttpGet("get-related-submissions")]
+        [Authorize(Roles = "Admin,Expert")]
+        public async Task<IActionResult> GetRelatedSubmissions(Guid submissionId)
+        {
+            var result = await _submissionService.GetRelatedSubmissionsAsync(submissionId);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
         [HttpGet("my")]
         public async Task<IActionResult> GetMySubmissions(Guid userId,
             [FromQuery] int page = 1, [FromQuery] int pageSize = 10)

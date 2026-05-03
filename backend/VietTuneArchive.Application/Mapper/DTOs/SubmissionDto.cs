@@ -28,4 +28,19 @@ namespace VietTuneArchive.Application.Mapper.DTOs
         public string? ReviewerName { get; set; }
         public RecordingDto Recording { get; set; }
     }
+    public class GetRelatedSubmissionDto
+    {
+        public Guid Id { get; set; }
+        public Guid RecordingId { get; set; }
+        public Guid ContributorId { get; set; }
+        public int CurrentStage { get; set; }
+        public SubmissionStatus Status { get; set; }
+        public string? Notes { get; set; }
+        public DateTime SubmittedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public Guid? ReviewerId { get; set; }
+        public string? ReviewerName { get; set; }
+        public int RelatedScore { get; set; } = 0;
+        public RecordingDto Recording { get; set; }
+    }
 }

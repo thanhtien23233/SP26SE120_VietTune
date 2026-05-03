@@ -9,6 +9,7 @@ namespace VietTuneArchive.Application.IServices
         string GenerateJwtToken(User user);
         Task<User> Authenticate(string email, string password);
         Task<Result<AuthDTO>> Register(User user, string password);
+        Task<Result<bool>> ResendConfirmationEmailAsync(string email);
         Task ForgotPasswordAsync(string email);
         Task<bool> ResetPasswordAsync(string email, string otp, string newPassword);
     }
