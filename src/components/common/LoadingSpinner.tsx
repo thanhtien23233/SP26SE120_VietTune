@@ -1,22 +1,19 @@
 interface LoadingSpinnerProps {
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
-export default function LoadingSpinner({
-  size = "md",
-  className = "",
-}: LoadingSpinnerProps) {
+export default function LoadingSpinner({ size = 'md', className = '' }: LoadingSpinnerProps) {
   const sizes = {
-    sm: "h-4 w-4",
-    md: "h-8 w-8",
-    lg: "h-12 w-12",
+    sm: 'h-4 w-4',
+    md: 'h-8 w-8',
+    lg: 'h-12 w-12',
   };
 
   return (
     <div className={`flex justify-center items-center ${className}`}>
       <svg
-        className={`animate-spin ${sizes[size]} text-white`}
+        className={`animate-spin ${sizes[size]} text-primary-600`}
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"
@@ -27,7 +24,7 @@ export default function LoadingSpinner({
           cy="12"
           r="10"
           stroke="currentColor"
-          strokeWidth="4"
+          strokeWidth="3"
         />
         <path
           className="opacity-75"

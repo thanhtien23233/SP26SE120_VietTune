@@ -39,9 +39,6 @@ obj/
 *.vspscc
 *.vssscc
 
-# Specific Project Rules
-backend/VietTuneArchive.Application/Services/InstrumentDetectionService.cs
-
 # ==========================================
 # 3. PYTHON & AI SERVICES (LOCAL-AI-IMPLEMENT)
 # ==========================================
@@ -122,3 +119,11 @@ appsettings.Local.json
 /.vs/EVStation-basedRentalSystem/
 *.v2
 *.vsidx
+
+# Test coverage results
+**/TestResults/
+**/coverage.cobertura.xml
+**/coverage.json
+**/coverage.info
+*.codecoverage
+**/Report/

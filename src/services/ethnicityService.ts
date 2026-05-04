@@ -1,29 +1,56 @@
-import { api } from './api';
-import { Ethnicity, PaginatedResponse, ApiResponse } from '@/types';
+import { apiFetch, apiOk, asApiEnvelope, normalizePagedResponse, unwrapServiceResponse } from '@/api';
+import type {
+  ApiEthnicGroupDto,
+  ApiPagedResponseEthnicGroupDto,
+  ApiServiceResponseEthnicGroupDto,
+} from '@/api';
 
 export const ethnicityService = {
-  // Get all ethnicities
   getEthnicities: async (page: number = 1, pageSize: number = 100) => {
-    return api.get<PaginatedResponse<Ethnicity>>(`/ethnicities?page=${page}&pageSize=${pageSize}`);
+    const res = await apiOk<ApiPagedResponseEthnicGroupDto>(
+      asApiEnvelope<ApiPagedResponseEthnicGroupDto>(
+        apiFetch.GET('/api/EthnicGroup', { params: { query: { page, pageSize } } }),
+      ),
+    );
+    return normalizePagedResponse<ApiEthnicGroupDto>(res);
   },
 
-  // Get ethnicity by ID
   getEthnicityById: async (id: string) => {
-    return api.get<ApiResponse<Ethnicity>>(`/ethnicities/${id}`);
+    const res = await apiOk<ApiServiceResponseEthnicGroupDto>(
+      asApiEnvelope<ApiServiceResponseEthnicGroupDto>(
+        apiFetch.GET('/api/EthnicGroup/{id}', { params: { path: { id } } }),
+      ),
+    );
+    return unwrapServiceResponse<ApiEthnicGroupDto>(res);
   },
 
-  // Create ethnicity (admin)
-  createEthnicity: async (data: Partial<Ethnicity>) => {
-    return api.post<ApiResponse<Ethnicity>>('/ethnicities', data);
+  createEthnicity: async (data: Partial<ApiEthnicGroupDto>) => {
+    const res = await apiOk<ApiServiceResponseEthnicGroupDto>(
+      asApiEnvelope<ApiServiceResponseEthnicGroupDto>(
+        apiFetch.POST('/api/EthnicGroup', { body: data as ApiEthnicGroupDto }),
+      ),
+    );
+    return unwrapServiceResponse<ApiEthnicGroupDto>(res);
   },
 
-  // Update ethnicity (admin)
-  updateEthnicity: async (id: string, data: Partial<Ethnicity>) => {
-    return api.put<ApiResponse<Ethnicity>>(`/ethnicities/${id}`, data);
+  updateEthnicity: async (id: string, data: Partial<ApiEthnicGroupDto>) => {
+    const res = await apiOk<ApiServiceResponseEthnicGroupDto>(
+      asApiEnvelope<ApiServiceResponseEthnicGroupDto>(
+        apiFetch.PUT('/api/EthnicGroup/{id}', {
+          params: { path: { id } },
+          body: data as ApiEthnicGroupDto,
+        }),
+      ),
+    );
+    return unwrapServiceResponse<ApiEthnicGroupDto>(res);
   },
 
-  // Delete ethnicity (admin)
   deleteEthnicity: async (id: string) => {
-    return api.delete<ApiResponse<void>>(`/ethnicities/${id}`);
+    const res = await apiOk<{ data?: boolean | null } | unknown>(
+      asApiEnvelope<unknown>(
+        apiFetch.DELETE('/api/EthnicGroup/{id}', { params: { path: { id } } }),
+      ),
+    );
+    return res;
   },
 };

@@ -1,24 +1,26 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
-import { Toaster } from 'react-hot-toast'
-import App from './App.tsx'
-import './index.css'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-      <Toaster 
-        position="top-right"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-          },
-        }}
-      />
-    </BrowserRouter>
-  </React.StrictMode>,
-)
+import App from './App.tsx';
+
+import ErrorBoundary from '@/components/common/ErrorBoundary';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { initErrorReporting } from '@/services/errorReporting';
+import { hydrate as hydrateStorage } from '@/services/storageService';
+import './index.css';
+
+async function bootstrap() {
+  initErrorReporting();
+  await hydrateStorage();
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <ErrorBoundary region="root">
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </ErrorBoundary>
+    </React.StrictMode>,
+  );
+}
+
+void bootstrap();

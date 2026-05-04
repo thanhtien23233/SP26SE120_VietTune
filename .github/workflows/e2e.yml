@@ -1,0 +1,126 @@
+# Phase 3 — PLAN-e2e-contributor-workflow: smoke E2E không cần tài khoản contributor.
+# Báo cáo: playwright-report/ + test-results/junit.xml (artifacts).
+
+name: E2E
+
+on:
+  push:
+    branches: [main, master, develop, FE-API]
+  pull_request:
+    branches: [main, master, develop, FE-API]
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate API types are up to date
+        run: |
+          npm run api:generate
+          git diff --exit-code src/api/generated.d.ts
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run E2E smoke (CI projects)
+        run: npm run test:e2e:ci
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-junit
+          path: test-results/junit.xml
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # Tuỳ chọn: thêm secrets E2E_CONTRIBUTOR_EMAIL, E2E_CONTRIBUTOR_PASSWORD và bật job này khi cần.
+  # contributor-e2e:
+  #   if: github.event_name == 'workflow_dispatch' || vars.RUN_CONTRIBUTOR_E2E == 'true'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with: { node-version: "20", cache: npm }
+  #     - run: npm ci
+  #     - run: npx playwright install chromium --with-deps
+  #     - run: npm run test:e2e:contributor:ci
+  #       env:
+  #         CI: true
+  #         E2E_CONTRIBUTOR_EMAIL: ${{ secrets.E2E_CONTRIBUTOR_EMAIL }}
+  #         E2E_CONTRIBUTOR_PASSWORD: ${{ secrets.E2E_CONTRIBUTOR_PASSWORD }}
+
+  # Full features (multi-role) — chỉ chạy khi bạn chủ động bấm Run workflow và đã set secrets.
+  playwright-features:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run E2E features (guest + multi-role; Real API)
+        run: npm run test:e2e:features:ci
+        env:
+          CI: true
+          PW_BASE_URL: ${{ vars.PW_BASE_URL }}
+          E2E_CONTRIBUTOR_EMAIL: ${{ secrets.E2E_CONTRIBUTOR_EMAIL }}
+          E2E_CONTRIBUTOR_PASSWORD: ${{ secrets.E2E_CONTRIBUTOR_PASSWORD }}
+          E2E_EXPERT_EMAIL: ${{ secrets.E2E_EXPERT_EMAIL }}
+          E2E_EXPERT_PASSWORD: ${{ secrets.E2E_EXPERT_PASSWORD }}
+          E2E_RESEARCHER_EMAIL: ${{ secrets.E2E_RESEARCHER_EMAIL }}
+          E2E_RESEARCHER_PASSWORD: ${{ secrets.E2E_RESEARCHER_PASSWORD }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+
+      - name: Upload Playwright report (features)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-features
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload JUnit (features)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-junit-features
+          path: test-results/junit.xml
+          retention-days: 14
+          if-no-files-found: ignore

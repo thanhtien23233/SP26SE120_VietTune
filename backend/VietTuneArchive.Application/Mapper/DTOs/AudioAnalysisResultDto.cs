@@ -1,4 +1,4 @@
-﻿namespace VietTuneArchive.Application.Mapper.DTOs
+namespace VietTuneArchive.Application.Mapper.DTOs
 {
     public class AudioAnalysisResultDto
     {
@@ -7,6 +7,17 @@
            Guid Id,
            string Name
        );
+
+        public record InstrumentRefDto(
+            Guid Id,
+            string Name,
+            double Confidence,
+            double? MaxConfidence = null,
+            double? OverallAverage = null,
+            double? FrameRatio = null,
+            int? DominantFrames = null,
+            int? TotalFrames = null
+        );
 
         /// <summary>
         /// Token usage trả về từ Gemini API.
@@ -27,7 +38,7 @@
             string KeySignature,
             DbRefDto? EthnicGroup,
             string Language,
-            List<DbRefDto> Instruments,
+            List<InstrumentRefDto> Instruments,
             string Genre,
             string PerformanceContext,
 

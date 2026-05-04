@@ -1,5 +1,9 @@
+/* stylelint-disable */
+/* stylelint-disable-next-line at-rule-no-unknown */
 @tailwind base;
+/* stylelint-disable-next-line at-rule-no-unknown */
 @tailwind components;
+/* stylelint-disable-next-line at-rule-no-unknown */
 @tailwind utilities;
 
 :root {
@@ -7,9 +11,9 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(31, 41, 55, 0.87);
-  background-color: #efe8db;
+  color-scheme: light;
+  color: #171717;
+  background-color: #fff2d6;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -17,43 +21,167 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  /* Firefox scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #7f1d1d transparent;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: #fff2d6 !important;
+  overflow-x: hidden;
+  /* Default cursor on text (no I-beam on hover) */
+  cursor: default;
+  /* Firefox scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #7f1d1d transparent;
 }
 
 #root {
   min-height: 100vh;
+  background-color: #fff2d6 !important;
+  cursor: default;
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* No I-beam on text hover: default cursor for all elements. */
+*,
+*::before,
+*::after {
+  cursor: default;
+}
+
+/* Input and textarea: always I-beam on hover/focus, including over placeholder. */
+input,
+textarea {
+  cursor: text;
+}
+
+/* Buttons, links, and selection controls: pointer (hand) on hover. Must come after input so submit/button inputs get pointer. */
+a,
+button,
+select,
+option,
+[role='button'],
+[role='listbox'],
+[role='combobox'],
+[role='option'],
+[role='menuitem'],
+input[type='button'],
+input[type='submit'],
+input[type='reset'],
+input[type='image'] {
+  cursor: pointer;
+}
+
+/* Pointer on hover over content inside buttons, links, or selection controls — overrides * { cursor: default } on descendants. */
+a *,
+a::before,
+a::after,
+button *,
+button::before,
+button::after,
+[role='button'] *,
+[role='button']::before,
+[role='button']::after,
+select *,
+option,
+[role='listbox'] *,
+[role='combobox'] *,
+[role='option'],
+[role='menuitem'] *,
+input[type='button'] *,
+input[type='submit'] *,
+input[type='reset'] *,
+input[type='image'] * {
+  cursor: pointer;
+}
+
+/* Prefer not to disable text selection globally (accessibility). Use utility class `.no-select` where needed */
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection in input and textarea elements */
+input,
+textarea {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Custom Scrollbar - Hide default browser scrollbar and apply custom styling */
+/* For Webkit browsers (Chrome, Safari, Edge) */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 5px;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: #7f1d1d;
+  border-radius: 5px;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+  background: #6b1818;
+}
+
+/* Override bg-white to use cream background */
+@layer utilities {
+  .bg-white {
+    background-color: #fff2d6 !important;
+  }
+}
+
+/* stylelint-disable at-rule-no-unknown */
+/* css-validator-disable */
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none;
   }
 
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+    @apply bg-primary-600 text-white hover:bg-primary-700;
   }
 
   .btn-secondary {
-    @apply bg-secondary-600 text-white hover:bg-secondary-700 focus:ring-secondary-500;
+    @apply bg-secondary-500 text-white hover:bg-secondary-600;
   }
 
   .btn-outline {
-    @apply border border-secondary-300 text-secondary-700 hover:bg-secondary-50 focus:ring-secondary-500;
+    @apply border-2 border-primary-600 text-primary-600 hover:bg-primary-50;
   }
 
   .input {
-    @apply w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-3 py-2 border border-neutral-400 rounded-lg focus:outline-none focus:border-primary-500 placeholder:text-neutral-500;
   }
 
   .card {
-    @apply bg-white rounded-lg shadow-md p-6;
+    @apply rounded-2xl shadow-md p-6;
+    background-color: #fff2d6;
   }
 
   .badge {
@@ -73,168 +201,171 @@ body {
   }
 
   .badge-warning {
-    @apply bg-yellow-100 text-yellow-800;
+    @apply bg-secondary-100 text-secondary-800;
   }
 
   .badge-danger {
-    @apply bg-red-100 text-red-800;
+    @apply bg-primary-100 text-primary-800;
   }
 
-  /* Glass Morphism Effect for Containers */
+  /* Container - Clean solid background with subtle shadow */
+  .vt-container {
+    @apply relative overflow-hidden rounded-2xl;
+    background-color: #fff2d6;
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  .vt-container-bordered {
+    @apply vt-container border border-neutral-200;
+  }
+
+  /* Header/Footer container with red background */
+  .vt-header-container {
+    @apply relative overflow-hidden bg-primary-700 rounded-full;
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  .vt-footer-container {
+    @apply relative overflow-hidden bg-primary-700 rounded-2xl;
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Section with cream accent */
+  .vt-section-accent {
+    @apply relative overflow-hidden rounded-2xl border border-neutral-200 shadow-md;
+    background-color: #fffef9;
+    box-shadow:
+      0 1px 3px 0 rgba(0, 0, 0, 0.1),
+      0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+
+  /* Primary Button - Red */
+  .btn-vt-primary {
+    @apply px-6 py-3 bg-primary-600 text-white font-semibold rounded-full shadow-md;
+    @apply transition-all duration-200;
+    @apply hover:bg-primary-700 hover:shadow-lg;
+    @apply active:bg-primary-800 active:scale-[0.98];
+    @apply focus:outline-none;
+  }
+
+  /* Secondary Button - Yellow */
+  .btn-vt-secondary {
+    @apply px-6 py-3 bg-secondary-500 text-white font-semibold rounded-full shadow-md;
+    @apply transition-all duration-200;
+    @apply hover:bg-secondary-600 hover:shadow-lg;
+    @apply active:bg-secondary-700 active:scale-[0.98];
+    @apply focus:outline-none;
+  }
+
+  /* Outline Button - Red border */
+  .btn-vt-outline {
+    @apply px-6 py-3 text-primary-600 font-semibold rounded-full shadow-md;
+    background-color: #fff2d6;
+    @apply border-2 border-primary-600;
+    @apply transition-all duration-200;
+    @apply hover:bg-primary-50 hover:shadow-lg;
+    @apply active:bg-primary-100 active:scale-[0.98];
+    @apply focus:outline-none;
+  }
+
+  /* Ghost Button - For header navigation */
+  .btn-vt-ghost {
+    @apply px-4 py-2 text-white font-medium rounded-lg;
+    @apply transition-all duration-200;
+    @apply hover:bg-white/10;
+    @apply active:bg-white/20;
+    @apply focus:outline-none;
+  }
+
+  /* Icon Button */
+  .btn-vt-icon {
+    @apply p-2.5 bg-white/10 text-white rounded-full;
+    @apply transition-all duration-200;
+    @apply hover:bg-white/20 hover:scale-105;
+    @apply active:bg-white/30 active:scale-100;
+    @apply focus:outline-none;
+  }
+
+  /* Legacy support - map old classes to new ones */
   .spotlight-container {
-    @apply relative overflow-hidden;
-    /* Pure glass - translucent, clean, modern */
-    background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.05) 100%
-    );
-    /* Glass effect with subtle shadows */
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15),
-      inset 0 1px 2px rgba(255, 255, 255, 0.3),
-      inset 0 -1px 2px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(12px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    @apply vt-container;
   }
 
-  .spotlight-container::before {
-    content: "";
-    @apply absolute inset-0 opacity-0 pointer-events-none;
-    transition: opacity 0.3s ease;
-    background: radial-gradient(
-      circle 500px at var(--mouse-x, 50%) var(--mouse-y, 50%),
-      rgba(255, 255, 255, 0.2) 0%,
-      rgba(255, 255, 255, 0.12) 15%,
-      rgba(255, 255, 255, 0.06) 35%,
-      transparent 65%
-    );
-    z-index: 1;
-    filter: blur(2px);
-  }
-
-  .spotlight-container:hover::before {
-    @apply opacity-100;
-  }
-
-  .spotlight-container > * {
-    @apply relative z-10;
-  }
-
-  /* Glass Morphism Button Styles */
-  .btn-liquid-glass {
-    @apply relative overflow-hidden;
-    /* Clean glass effect */
-    backdrop-filter: blur(16px) saturate(180%);
-    background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.15) 0%,
-      rgba(255, 255, 255, 0.08) 100%
-    );
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    /* Subtle glass shadows */
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.05),
-      inset 0 1px 2px rgba(255, 255, 255, 0.3);
-    @apply text-white font-semibold rounded-full;
-    @apply px-6 py-3 transition-all duration-300;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  }
-
-  .btn-liquid-glass:hover {
-    background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.2) 0%,
-      rgba(255, 255, 255, 0.12) 100%
-    );
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15), 0 3px 10px rgba(0, 0, 0, 0.08),
-      inset 0 1px 2px rgba(255, 255, 255, 0.35);
-    transform: translateY(-1px);
-  }
-
-  .btn-liquid-glass:active {
-    transform: translateY(0) scale(0.98);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06),
-      inset 0 1px 2px rgba(255, 255, 255, 0.25);
-  }
-
-  .btn-liquid-glass::before {
-    content: "";
-    @apply absolute inset-0 opacity-0 transition-opacity duration-300 pointer-events-none;
-    background: radial-gradient(
-      circle 200px at var(--mouse-x, 50%) var(--mouse-y, 50%),
-      rgba(255, 255, 255, 0.25),
-      rgba(255, 255, 255, 0.1) 45%,
-      transparent 75%
-    );
-    z-index: 1;
-    filter: blur(1px);
-  }
-
-  .btn-liquid-glass:hover::before {
-    @apply opacity-100;
-  }
-
-  .btn-liquid-glass > * {
-    @apply relative z-10;
-  }
-
-  /* Glass Button - Primary (Amber/Green with glass effect) */
   .btn-liquid-glass-primary {
-    @apply btn-liquid-glass;
-    background: linear-gradient(
-      135deg,
-      rgba(217, 119, 6, 0.7) 0%,
-      rgba(180, 83, 9, 0.6) 100%
-    );
+    @apply btn-vt-primary;
   }
 
-  .btn-liquid-glass-primary:hover {
-    background: linear-gradient(
-      135deg,
-      rgba(5, 150, 105, 0.7) 0%,
-      rgba(4, 120, 87, 0.65) 100%
-    );
-  }
-
-  .btn-liquid-glass-primary:active {
-    background: linear-gradient(
-      135deg,
-      rgba(4, 120, 87, 0.75) 0%,
-      rgba(6, 95, 70, 0.7) 100%
-    );
-  }
-
-  /* Glass Button - Secondary (Pure glass) */
   .btn-liquid-glass-secondary {
-    @apply btn-liquid-glass;
+    @apply btn-vt-outline;
   }
 
-  /* Glass Button - Close/Delete (Red with glass) */
   .btn-liquid-glass-close {
-    @apply btn-liquid-glass;
-    background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0.06) 100%
-    );
-    @apply text-white;
-  }
-
-  .btn-liquid-glass-close:hover {
-    background: linear-gradient(
-      135deg,
-      rgba(239, 68, 68, 0.75) 0%,
-      rgba(220, 38, 38, 0.7) 100%
-    );
-    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3),
-      0 3px 10px rgba(239, 68, 68, 0.15),
-      inset 0 1px 2px rgba(255, 255, 255, 0.3);
-  }
-
-  .btn-liquid-glass-close:active {
-    background: linear-gradient(
-      135deg,
-      rgba(185, 28, 28, 0.8) 0%,
-      rgba(153, 27, 27, 0.75) 100%
-    );
+    @apply px-6 py-3 bg-neutral-100 text-neutral-700 font-semibold rounded-full shadow-md;
+    @apply transition-all duration-200;
+    @apply hover:bg-primary-600 hover:text-white hover:shadow-lg;
+    @apply active:bg-primary-700 active:scale-[0.98];
+    @apply focus:outline-none;
   }
 }
+
+/* Dialog animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* OTP step inside LoginModal — fade backdrop + scale card (~200ms); respect reduced motion */
+@media (prefers-reduced-motion: no-preference) {
+  .login-otp-overlay {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .login-otp-card {
+    animation: slideUp 0.2s ease-out;
+  }
+}
+
+/* Water ripple animation for waveform reflection */
+@keyframes waterRipple {
+  0%,
+  100% {
+    transform: translateX(0) scaleY(1);
+  }
+
+  25% {
+    transform: translateX(1px) scaleY(1.01);
+  }
+
+  50% {
+    transform: translateX(0) scaleY(1);
+  }
+
+  75% {
+    transform: translateX(-1px) scaleY(0.99);
+  }
+}
+
+/* stylelint-enable */

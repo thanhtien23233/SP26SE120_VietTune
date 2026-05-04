@@ -1,607 +1,505 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Link } from "react-router-dom";
-import { Compass, Music2, Globe, Users, Filter, Search, ChevronDown, Play, Disc, MapPin, AlertCircle } from "lucide-react";
-import { createPortal } from "react-dom";
-import { Recording } from "@/types";
-import { recordingService } from "@/services/recordingService";
-import { addSpotlightEffect } from "@/utils/spotlight";
-import RecordingCard from "@/components/features/RecordingCard";
-import Pagination from "@/components/common/Pagination";
-import LoadingSpinner from "@/components/common/LoadingSpinner";
+import { Search, Music, ArrowRight, ListFilter, X } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 
-// ===== CONSTANTS =====
-const GENRES = [
-  "Tất cả thể loại",
-  "Dân ca",
-  "Hát xẩm",
-  "Ca trù",
-  "Chầu văn",
-  "Quan họ",
-  "Hát then",
-  "Cải lương",
-  "Tuồng",
-  "Chèo",
-  "Nhã nhạc",
-  "Ca Huế",
-  "Đờn ca tài tử",
-  "Hát bội",
-  "Hò",
-  "Lý",
-  "Vọng cổ",
-  "Hát ru",
-  "Khác",
-];
+import BackButton from '@/components/common/BackButton';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import ExploreResultRow from '@/components/features/ExploreResultRow';
+import ExploreSearchHeader, {
+  type ExploreSearchMode,
+} from '@/components/features/ExploreSearchHeader';
+import FilterSidebar from '@/components/features/FilterSidebar';
+import { EXPLORE_FILTER_OPTIONS } from '@/constants/exploreFilterOptions';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  createEmptyExploreFacetDraft,
+  exploreDraftToSearchFilters,
+  searchFiltersToExploreDraft,
+  type ExploreFacetDraft,
+} from '@/features/explore/utils/exploreFacetDraft';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useExploreData } from '@/hooks/useExploreData';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { SearchFilters, Region, RecordingType, VerificationStatus } from '@/types';
+import { cn } from '@/utils/helpers';
+import { SURFACE_PANEL_GRADIENT } from '@/utils/surfaceTokens';
 
-const REGIONS = [
-  "Tất cả khu vực",
-  "Trung du và miền núi Bắc Bộ",
-  "Đồng bằng Bắc Bộ",
-  "Bắc Trung Bộ",
-  "Nam Trung Bộ",
-  "Cao nguyên Trung Bộ",
-  "Đông Nam Bộ",
-  "Tây Nam Bộ",
-];
+const EXPLORE_PAGE_SIZE = 20;
 
-const ETHNICITIES = [
-  "Tất cả dân tộc",
-  "Kinh",
-  "Tày",
-  "Thái",
-  "Mường",
-  "Khmer",
-  "H'Mông",
-  "Nùng",
-  "Dao",
-  "Gia Rai",
-  "Ê Đê",
-  "Ba Na",
-  "Chăm",
-  "Khác",
-];
-
-// Mapping genre to typical ethnicity (same as UploadMusic)
-const GENRE_ETHNICITY_MAP: Record<string, string[]> = {
-  "Ca trù": ["Kinh"],
-  "Quan họ": ["Kinh"],
-  "Chầu văn": ["Kinh"],
-  "Nhã nhạc": ["Kinh"],
-  "Ca Huế": ["Kinh"],
-  "Đờn ca tài tử": ["Kinh"],
-  "Hát bội": ["Kinh"],
-  "Cải lương": ["Kinh"],
-  "Tuồng": ["Kinh"],
-  "Chèo": ["Kinh"],
-  "Hát xẩm": ["Kinh"],
-  "Hát then": ["Tày", "Nùng"],
-  "Khèn": ["H'Mông"],
-  "Cồng chiêng": ["Ba Na", "Gia Rai", "Ê Đê", "Xơ Đăng", "Giẻ Triêng"],
-};
-
-// ===== SEARCHABLE DROPDOWN COMPONENT =====
-function SearchableDropdown({
-  value,
-  onChange,
-  options,
-  placeholder = "-- Chọn --",
-  searchable = true,
-  disabled = false,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-  placeholder?: string;
-  searchable?: boolean;
-  disabled?: boolean;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [menuRect, setMenuRect] = useState<DOMRect | null>(null);
-
-  const filteredOptions = useMemo(() => {
-    if (!search) return options;
-    return options.filter((opt) =>
-      opt.toLowerCase().includes(search.toLowerCase())
+function filtersFromSearchParams(searchParams: URLSearchParams): SearchFilters {
+  const q = searchParams.get('q')?.trim();
+  const region = searchParams.get('region');
+  const typeParam = searchParams.get('type');
+  const status = searchParams.get('status');
+  const from = searchParams.get('from');
+  const to = searchParams.get('to');
+  const tagsParam = searchParams.get('tags');
+  const ethnicityParam = searchParams.get('ethnicity');
+  const filters: SearchFilters = {};
+  if (q) filters.query = q;
+  if (region && Object.values(Region).includes(region as Region))
+    filters.regions = [region as Region];
+  if (typeParam) {
+    const parts = typeParam
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const valid = parts.filter((p): p is RecordingType =>
+      Object.values(RecordingType).includes(p as RecordingType),
     );
-  }, [options, search]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      const clickedOutsideDropdown =
-        dropdownRef.current && !dropdownRef.current.contains(target);
-      const clickedOutsideMenu =
-        menuRef.current && !menuRef.current.contains(target);
-      if (clickedOutsideDropdown && (menuRef.current ? clickedOutsideMenu : true)) {
-        setIsOpen(false);
-        setSearch("");
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    const updateRect = () => {
-      if (buttonRef.current) setMenuRect(buttonRef.current.getBoundingClientRect());
-    };
-    if (isOpen) updateRect();
-    window.addEventListener("resize", updateRect);
-    window.addEventListener("scroll", updateRect, true);
-    return () => {
-      window.removeEventListener("resize", updateRect);
-      window.removeEventListener("scroll", updateRect, true);
-    };
-  }, [isOpen]);
-
-  return (
-    <div ref={dropdownRef} className="relative">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={disabled}
-        className={`w-full px-5 py-3 pr-10 bg-white text-secondary-900 border border-secondary-300 rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors text-left flex items-center justify-between ${
-          disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-        }`}
-      >
-        <span className={value ? "text-secondary-900" : "text-secondary-400"}>
-          {value || placeholder}
-        </span>
-        <ChevronDown
-          className={`h-5 w-5 text-secondary-500 transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-
-      {isOpen &&
-        menuRect &&
-        createPortal(
-          <div
-            ref={(el) => (menuRef.current = el)}
-            className="backdrop-blur-xl bg-white rounded-2xl shadow-2xl border border-white/40 overflow-hidden"
-            style={{
-              position: "absolute",
-              left: Math.max(8, menuRect.left + (window.scrollX ?? 0)),
-              top: menuRect.bottom + (window.scrollY ?? 0) + 8,
-              width: menuRect.width,
-              zIndex: 200000,
-              boxShadow:
-                "0 8px 32px 0 rgba(31, 38, 135, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)",
-            }}
-          >
-            {searchable && (
-              <div className="p-3 border-b border-secondary-200">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-secondary-400" />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Tìm kiếm..."
-                    className="w-full pl-9 pr-3 py-2 bg-secondary-50 text-secondary-900 placeholder-secondary-400 border border-secondary-200 rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
-                    autoFocus
-                  />
-                </div>
-              </div>
-            )}
-            <div
-              className="max-h-60 overflow-y-auto"
-              style={{
-                scrollbarWidth: "thin",
-                scrollbarColor: "#10b981 rgba(255, 255, 255, 0.3)",
-              }}
-            >
-              {filteredOptions.length === 0 ? (
-                <div className="px-5 py-3 text-secondary-400 text-sm text-center">
-                  Không tìm thấy kết quả
-                </div>
-              ) : (
-                filteredOptions.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => {
-                      onChange(option);
-                      setIsOpen(false);
-                      setSearch("");
-                    }}
-                    className={`w-full px-5 py-3 text-left text-sm transition-colors ${
-                      value === option
-                        ? "bg-emerald-500 text-white font-medium"
-                        : "text-secondary-900 hover:bg-emerald-100 hover:text-emerald-900"
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>,
-          document.body
-        )}
-    </div>
-  );
+    if (valid.length) filters.recordingTypes = valid;
+  }
+  if (status && Object.values(VerificationStatus).includes(status as VerificationStatus))
+    filters.verificationStatus = [status as VerificationStatus];
+  if (from) filters.dateFrom = from;
+  if (to) filters.dateTo = to;
+  if (tagsParam)
+    filters.tags = tagsParam
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+  if (ethnicityParam) {
+    filters.ethnicityIds = ethnicityParam
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }
+  return filters;
 }
 
-// ===== CATEGORY CARD COMPONENT =====
-function CategoryCard({
-  title,
-  count,
-  icon: Icon,
-  onClick,
-  isActive,
-}: {
-  title: string;
-  count: number;
-  icon: React.ElementType;
-  onClick: () => void;
-  isActive: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`p-4 rounded-xl border transition-all text-left ${
-        isActive
-          ? "bg-emerald-500/20 border-emerald-500/40"
-          : "bg-white/5 border-white/10 hover:bg-white/10"
-      }`}
-    >
-      <div className={`p-2 rounded-lg w-fit mb-3 ${isActive ? "bg-emerald-500/30" : "bg-white/10"}`}>
-        <Icon className={`h-5 w-5 ${isActive ? "text-emerald-400" : "text-white/70"}`} />
-      </div>
-      <h3 className={`font-medium ${isActive ? "text-emerald-300" : "text-white"}`}>{title}</h3>
-      <p className="text-sm text-white/60">{count.toLocaleString()} bản thu</p>
-    </button>
-  );
+function searchParamsFromFilters(filters: SearchFilters): Record<string, string> {
+  const params: Record<string, string> = {};
+  if (filters.query) params.q = filters.query;
+  if (filters.regions?.length) params.region = filters.regions[0];
+  if (filters.recordingTypes?.length) params.type = filters.recordingTypes.join(',');
+  if (filters.verificationStatus?.length) params.status = filters.verificationStatus[0];
+  if (filters.dateFrom) params.from = filters.dateFrom;
+  if (filters.dateTo) params.to = filters.dateTo;
+  if (filters.tags?.length) params.tags = filters.tags.join(',');
+  if (filters.ethnicityIds?.length) params.ethnicity = filters.ethnicityIds.join(',');
+  return params;
 }
 
-// ===== MAIN COMPONENT =====
+function buildExploreSearchParams(
+  filters: SearchFilters,
+  mode: ExploreSearchMode,
+  semanticSq: string,
+): URLSearchParams {
+  const base = searchParamsFromFilters(filters);
+  const p = new URLSearchParams();
+  Object.entries(base).forEach(([k, v]) => p.set(k, v));
+  if (mode === 'semantic') p.set('mode', 'semantic');
+  else p.delete('mode');
+  const sem = semanticSq.trim();
+  if (sem) p.set('sq', sem);
+  else p.delete('sq');
+  return p;
+}
+
+/**
+ * Explore — Phase 5 data model (URL = applied state):
+ * - `searchMode` → URL `mode` (`keyword` | `semantic`).
+ * - Keyword query → `filters.query` / `q`; semantic text → `sq` (applied when user submits).
+ * - `facetDraft` = pending sidebar edits until **Áp dụng** commits to URL → `filters`.
+ * - `currentPage` = pagination (guest semantic path ignores page on pool fetch).
+ */
 export default function ExplorePage() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const guidelinesRef = useRef<HTMLDivElement>(null);
-  const [recordings, setRecordings] = useState<Recording[]>([]);
-  const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const returnTo = location.pathname + location.search;
+
+  const initialFiltersFromUrl = useMemo(
+    () => filtersFromSearchParams(searchParams),
+    [searchParams],
+  );
+
+  const [filters, setFilters] = useState<SearchFilters>(initialFiltersFromUrl);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalResults, setTotalResults] = useState(0);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [facetDraft, setFacetDraft] = useState<ExploreFacetDraft>(() =>
+    searchFiltersToExploreDraft(initialFiltersFromUrl, EXPLORE_FILTER_OPTIONS),
+  );
+  const sqFromUrl = searchParams.get('sq') ?? '';
+  const [semanticInput, setSemanticInput] = useState(sqFromUrl);
+  const debouncedSemanticInput = useDebounce(semanticInput, 600);
 
-  // Filters
-  const [selectedGenre, setSelectedGenre] = useState("Tất cả thể loại");
-  const [selectedRegion, setSelectedRegion] = useState("Tất cả khu vực");
-  const [selectedEthnicity, setSelectedEthnicity] = useState("Tất cả dân tộc");
-  const [searchQuery, setSearchQuery] = useState("");
+  const exploreMode: ExploreSearchMode =
+    searchParams.get('mode') === 'semantic' ? 'semantic' : 'keyword';
 
-  // Categories data (mock)
-  const categories = [
-    { title: "Dân ca", count: 3245, icon: Music2 },
-    { title: "Ca trù", count: 892, icon: Disc },
-    { title: "Quan họ", count: 1567, icon: Users },
-    { title: "Chầu văn", count: 734, icon: MapPin },
-  ];
+  const { recordings, loading, totalResults, searchError, setSearchError } = useExploreData({
+    currentPage,
+    exploreMode,
+    filters,
+    sqFromUrl,
+    isAuthenticated,
+  });
 
-  // Check for genre-ethnicity mismatch
-  const genreEthnicityWarning = useMemo(() => {
-    if (selectedGenre && selectedGenre !== "Tất cả thể loại" && 
-        selectedEthnicity && selectedEthnicity !== "Tất cả dân tộc") {
-      const expectedEthnicities = GENRE_ETHNICITY_MAP[selectedGenre];
-      if (expectedEthnicities && !expectedEthnicities.includes(selectedEthnicity)) {
-        return `Lưu ý: Thể loại "${selectedGenre}" thường là đặc trưng của người ${expectedEthnicities.join(", ")}. Tuy nhiên, giao lưu văn hóa giữa các dân tộc là điều bình thường.`;
-      }
-    }
-    return null;
-  }, [selectedGenre, selectedEthnicity]);
+  const isNarrowViewport = useMediaQuery('(max-width: 1023px)');
+  const filterDrawerTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterDrawerCloseRef = useRef<HTMLButtonElement>(null);
+  const resultsTopRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const cleanupFunctions: (() => void)[] = [];
-    if (containerRef.current)
-      cleanupFunctions.push(addSpotlightEffect(containerRef.current));
-    if (guidelinesRef.current)
-      cleanupFunctions.push(addSpotlightEffect(guidelinesRef.current));
-    return () => cleanupFunctions.forEach((cleanup) => cleanup());
+  const closeFilterDrawer = useCallback(() => {
+    setFilterDrawerOpen(false);
+    queueMicrotask(() => filterDrawerTriggerRef.current?.focus());
   }, []);
 
-  const fetchRecordings = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await recordingService.getRecordings(currentPage, 12);
-      setRecordings(response.items);
-      setTotalPages(response.totalPages);
-      setTotalResults(response.total);
-    } catch (error) {
-      console.error("Error fetching recordings:", error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    setSemanticInput(sqFromUrl);
+  }, [sqFromUrl]);
+
+  useEffect(() => {
+    if (!filterDrawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeFilterDrawer();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [filterDrawerOpen, closeFilterDrawer]);
+
+  useEffect(() => {
+    if (!filterDrawerOpen || !isNarrowViewport) return;
+    const id = requestAnimationFrame(() => filterDrawerCloseRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [filterDrawerOpen, isNarrowViewport]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = () => {
+      if (mq.matches) setFilterDrawerOpen(false);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!filterDrawerOpen) return;
+    const narrow = window.matchMedia('(max-width: 1023px)');
+    if (!narrow.matches) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [filterDrawerOpen]);
+
+  const handleSearch = useCallback(
+    (newFilters: SearchFilters) => {
+      setFilters(newFilters);
+      setCurrentPage(1);
+      const mode = searchParams.get('mode') === 'semantic' ? 'semantic' : 'keyword';
+      const sq = searchParams.get('sq') ?? '';
+      setSearchParams(buildExploreSearchParams(newFilters, mode, sq), { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const handleFilterSearch = useCallback(
+    (newFilters: SearchFilters) => {
+      handleSearch(newFilters);
+      setFilterDrawerOpen(false);
+    },
+    [handleSearch],
+  );
+
+  const submitKeywordSearch = useCallback(() => {
+    const next = exploreDraftToSearchFilters(facetDraft);
+    setCurrentPage(1);
+    setSearchParams(buildExploreSearchParams(next, 'keyword', ''), { replace: true });
+  }, [facetDraft, setSearchParams]);
+
+  const submitSemanticSearch = useCallback(() => {
+    const next: SearchFilters = { ...filters };
+    delete next.query;
+    setCurrentPage(1);
+    setSearchParams(buildExploreSearchParams(next, 'semantic', semanticInput), { replace: true });
+  }, [filters, semanticInput, setSearchParams]);
+
+  useEffect(() => {
+    if (exploreMode === 'semantic' && debouncedSemanticInput !== sqFromUrl) {
+      if (debouncedSemanticInput.trim() !== '' || sqFromUrl !== '') {
+        const next: SearchFilters = { ...filters };
+        delete next.query;
+        setCurrentPage(1);
+        setSearchParams(buildExploreSearchParams(next, 'semantic', debouncedSemanticInput), {
+          replace: true,
+        });
+      }
     }
+  }, [debouncedSemanticInput, exploreMode, sqFromUrl, filters, setSearchParams]);
+
+  const onExploreModeChange = useCallback(
+    (m: ExploreSearchMode) => {
+      setCurrentPage(1);
+      setSearchParams(buildExploreSearchParams(filters, m, semanticInput), { replace: true });
+    },
+    [filters, semanticInput, setSearchParams],
+  );
+
+  const clearAllExplore = useCallback(() => {
+    setFacetDraft(createEmptyExploreFacetDraft());
+    setSemanticInput('');
+    setSearchError(null);
+    setSearchParams({}, { replace: true });
+  }, [setSearchError, setSearchParams]);
+
+  useEffect(() => {
+    const next = filtersFromSearchParams(searchParams);
+    setFilters(next);
+    setCurrentPage(1);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (currentPage <= 1) return;
+    resultsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [currentPage]);
 
   useEffect(() => {
-    fetchRecordings();
-  }, [fetchRecordings]);
+    setFacetDraft(searchFiltersToExploreDraft(filters, EXPLORE_FILTER_OPTIONS));
+  }, [filters]);
 
-  const handleClearFilters = () => {
-    setSelectedGenre("Tất cả thể loại");
-    setSelectedRegion("Tất cả khu vực");
-    setSelectedEthnicity("Tất cả dân tộc");
-    setSearchQuery("");
-  };
+  const hasFilters = Object.keys(filters).length > 0;
+  const hasSemanticQuery = sqFromUrl.trim().length > 0;
+  const filterBadgeActive = hasFilters || hasSemanticQuery;
+  const totalPages = Math.max(1, Math.ceil(totalResults / EXPLORE_PAGE_SIZE));
 
-  const hasActiveFilters =
-    selectedGenre !== "Tất cả thể loại" ||
-    selectedRegion !== "Tất cả khu vực" ||
-    selectedEthnicity !== "Tất cả dân tộc" ||
-    searchQuery !== "";
+  const deferredRecordings = useDeferredValue(recordings);
 
-  const features = [
-    {
-      icon: Music2,
-      title: "Đa dạng thể loại",
-      description: "Từ dân ca đến nhã nhạc cung đình",
-    },
-    {
-      icon: Globe,
-      title: "7 khu vực",
-      description: "Trải dài khắp đất nước Việt Nam",
-    },
-    {
-      icon: Users,
-      title: "54 dân tộc",
-      description: "Âm nhạc đặc trưng của mỗi dân tộc",
-    },
-  ];
+  const handleFacetApply = useCallback(() => {
+    const next = exploreDraftToSearchFilters(facetDraft);
+    if (exploreMode === 'semantic') delete next.query;
+    handleFilterSearch(next);
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+      setFilterDrawerOpen(false);
+      queueMicrotask(() => filterDrawerTriggerRef.current?.focus());
+    }
+  }, [exploreMode, facetDraft, handleFilterSearch]);
+
+  const handleFacetReset = useCallback(() => {
+    clearAllExplore();
+    setFilterDrawerOpen(false);
+    queueMicrotask(() => filterDrawerTriggerRef.current?.focus());
+  }, [clearAllExplore]);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-transparent">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-4">
-            Khám phá bản thu
+        {/* Header — responsive; wraps on small screens */}
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-6 lg:mb-8">
+          <h1 className="text-xl sm:text-3xl font-bold text-neutral-900 min-w-0">
+            Khám phá âm nhạc dân tộc
           </h1>
-          <p className="text-white leading-relaxed">
-            Duyệt qua kho tàng âm nhạc truyền thống phong phú từ khắp mọi miền đất nước
-          </p>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+            <BackButton />
+          </div>
         </div>
 
-        {/* Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {features.map((feature, index) => (
-            <div
-              key={index}
-              className="backdrop-blur-xl bg-white/20 border border-white/40 rounded-2xl p-6 shadow-2xl"
-              style={{
-                boxShadow:
-                  "0 8px 32px 0 rgba(31, 38, 135, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)",
-              }}
-            >
-              <div className="p-3 bg-emerald-500/20 rounded-xl w-fit mb-4">
-                <feature.icon className="h-6 w-6 text-emerald-400" />
-              </div>
-              <h3 className="text-white font-semibold text-lg mb-2">
-                {feature.title}
-              </h3>
-              <p className="text-white/70 leading-relaxed">
-                {feature.description}
-              </p>
-            </div>
-          ))}
+        {/* Mobile / tablet: open filter drawer */}
+        <div className="mb-4 flex lg:hidden">
+          <button
+            ref={filterDrawerTriggerRef}
+            type="button"
+            id="explore-filter-drawer-trigger"
+            aria-expanded={filterDrawerOpen}
+            aria-controls="explore-filter-drawer"
+            onClick={() => setFilterDrawerOpen(true)}
+            className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-secondary-300/70 bg-gradient-to-br from-secondary-100 to-secondary-200/70 px-4 py-2 text-sm font-semibold text-primary-900 shadow-sm transition-colors hover:from-secondary-200 hover:to-secondary-300/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-400"
+          >
+            <ListFilter
+              className="h-5 w-5 shrink-0 text-primary-600"
+              strokeWidth={2.25}
+              aria-hidden
+            />
+            Bộ lọc
+            {filterBadgeActive ? (
+              <span className="rounded-full bg-primary-600 px-2 py-0.5 text-xs font-medium text-white">
+                Đang bật
+              </span>
+            ) : null}
+          </button>
         </div>
 
-        {/* Main Content */}
-        <div
-          ref={containerRef}
-          className="spotlight-container backdrop-blur-xl bg-white/20 rounded-2xl shadow-2xl border border-white/40 p-8 mb-8"
-          style={{
-            boxShadow:
-              "0 8px 32px 0 rgba(31, 38, 135, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)",
-          }}
-        >
-          {/* Search & Filters Section */}
-          <div className="border border-white/10 rounded-2xl p-8 bg-white/5 mb-8">
-            <div className="flex items-start gap-3 mb-6">
-              <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <Filter className="h-5 w-5 text-emerald-400" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white">Bộ lọc nhanh</h2>
-                <p className="text-sm text-white/70 mt-1">Lọc theo thể loại, khu vực và dân tộc</p>
-              </div>
-            </div>
+        {filterDrawerOpen ? (
+          <button
+            type="button"
+            aria-label="Đóng bộ lọc"
+            className="fixed inset-0 z-40 bg-neutral-900/40 backdrop-blur-[2px] lg:hidden"
+            onClick={closeFilterDrawer}
+          />
+        ) : null}
 
-            {/* Genre-Ethnicity Warning */}
-            {genreEthnicityWarning && (
-              <div className="mb-6 flex items-start gap-3 p-4 bg-yellow-500/20 border border-yellow-500/40 rounded-2xl">
-                <AlertCircle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                <p className="text-yellow-200 text-sm leading-relaxed">{genreEthnicityWarning}</p>
-              </div>
+        {/* Phase 1: desktop = filter column (left) + results (right); mobile = drawer for filters */}
+        <div className="lg:grid lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] lg:gap-8 xl:gap-10 lg:items-start">
+          <aside
+            id="explore-filter-drawer"
+            className={cn(
+              'flex min-h-0 max-h-[min(100vh-6rem,56rem)] flex-col overflow-hidden rounded-2xl border border-secondary-200/50 bg-gradient-to-b from-surface-panel to-secondary-50/55 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl sm:p-8 lg:max-h-[calc(100vh-7rem)]',
+              'lg:sticky lg:top-24 lg:self-start',
+              'max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-50 max-lg:h-full max-lg:max-h-none max-lg:max-w-[min(100vw,22rem)] max-lg:w-full max-lg:rounded-none max-lg:rounded-l-2xl max-lg:border-y-0 max-lg:border-r-0',
+              filterDrawerOpen
+                ? 'max-lg:translate-x-0 max-lg:pointer-events-auto'
+                : 'max-lg:translate-x-full max-lg:pointer-events-none',
+              'max-lg:transition-transform max-lg:duration-200 max-lg:ease-out',
             )}
-
-            {/* Search Input */}
-            <div className="relative mb-6">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-secondary-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm kiếm bản thu, nghệ nhân, nhạc cụ,..."
-                className="w-full pl-14 pr-5 py-3 bg-white text-secondary-900 placeholder-secondary-400 border border-secondary-300 rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
+            aria-hidden={isNarrowViewport && !filterDrawerOpen ? true : undefined}
+            {...(isNarrowViewport && filterDrawerOpen
+              ? ({
+                  role: 'dialog',
+                  'aria-modal': true,
+                  'aria-labelledby': 'explore-filter-drawer-title',
+                } as const)
+              : {})}
+          >
+            <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
+              <h2
+                id="explore-filter-drawer-title"
+                className="flex min-w-0 items-center gap-2 text-xl font-semibold text-neutral-900 sm:gap-3 sm:text-2xl"
+              >
+                <span className="flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-100/95 to-secondary-100/90 p-2 shadow-sm ring-1 ring-secondary-200/50">
+                  <Search className="h-5 w-5 text-primary-600" strokeWidth={2.5} aria-hidden />
+                </span>
+                <span className="leading-tight">Bộ lọc tìm kiếm</span>
+              </h2>
+              <button
+                ref={filterDrawerCloseRef}
+                type="button"
+                className="shrink-0 rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 lg:hidden"
+                onClick={closeFilterDrawer}
+                aria-label="Đóng bộ lọc"
+              >
+                <X className="h-5 w-5" strokeWidth={2.25} />
+              </button>
+            </div>
+            <p className="mb-4 shrink-0 text-sm font-medium leading-relaxed text-neutral-600 sm:text-base">
+              Chọn tiêu chí trong từng nhóm, sau đó nhấn{' '}
+              <strong className="font-semibold text-neutral-800">Áp dụng</strong> để lọc kết quả.
+            </p>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <FilterSidebar
+                options={EXPLORE_FILTER_OPTIONS}
+                selected={facetDraft}
+                onChange={setFacetDraft}
+                onApply={handleFacetApply}
+                onReset={handleFacetReset}
               />
             </div>
+          </aside>
 
-            {/* Filter Dropdowns */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-white">Thể loại</label>
-                <SearchableDropdown
-                  value={selectedGenre}
-                  onChange={setSelectedGenre}
-                  options={GENRES}
-                  placeholder="Chọn thể loại"
-                />
-              </div>
+          <main className="min-w-0 lg:mt-0 mt-2">
+            <ExploreSearchHeader
+              mode={exploreMode}
+              onModeChange={onExploreModeChange}
+              keywordValue={facetDraft.query}
+              onKeywordChange={(q) => setFacetDraft((d) => ({ ...d, query: q }))}
+              onKeywordSubmit={submitKeywordSearch}
+              semanticValue={semanticInput}
+              onSemanticChange={setSemanticInput}
+              onSemanticSubmit={submitSemanticSearch}
+              keywordBusy={loading && exploreMode === 'keyword'}
+              semanticBusy={loading && exploreMode === 'semantic'}
+            />
+            <div
+              ref={resultsTopRef}
+              className={cn(SURFACE_PANEL_GRADIENT, 'p-6 sm:p-8 mb-8 lg:mb-0')}
+              aria-live="polite"
+              aria-busy={loading}
+            >
+              <h2 className="text-2xl font-semibold mb-4 text-neutral-900 flex items-center gap-3">
+                <div className="rounded-lg bg-gradient-to-br from-primary-100/90 to-secondary-100/90 p-2 shadow-sm ring-1 ring-secondary-200/40">
+                  <Music className="h-5 w-5 text-primary-600" strokeWidth={2.5} aria-hidden />
+                </div>
+                {exploreMode === 'semantic' && hasSemanticQuery
+                  ? 'Kết quả theo ngữ nghĩa'
+                  : hasFilters
+                    ? 'Kết quả'
+                    : 'Bản thu mới nhất'}
+              </h2>
 
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-white">Khu vực</label>
-                <SearchableDropdown
-                  value={selectedRegion}
-                  onChange={setSelectedRegion}
-                  options={REGIONS}
-                  placeholder="Chọn khu vực"
-                  searchable={false}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-white">Dân tộc</label>
-                <SearchableDropdown
-                  value={selectedEthnicity}
-                  onChange={setSelectedEthnicity}
-                  options={ETHNICITIES}
-                  placeholder="Chọn dân tộc"
-                />
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3">
-              {hasActiveFilters && (
-                <button
-                  onClick={handleClearFilters}
-                  className="px-6 py-2.5 bg-white/10 text-white hover:bg-white/20 rounded-xl transition-colors"
-                >
-                  Xóa bộ lọc
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Popular Categories */}
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-              <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <Disc className="h-5 w-5 text-emerald-400" />
-              </div>
-              Thể loại phổ biến
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {categories.map((category, index) => (
-                <CategoryCard
-                  key={index}
-                  title={category.title}
-                  count={category.count}
-                  icon={category.icon}
-                  onClick={() => setSelectedGenre(category.title)}
-                  isActive={selectedGenre === category.title}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Results Header */}
-          <div className="flex items-center justify-between mb-6 pt-8 border-t border-white/10">
-            <div>
-              <h2 className="text-2xl font-semibold text-white">Tất cả bản thu</h2>
-              {!loading && (
-                <p className="text-white/70 mt-1">
-                  Hiển thị {recordings.length} trong số {totalResults.toLocaleString()} bản thu
+              {searchError ? (
+                <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                  {searchError}
                 </p>
+              ) : null}
+
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <LoadingSpinner size="lg" />
+                </div>
+              ) : recordings.length === 0 ? (
+                <div className="py-10 text-center">
+                  <Music
+                    className="h-12 w-12 text-neutral-400 mx-auto mb-4"
+                    strokeWidth={1.5}
+                    aria-hidden
+                  />
+                  <h3 className="text-lg font-semibold text-neutral-800 mb-2">
+                    Chưa có bản thu nào
+                  </h3>
+                  <p className="text-neutral-600 font-medium leading-relaxed max-w-md mx-auto mb-4">
+                    {exploreMode === 'semantic' && hasSemanticQuery
+                      ? 'Không có bản thu khớp mô tả. Thử diễn đạt khác, nới lỏng bộ lọc, hoặc chuyển sang tìm theo từ khóa.'
+                      : hasFilters || hasSemanticQuery
+                        ? 'Thử thay đổi bộ lọc hoặc xóa bộ lọc để xem bản thu mới nhất.'
+                        : 'Chưa có bản thu nào được kiểm duyệt.'}
+                  </p>
+                  {(hasFilters || hasSemanticQuery) && (
+                    <button
+                      type="button"
+                      onClick={clearAllExplore}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-105 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2"
+                    >
+                      Xóa bộ lọc
+                      <ArrowRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <p className="text-neutral-700 font-medium leading-relaxed mb-4">
+                    {exploreMode === 'semantic' && hasSemanticQuery
+                      ? `Tìm thấy ${totalResults} bản thu phù hợp`
+                      : hasFilters || hasSemanticQuery
+                        ? `Tìm thấy ${totalResults} bản thu`
+                        : `Có ${totalResults} bản thu đã được kiểm duyệt`}
+                  </p>
+                  <div className="space-y-4">
+                    {deferredRecordings.map((r, idx) => (
+                      <ExploreResultRow
+                        key={r.id ?? `${r.title ?? 'recording'}-${idx}`}
+                        recording={r}
+                        returnTo={returnTo}
+                        rowIndex={idx}
+                      />
+                    ))}
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage <= 1}
+                        className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Trước
+                      </button>
+                      <span className="px-3 text-sm font-medium text-neutral-600">
+                        Trang {currentPage} / {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage >= totalPages}
+                        className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Sau
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
-          </div>
-
-          {/* Results Content */}
-          {loading ? (
-            <div className="flex justify-center py-20">
-              <LoadingSpinner size="lg" />
-            </div>
-          ) : recordings.length === 0 ? (
-            <div className="p-12 text-center bg-white/5 rounded-xl border border-white/10">
-              <div className="p-4 bg-emerald-500/20 rounded-2xl w-fit mx-auto mb-4">
-                <Search className="h-8 w-8 text-emerald-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Không tìm thấy bản thu
-              </h3>
-              <p className="text-white/70 mx-auto leading-relaxed">
-                Thử thay đổi bộ lọc hoặc từ khóa để tìm kiếm kết quả phù hợp hơn
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                {recordings.map((recording) => (
-                  <RecordingCard key={recording.id} recording={recording} />
-                ))}
-              </div>
-
-              {totalPages > 1 && (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Explore More Section */}
-        <div
-          ref={guidelinesRef}
-          className="spotlight-container backdrop-blur-xl bg-white/20 border border-white/40 rounded-2xl p-8 shadow-2xl"
-          style={{
-            boxShadow:
-              "0 8px 32px 0 rgba(31, 38, 135, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)",
-          }}
-        >
-          <h2 className="text-2xl font-semibold mb-6 text-white flex items-center gap-3">
-            <div className="p-2 bg-emerald-500/20 rounded-lg">
-              <Compass className="h-5 w-5 text-emerald-400" />
-            </div>
-            Khám phá thêm
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Link
-              to="/search"
-              className="p-6 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-emerald-500/10 rounded-lg">
-                  <Search className="h-6 w-6 text-emerald-400" />
-                </div>
-                <div>
-                  <h4 className="text-white font-semibold text-lg group-hover:text-emerald-300 transition-colors">
-                    Tìm kiếm bản thu
-                  </h4>
-                  <p className="text-white/70 leading-relaxed">
-                    Lọc chi tiết theo nhạc cụ, sự kiện, năm ghi âm
-                  </p>
-                </div>
-              </div>
-            </Link>
-            <Link
-              to="/upload"
-              className="p-6 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-emerald-500/10 rounded-lg">
-                  <Play className="h-6 w-6 text-emerald-400" />
-                </div>
-                <div>
-                  <h4 className="text-white font-semibold text-lg group-hover:text-emerald-300 transition-colors">
-                    Đóng góp bản thu
-                  </h4>
-                  <p className="text-white/70 leading-relaxed">
-                    Chia sẻ bản thu âm nhạc truyền thống của bạn
-                  </p>
-                </div>
-              </div>
-            </Link>
-          </div>
+          </main>
         </div>
       </div>
     </div>

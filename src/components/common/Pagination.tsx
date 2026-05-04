@@ -1,4 +1,5 @@
-import { clsx } from "clsx";
+import clsx from 'clsx';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PaginationProps {
   currentPage: number;
@@ -25,7 +26,7 @@ export default function Pagination({
       pages.push(1);
 
       if (currentPage > 3) {
-        pages.push("...");
+        pages.push('...');
       }
 
       const start = Math.max(2, currentPage - 1);
@@ -36,7 +37,7 @@ export default function Pagination({
       }
 
       if (currentPage < totalPages - 2) {
-        pages.push("...");
+        pages.push('...');
       }
 
       pages.push(totalPages);
@@ -46,40 +47,48 @@ export default function Pagination({
   };
 
   return (
-    <div
-      className={clsx("flex items-center justify-center space-x-2", className)}
-    >
+    <div className={clsx('flex items-center justify-center gap-2', className)}>
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="btn-liquid-glass-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-4 py-2.5 text-sm font-medium rounded-full border border-neutral-300/80 text-neutral-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] hover:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)] hover:scale-105 active:scale-95 cursor-pointer disabled:hover:scale-100 bg-surface-panel enabled:hover:bg-[#F5F0E8]"
       >
-        Previous
+        <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
+        Trước
       </button>
 
-      {getPageNumbers().map((page, index) => (
-        <button
-          key={index}
-          onClick={() => typeof page === "number" && onPageChange(page)}
-          disabled={page === "..."}
-          className={clsx(
-            "px-3 py-2 text-sm font-medium rounded-full transition-all",
-            page === currentPage
-              ? "btn-liquid-glass-primary"
-              : "btn-liquid-glass-secondary",
-            page === "..." && "cursor-default opacity-50"
-          )}
-        >
-          {page}
-        </button>
-      ))}
+      {getPageNumbers().map((page, index) => {
+        const isActive = page === currentPage;
+        const isEllipsis = page === '...';
+
+        return (
+          <button
+            key={typeof page === 'number' ? `page-${page}` : `ellipsis-${index}`}
+            onClick={() => typeof page === 'number' && onPageChange(page)}
+            disabled={isEllipsis}
+            aria-current={isActive ? 'page' : undefined}
+            className={clsx(
+              'min-w-[40px] px-4 py-2.5 text-sm font-medium rounded-full transition-all duration-200 border',
+              isEllipsis && 'cursor-default bg-transparent text-neutral-400',
+              isActive &&
+                'bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-2px_rgba(0,0,0,0.05)]',
+              !isActive &&
+                !isEllipsis &&
+                'text-neutral-800 border-neutral-300/80 bg-surface-panel hover:bg-[#F5F0E8] shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] hover:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)] hover:scale-105 active:scale-95 cursor-pointer',
+            )}
+          >
+            {page}
+          </button>
+        );
+      })}
 
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="btn-liquid-glass-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-4 py-2.5 text-sm font-medium rounded-full border border-neutral-300/80 text-neutral-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] hover:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)] hover:scale-105 active:scale-95 cursor-pointer disabled:hover:scale-100 bg-surface-panel enabled:hover:bg-[#F5F0E8]"
       >
-        Next
+        Sau
+        <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
       </button>
     </div>
   );

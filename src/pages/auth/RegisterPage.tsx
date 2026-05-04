@@ -1,27 +1,28 @@
-import { useState, useEffect, useRef } from "react";
-import { useForm } from "react-hook-form";
-import { useNavigate, Link } from "react-router-dom";
-import { authService } from "@/services/authService";
-import Input from "@/components/common/Input";
-import { RegisterForm } from "@/types";
-import toast from "react-hot-toast";
-import backgroundImage from "@/components/image/Đàn bầu.png";
-import logo from "@/components/image/VietTune logo.png";
-import TermsAndConditions from "@/components/features/TermsAndConditions";
-import { addSpotlightEffect } from "@/utils/spotlight";
+import { BookOpen, Music } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { useNavigate, Link } from 'react-router-dom';
+
+import BackButton from '@/components/common/BackButton';
+import Input from '@/components/common/Input';
+import TermsAndConditions from '@/components/features/TermsAndConditions';
+import { BronzeDrum } from '@/components/image/pattern/BackgroundPatterns';
+import logo from '@/components/image/VietTune logo.png';
+import { authService } from '@/services/authService';
+import { sessionGetItem, sessionRemoveItem } from '@/services/storageService';
+import { RegisterForm } from '@/types';
+import { uiToast, notifyLine } from '@/uiToast';
+import { cn } from '@/utils/helpers';
+import { validatePassword } from '@/utils/validation';
+
+type RegisterRole = 'contributor' | 'researcher';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    const cleanupFunctions: (() => void)[] = [];
-    if (formRef.current)
-      cleanupFunctions.push(addSpotlightEffect(formRef.current));
-    return () => cleanupFunctions.forEach((cleanup) => cleanup());
-  }, []);
+  const [selectedRole, setSelectedRole] = useState<RegisterRole>('contributor');
+  const fromLogout = typeof window !== 'undefined' && sessionGetItem('fromLogout') === '1';
 
   const {
     register,
@@ -30,162 +31,230 @@ export default function RegisterPage() {
     formState: { errors },
   } = useForm<RegisterForm>();
 
-  const password = watch("password");
+  const password = watch('password');
+
+  useEffect(() => {
+    void sessionRemoveItem('fromLogout');
+  }, []);
 
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);
     try {
-      await authService.register(data);
-      toast.success("Registration successful! Please login.");
-      navigate("/login");
+      const payload = {
+        email: data.email,
+        password: data.password,
+        fullName: data.fullName,
+        phoneNumber: data.phoneNumber,
+      };
+      const result =
+        selectedRole === 'researcher'
+          ? await authService.registerResearcher(payload)
+          : await authService.register(payload);
+
+      const msg =
+        result &&
+        typeof result === 'object' &&
+        'message' in result &&
+        typeof (result as { message?: unknown }).message === 'string'
+          ? (result as { message: string }).message
+          : 'Đăng ký thành công. Vui lòng xác thực tài khoản.';
+      uiToast.success(notifyLine('Thành công', msg));
+      navigate('/confirm-account');
     } catch (error: unknown) {
       const errorMessage =
-        error instanceof Error && "response" in error
-          ? (error as { response?: { data?: { message?: string } } }).response
-              ?.data?.message || "Registration failed. Please try again."
-          : "Registration failed. Please try again.";
-      toast.error(errorMessage);
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
+            'Đăng ký thất bại. Vui lòng thử lại.'
+          : 'Đăng ký thất bại. Vui lòng thử lại.';
+      uiToast.error(notifyLine('Lỗi', errorMessage));
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center py-1 px-4 sm:px-6 lg:px-8"
-      style={{
-        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${backgroundImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <div className="max-w-lg w-full">
-        <form
-          ref={formRef}
-          className="spotlight-container backdrop-blur-xl bg-white/20 p-3 rounded-2xl shadow-2xl border border-white/40 space-y-0.5"
-          style={{
-            boxShadow:
-              "0 8px 32px 0 rgba(31, 38, 135, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)",
-          }}
-          onSubmit={handleSubmit(onSubmit)}
-        >
-          <div className="flex flex-col items-center">
-            <img
-              src={logo}
-              alt="VietTune Logo"
-              className="w-12 h-12 object-contain mb-0.5 rounded-2xl cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => {
-                const lastPage = localStorage.getItem("lastVisitedPage");
-                navigate(lastPage || "/");
-              }}
-            />
-            <h2 className="text-center text-lg font-bold text-white">
-              Tạo tài khoản của bạn
-            </h2>
-            <p className="mt-0.5 text-center text-sm text-white">
-              Đã có tài khoản?{" "}
-              <Link
-                to="/login"
-                className="font-medium text-emerald-300 hover:text-green-500 active:text-green-700"
-              >
-                Đăng nhập
-              </Link>
-            </p>
-          </div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 z-0">
+        <BronzeDrum />
+      </div>
 
-          <div className="space-y-0.5">
+      {!fromLogout && (
+        <div className="absolute top-6 left-6 z-10">
+          <BackButton />
+        </div>
+      )}
+
+      <div className="max-w-md w-full space-y-8 relative z-10">
+        {/* Header Section */}
+        <div className="flex flex-col items-center text-center">
+          <img
+            src={logo}
+            alt="VietTune Logo"
+            className="w-20 h-20 object-contain mb-4 rounded-2xl cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => navigate('/')}
+            loading="eager"
+            // @ts-expect-error -- fetchpriority is valid HTML but React types lag behind
+            // eslint-disable-next-line react/no-unknown-property
+            fetchpriority="high"
+            decoding="async"
+            width={80}
+            height={80}
+          />
+          <h1 className="text-2xl font-bold text-white mb-2">Tham gia VietTune</h1>
+          <p className="text-neutral-300 font-medium">
+            Tạo tài khoản để kết nối và sẻ chia âm hưởng nghìn năm.
+          </p>
+        </div>
+
+        {/* Form Section */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Role selector */}
+          <fieldset>
+            <legend className="text-sm font-semibold text-white/90 mb-3 text-center">
+              Bạn muốn tham gia với vai trò nào?
+            </legend>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedRole('contributor')}
+                className={cn(
+                  'flex flex-col items-center gap-2 rounded-2xl border-2 px-4 py-4 text-center transition-all duration-200',
+                  selectedRole === 'contributor'
+                    ? 'border-secondary-400 bg-white/15 text-white shadow-lg shadow-secondary-500/20 scale-[1.02]'
+                    : 'border-white/20 bg-white/5 text-white/70 hover:border-white/40 hover:bg-white/10',
+                )}
+              >
+                <Music className="h-6 w-6 shrink-0" strokeWidth={2} />
+                <span className="text-sm font-bold">Người đóng góp</span>
+                <span className="text-[11px] leading-tight opacity-80">
+                  Tải lên và chia sẻ bản thu âm nhạc dân tộc
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedRole('researcher')}
+                className={cn(
+                  'flex flex-col items-center gap-2 rounded-2xl border-2 px-4 py-4 text-center transition-all duration-200',
+                  selectedRole === 'researcher'
+                    ? 'border-secondary-400 bg-white/15 text-white shadow-lg shadow-secondary-500/20 scale-[1.02]'
+                    : 'border-white/20 bg-white/5 text-white/70 hover:border-white/40 hover:bg-white/10',
+                )}
+              >
+                <BookOpen className="h-6 w-6 shrink-0" strokeWidth={2} />
+                <span className="text-sm font-bold">Nhà nghiên cứu</span>
+                <span className="text-[11px] leading-tight opacity-80">
+                  Phân tích, so sánh và khai thác kho dữ liệu
+                </span>
+              </button>
+            </div>
+          </fieldset>
+
+          <div className="space-y-4">
             <Input
+              labelColor="light"
               label="Họ và tên"
-              {...register("fullName", {
-                required: "Họ và tên là bắt buộc",
+              placeholder="Nhập họ và tên đầy đủ"
+              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              {...register('fullName', {
+                required: 'Họ và tên là bắt buộc',
               })}
               error={errors.fullName?.message}
             />
 
             <Input
-              label="Tên người dùng"
-              {...register("username", {
-                required: "Tên người dùng là bắt buộc",
-                minLength: {
-                  value: 3,
-                  message: "Tên người dùng phải có ít nhất 3 ký tự",
+              labelColor="light"
+              label="Số điện thoại"
+              placeholder="Nhập số điện thoại"
+              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              {...register('phoneNumber', {
+                required: 'Số điện thoại là bắt buộc',
+                pattern: {
+                  value: /^[0-9]{10,11}$/,
+                  message: 'Số điện thoại không hợp lệ (10-11 chữ số)',
                 },
               })}
-              error={errors.username?.message}
+              error={errors.phoneNumber?.message}
             />
 
             <Input
-              label="Email"
+              labelColor="light"
+              label="Địa chỉ Email"
               type="email"
-              {...register("email", {
-                required: "Email là bắt buộc",
+              placeholder="Nhập địa chỉ email"
+              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              {...register('email', {
+                required: 'Email là bắt buộc',
                 pattern: {
                   value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: "Địa chỉ email không hợp lệ",
+                  message: 'Địa chỉ email không hợp lệ',
                 },
               })}
               error={errors.email?.message}
             />
 
             <Input
+              labelColor="light"
               label="Mật khẩu"
               type="password"
-              {...register("password", {
-                required: "Mật khẩu là bắt buộc",
-                minLength: {
-                  value: 6,
-                  message: "Mật khẩu phải có ít nhất 6 ký tự",
+              placeholder="Ít nhất 6 ký tự, chữ hoa, chữ thường và số"
+              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              {...register('password', {
+                required: 'Mật khẩu là bắt buộc',
+                validate: (v) => {
+                  const r = validatePassword(v || '');
+                  return r.valid || r.errors[0];
                 },
               })}
               error={errors.password?.message}
             />
 
             <Input
+              labelColor="light"
               label="Xác nhận mật khẩu"
               type="password"
-              {...register("confirmPassword", {
-                required: "Vui lòng xác nhận mật khẩu",
-                validate: (value) =>
-                  value === password || "Mật khẩu không khớp",
+              placeholder="Nhập lại mật khẩu"
+              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+              {...register('confirmPassword', {
+                required: 'Vui lòng xác nhận mật khẩu',
+                validate: (value) => value === password || 'Mật khẩu không khớp',
               })}
               error={errors.confirmPassword?.message}
             />
           </div>
 
-          <div className="flex items-center">
-            <input
-              id="terms"
-              type="checkbox"
-              required
-              className="h-4 w-4 bg-white text-blue-600 focus:ring-blue-500 border-2 border-secondary-400 rounded"
-            />
-            <label htmlFor="terms" className="ml-2 block text-sm text-white">
-              Tôi đồng ý với{" "}
+          {/* Legal / Terms */}
+          <div className="text-center">
+            <p className="text-[11px] text-neutral-400 leading-relaxed px-4">
+              Bằng cách nhấn đăng ký, bạn đồng ý với{' '}
               <button
                 type="button"
                 onClick={() => setShowTerms(true)}
-                className="text-emerald-300 hover:text-emerald-400 active:text-emerald-500 underline transition-colors"
+                className="font-bold text-primary-600 hover:underline"
               >
-                Điều khoản và Điều kiện
-              </button>
-            </label>
+                Điều khoản & Điều kiện
+              </button>{' '}
+              và Chính sách bảo mật của VietTune.
+            </p>
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="btn-liquid-glass-primary w-full disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full py-3.5 bg-primary-600 text-white text-lg font-bold rounded-full hover:bg-primary-700 transition-all shadow-md active:scale-[0.98] disabled:bg-neutral-400"
           >
-            {isLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
+            {isLoading ? 'Đang xử lý...' : 'Đăng ký'}
           </button>
+
+          <div className="text-center pt-2">
+            <Link to="/login" className="text-sm font-semibold text-primary-600 hover:underline">
+              Đã có tài khoản? <span className="text-secondary-400">Đăng nhập tại đây</span>
+            </Link>
+          </div>
         </form>
       </div>
 
-      <TermsAndConditions
-        isOpen={showTerms}
-        onClose={() => setShowTerms(false)}
-      />
+      <TermsAndConditions isOpen={showTerms} onClose={() => setShowTerms(false)} />
     </div>
   );
 }

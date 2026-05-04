@@ -1,30 +1,87 @@
-import { Link } from "react-router-dom";
-import { Music, Upload, Search, Users, Disc, Globe, ArrowRight, Compass, Heart, TrendingUp, Clock, MapPin } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
-import { Recording } from "@/types";
-import { recordingService } from "@/services/recordingService";
-import RecordingCard from "@/components/features/RecordingCard";
-import AudioPlayer from "@/components/features/AudioPlayer";
-import { addSpotlightEffect } from "@/utils/spotlight";
-import logo from "@/components/image/VietTune logo.png";
+import { ArrowRight, TrendingUp, Clock, X } from 'lucide-react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 
-// Local recording type for client-saved uploads
-interface LocalRecording {
-  id: string;
-  name: string;
-  audioData: string;
-  userType?: string;
-  detectedType?: string;
-  basicInfo?: {
-    title?: string;
-    artist?: string;
-    genre?: string;
-  };
-  culturalContext?: {
-    ethnicity?: string;
-    region?: string;
-  };
-  uploadedAt?: string;
+import ExploreSearchHeader from '@/components/features/ExploreSearchHeader';
+import RecordingCardCompact from '@/components/features/RecordingCardCompact';
+import logo from '@/components/image/VietTune logo.png';
+import { recordingService } from '@/services/recordingService';
+import { getLocalRecordingFull, getLocalRecordingMetaList } from '@/services/recordingStorage';
+import { fetchVerifiedSubmissionsAsRecordings } from '@/services/researcherArchiveService';
+import { useLoginModalStore } from '@/stores/loginModalStore';
+import { Recording, ModerationStatus, VerificationStatus, type LocalRecording } from '@/types';
+import { migrateVideoDataToVideoData } from '@/utils/helpers';
+import { convertLocalToRecording } from '@/utils/localRecordingToRecording';
+import { SURFACE_PANEL_GRADIENT } from '@/utils/surfaceTokens';
+
+const MemoRecordingCardCompact = memo(RecordingCardCompact);
+
+/** Khối nội dung cùng họ với Explore (PLAN-homepage-explore Phase 1). */
+const exploreLikePanel = SURFACE_PANEL_GRADIENT;
+
+/** Hiển thị 2 panel lưới bản thu (phổ biến / mới). Đặt `true` nếu muốn bật lại + gọi API. */
+const SHOW_HOME_RECORDING_HIGHLIGHTS = false;
+
+function asObject(input: unknown): Record<string, unknown> | null {
+  return input && typeof input === 'object' && !Array.isArray(input)
+    ? (input as Record<string, unknown>)
+    : null;
+}
+
+function pickRecordingRows(input: unknown): Recording[] {
+  const root = asObject(input);
+  if (!root) return [];
+  if (Array.isArray(root.items)) return root.items as Recording[];
+  if (Array.isArray(root.data)) return root.data as Recording[];
+  if (Array.isArray(root.Items)) return root.Items as Recording[];
+  if (Array.isArray(root.Data)) return root.Data as Recording[];
+  const nested = root.data;
+  const d = asObject(nested);
+  if (d) {
+    if (Array.isArray(d.items)) return d.items as Recording[];
+    if (Array.isArray(d.data)) return d.data as Recording[];
+    if (Array.isArray(d.Items)) return d.Items as Recording[];
+    if (Array.isArray(d.Data)) return d.Data as Recording[];
+  }
+  const nestedPascal = root.Data;
+  const dPascal = asObject(nestedPascal);
+  if (dPascal) {
+    const d = dPascal;
+    if (Array.isArray(d.items)) return d.items as Recording[];
+    if (Array.isArray(d.data)) return d.data as Recording[];
+    if (Array.isArray(d.Items)) return d.Items as Recording[];
+    if (Array.isArray(d.Data)) return d.Data as Recording[];
+  }
+  return [];
+}
+
+function pickVerified(rows: Recording[]): Recording[] {
+  return rows.filter((r) => {
+    const row = asObject(r) ?? {};
+    const raw = row.verificationStatus ?? row.VerificationStatus ?? row.status ?? row.Status ?? '';
+
+    // Accepted "verified" markers across mixed API shapes.
+    if (typeof raw === 'number') return raw === 2;
+    const normalized = String(raw).trim().toUpperCase();
+    return (
+      normalized === VerificationStatus.VERIFIED || normalized === 'APPROVED' || normalized === '2'
+    );
+  });
+}
+
+async function fetchApprovedLocalRecordings(): Promise<Recording[]> {
+  const meta = await getLocalRecordingMetaList();
+  const migrated = migrateVideoDataToVideoData(meta as LocalRecording[]);
+  const approved = migrated.filter(
+    (r) =>
+      r.moderation &&
+      typeof r.moderation === 'object' &&
+      'status' in r.moderation &&
+      (r.moderation as { status?: string }).status === ModerationStatus.APPROVED,
+  );
+  const full = await Promise.all(approved.map((r) => getLocalRecordingFull(r.id ?? '')));
+  const locals = full.filter((r): r is LocalRecording => r != null);
+  return Promise.all(locals.map((r) => convertLocalToRecording(r)));
 }
 
 // Section Header Component
@@ -42,18 +99,18 @@ function SectionHeader({
   return (
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-emerald-500/20 rounded-lg">
-          <Icon className="h-5 w-5 text-emerald-400" />
+        <div className="rounded-lg bg-gradient-to-br from-primary-100/90 to-secondary-100/90 p-2 shadow-sm ring-1 ring-secondary-200/40">
+          <Icon className="h-5 w-5 text-primary-600" strokeWidth={2.5} />
         </div>
         <div>
-          <h2 className="text-2xl font-semibold text-white">{title}</h2>
-          {subtitle && <p className="text-sm text-white/70 mt-1">{subtitle}</p>}
+          <h2 className="text-2xl font-semibold text-neutral-800">{title}</h2>
+          {subtitle && <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>}
         </div>
       </div>
       {action && (
         <Link
           to={action.to}
-          className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1"
+          className="flex items-center gap-1 text-sm font-semibold text-secondary-800 transition-colors hover:text-secondary-900"
         >
           {action.label}
           <ArrowRight className="h-4 w-4" />
@@ -63,424 +120,306 @@ function SectionHeader({
   );
 }
 
-// Stat Card Component
-function StatCard({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon: React.ElementType;
-  value: string;
-  label: string;
-}) {
-  return (
-    <div className="p-4 bg-white/5 border border-white/10 rounded-xl text-center hover:bg-white/10 transition-colors">
-      <div className="p-2 bg-emerald-500/10 rounded-lg w-fit mx-auto mb-2">
-        <Icon className="h-5 w-5 text-emerald-400" />
-      </div>
-      <div className="text-2xl font-bold text-white">{value}</div>
-      <div className="text-sm text-white/60">{label}</div>
-    </div>
-  );
-}
-
-// Feature Card Component
-function FeatureCard({
-  icon: Icon,
-  title,
-  description,
-  to,
-}: {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  to: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="group p-6 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 hover:border-emerald-500/30 transition-all"
-    >
-      <div className="p-3 bg-emerald-500/10 rounded-xl w-fit mb-4 group-hover:bg-emerald-500/20 transition-colors">
-        <Icon className="h-6 w-6 text-emerald-400" />
-      </div>
-      <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-emerald-300 transition-colors">
-        {title}
-      </h3>
-      <p className="text-white/70 leading-relaxed">{description}</p>
-    </Link>
-  );
-}
-
-// Quick Action Button Component
-function QuickActionButton({
-  icon: Icon,
-  label,
-  to,
-  primary = false,
-}: {
-  icon: React.ElementType;
-  label: string;
-  to: string;
-  primary?: boolean;
-}) {
-  return (
-    <Link to={to} className="w-full sm:w-auto">
-      <button
-        className={`w-full px-8 py-3.5 rounded-full font-medium flex items-center justify-center gap-2 transition-all ${
-          primary
-            ? "btn-liquid-glass-primary"
-            : "bg-white/10 text-white hover:bg-white/20 border border-white/20"
-        }`}
-      >
-        <Icon className="h-5 w-5" />
-        {label}
-      </button>
-    </Link>
-  );
-}
-
 export default function HomePage() {
   const [popularRecordings, setPopularRecordings] = useState<Recording[]>([]);
   const [recentRecordings, setRecentRecordings] = useState<Recording[]>([]);
-  const [localRecordings, setLocalRecordings] = useState<LocalRecording[]>([]);
-
-  // Refs for spotlight effects
-  const heroRef = useRef<HTMLDivElement>(null);
-  const statsRef = useRef<HTMLDivElement>(null);
-  const featuresRef = useRef<HTMLDivElement>(null);
-  const localRef = useRef<HTMLDivElement>(null);
-  const popularRef = useRef<HTMLDivElement>(null);
-  const recentRef = useRef<HTMLDivElement>(null);
-  const ctaRef = useRef<HTMLDivElement>(null);
-
+  const [semanticInput, setSemanticInput] = useState('');
+  const [isSimulatingSearch, setIsSimulatingSearch] = useState(false);
+  const [isGatewayModalOpen, setIsGatewayModalOpen] = useState(false);
+  const simulateTimerRef = useRef<number | null>(null);
+  const loginCtaRef = useRef<HTMLButtonElement | null>(null);
+  const openLoginModal = useLoginModalStore((s) => s.openLoginModal);
   useEffect(() => {
-    fetchRecordings();
-
-    // Load local recordings
-    const local = JSON.parse(localStorage.getItem("localRecordings") || "[]");
-    setLocalRecordings(local as LocalRecording[]);
-
-    // Add spotlight effects for static containers
-    const cleanupFunctions: (() => void)[] = [];
-    const staticRefs = [heroRef, statsRef, featuresRef, popularRef, recentRef, ctaRef];
-
-    staticRefs.forEach((ref) => {
-      if (ref.current) {
-        cleanupFunctions.push(addSpotlightEffect(ref.current));
-      }
-    });
-
+    if (SHOW_HOME_RECORDING_HIGHLIGHTS) {
+      void fetchRecordings();
+    }
     return () => {
-      cleanupFunctions.forEach((cleanup) => cleanup());
+      if (simulateTimerRef.current) {
+        window.clearTimeout(simulateTimerRef.current);
+      }
     };
   }, []);
 
-  // Separate useEffect for localRef spotlight (depends on localRecordings)
   useEffect(() => {
-    if (localRef.current && localRecordings.length > 0) {
-      const cleanup = addSpotlightEffect(localRef.current);
-      return cleanup;
+    if (!isGatewayModalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    loginCtaRef.current?.focus();
+    const onEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsGatewayModalOpen(false);
+    };
+    window.addEventListener('keydown', onEsc);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onEsc);
+    };
+  }, [isGatewayModalOpen]);
+
+  /** Giữ luồng marketing: không gọi API; mở modal đăng nhập sau delay. */
+  const handleHomeSemanticSubmit = useCallback(() => {
+    if (isSimulatingSearch) return;
+    if (!semanticInput.trim()) return;
+    setIsSimulatingSearch(true);
+    if (simulateTimerRef.current) {
+      window.clearTimeout(simulateTimerRef.current);
     }
-  }, [localRecordings]);
+    simulateTimerRef.current = window.setTimeout(() => {
+      setIsSimulatingSearch(false);
+      setIsGatewayModalOpen(true);
+    }, 1500);
+  }, [isSimulatingSearch, semanticInput]);
 
   const fetchRecordings = async () => {
     try {
       const [popular, recent] = await Promise.all([
-        recordingService.getPopularRecordings(4),
-        recordingService.getRecentRecordings(4),
+        recordingService.getPopularRecordings(6),
+        recordingService.getRecentRecordings(6),
       ]);
-      setPopularRecordings(popular.data || []);
-      setRecentRecordings(recent.data || []);
-    } catch (error) {
-      console.error("Error fetching recordings:", error);
+
+      const popularRows = pickVerified(pickRecordingRows(popular));
+      const recentRows = pickVerified(pickRecordingRows(recent));
+
+      if (popularRows.length > 0 || recentRows.length > 0) {
+        setPopularRecordings(popularRows.slice(0, 6));
+        setRecentRecordings(recentRows.slice(0, 6));
+        return;
+      }
+
+      // Some environments return empty for "popular/recent"; fallback to generic recordings.
+      const generic = await recordingService.getRecordings(1, 20);
+      const genericRows = pickVerified(pickRecordingRows(generic)).sort(
+        (a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+      );
+      if (genericRows.length > 0) {
+        setRecentRecordings(genericRows.slice(0, 6));
+        setPopularRecordings(genericRows.slice(0, 6));
+        return;
+      }
+
+      // Final fallback for guest/listening UX.
+      const fallback = await fetchVerifiedSubmissionsAsRecordings();
+      const sorted = [...fallback].sort(
+        (a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+      );
+      if (sorted.length > 0) {
+        setRecentRecordings(sorted.slice(0, 6));
+        setPopularRecordings(sorted.slice(0, 6));
+        return;
+      }
+
+      const localApproved = await fetchApprovedLocalRecordings();
+      const sortedLocal = [...localApproved].sort(
+        (a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+      );
+      setRecentRecordings(sortedLocal.slice(0, 6));
+      setPopularRecordings(sortedLocal.slice(0, 6));
+    } catch (err) {
+      console.error('Error fetching recordings:', err);
+      // Guest fallback: keep listening experience available without login.
+      try {
+        const generic = await recordingService.getRecordings(1, 50);
+        const genericRows = pickVerified(pickRecordingRows(generic)).sort(
+          (a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+        );
+        if (genericRows.length > 0) {
+          setRecentRecordings(genericRows.slice(0, 6));
+          setPopularRecordings(genericRows.slice(0, 6));
+          return;
+        }
+
+        const fallback = await fetchVerifiedSubmissionsAsRecordings();
+        const sorted = [...fallback].sort(
+          (a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+        );
+        if (sorted.length > 0) {
+          setRecentRecordings(sorted.slice(0, 6));
+          setPopularRecordings(sorted.slice(0, 6));
+          return;
+        }
+        const localApproved = await fetchApprovedLocalRecordings();
+        const sortedLocal = [...localApproved].sort(
+          (a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
+        );
+        setRecentRecordings(sortedLocal.slice(0, 6));
+        setPopularRecordings(sortedLocal.slice(0, 6));
+      } catch {
+        setPopularRecordings([]);
+        setRecentRecordings([]);
+      }
     }
   };
 
-  // Stats data
-  const stats = [
-    { icon: Disc, value: "Đa dạng", label: "Bản thu" },
-    { icon: Users, value: "54", label: "Dân tộc" },
-    { icon: Globe, value: "7", label: "Khu vực" },
-    { icon: Music, value: "Rất nhiều", label: "Nhạc cụ" },
-  ];
-
-  // Features data
-  const features = [
-    {
-      icon: Compass,
-      title: "Khám phá bản thu",
-      description: "Duyệt qua kho tàng âm nhạc truyền thống phong phú từ khắp mọi miền đất nước",
-      to: "/explore",
-    },
-    {
-      icon: Search,
-      title: "Tìm kiếm bản thu",
-      description: "Tìm kiếm theo thể loại, dân tộc, khu vực, nhạc cụ và nhiều tiêu chí khác",
-      to: "/search",
-    },
-    {
-      icon: Upload,
-      title: "Đóng góp bản thu",
-      description: "Chia sẻ bản thu âm nhạc truyền thống của bạn để cùng gìn giữ di sản văn hóa",
-      to: "/upload",
-    },
-  ];
-
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        {/* Hero Section */}
-        <div
-          ref={heroRef}
-          className="spotlight-container backdrop-blur-xl bg-white/20 rounded-2xl shadow-2xl border border-white/40 p-8 md:p-12 mb-8"
-          style={{
-            boxShadow:
-              "0 8px 32px 0 rgba(31, 38, 135, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)",
-          }}
-        >
-          <div className="text-center">
+    <div className="min-h-screen bg-transparent">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Hero Section with Features */}
+        <div className={`${exploreLikePanel} mb-10 p-8 md:p-14 lg:p-16`}>
+          <div className="text-center mb-10">
             {/* Logo */}
-            <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="flex items-center justify-center gap-3 mb-7">
               <img
                 src={logo}
                 alt="VietTune Logo"
-                className="h-20 w-20 object-contain rounded-2xl"
+                className="h-24 w-24 object-contain rounded-2xl shadow-md"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                width={96}
+                height={96}
               />
             </div>
 
+            <p className="text-xs md:text-sm font-semibold tracking-[0.22em] uppercase text-primary-600/90 mb-3">
+              Kho tri thức âm nhạc dân tộc
+            </p>
+
             {/* Title */}
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            <h1 className="text-4xl md:text-6xl font-bold text-neutral-900 mb-5 leading-tight">
               VietTune
             </h1>
-            
+
             {/* Tagline */}
-            <p className="text-xl md:text-2xl text-emerald-300 mb-4">
+            <p className="text-2xl md:text-3xl text-primary-700 font-semibold mb-5">
               Hệ thống lưu giữ âm nhạc truyền thống Việt Nam
             </p>
-            
+
             {/* Description */}
-            <p className="text-white leading-relaxed max-w-2xl mx-auto mb-8">
+            <p className="text-neutral-800 leading-relaxed max-w-3xl mx-auto text-base md:text-lg mb-0">
               Gìn giữ và lan tỏa di sản âm nhạc của 54 dân tộc Việt Nam
               <br />
               qua nền tảng chia sẻ cộng đồng với công nghệ tìm kiếm thông minh
             </p>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <QuickActionButton
-                icon={Compass}
-                label="Khám phá bản thu"
-                to="/explore"
-                primary
-              />
-              <QuickActionButton
-                icon={Upload}
-                label="Đóng góp bản thu"
-                to="/upload"
+            {/* Chỉ tìm theo ngữ nghĩa (marketing); từ khóa + link semantic đầy đủ chỉ trên Explore */}
+            <div className="mx-auto mt-8 max-w-4xl text-left">
+              <ExploreSearchHeader
+                layout="home-semantic-only"
+                className="mb-0 shadow-md"
+                mode="semantic"
+                onModeChange={() => {}}
+                keywordValue=""
+                onKeywordChange={() => {}}
+                onKeywordSubmit={() => {}}
+                semanticValue={semanticInput}
+                onSemanticChange={setSemanticInput}
+                onSemanticSubmit={handleHomeSemanticSubmit}
+                semanticBusy={isSimulatingSearch}
               />
             </div>
           </div>
         </div>
 
-        {/* Stats Section */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {stats.map((stat, index) => (
-            <StatCard
-              key={index}
-              icon={stat.icon}
-              value={stat.value}
-              label={stat.label}
-            />
-          ))}
-        </div>
-
-        {/* Features Section */}
-        <div
-          ref={featuresRef}
-          className="spotlight-container backdrop-blur-xl bg-white/20 rounded-2xl shadow-2xl border border-white/40 p-8 mb-8"
-          style={{
-            boxShadow:
-              "0 8px 32px 0 rgba(31, 38, 135, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)",
-          }}
-        >
-          <h2 className="text-2xl font-semibold mb-6 text-white">
-            Tính năng chính
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {features.map((feature, index) => (
-              <FeatureCard
-                key={index}
-                icon={feature.icon}
-                title={feature.title}
-                description={feature.description}
-                to={feature.to}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Local Recordings Section */}
-        {localRecordings.length > 0 && (
-          <div
-            ref={localRef}
-            className="spotlight-container backdrop-blur-xl bg-white/20 rounded-2xl shadow-2xl border border-white/40 p-8 mb-8"
-            style={{
-              boxShadow:
-                "0 8px 32px 0 rgba(31, 38, 135, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)",
-            }}
-          >
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-white">Bản thu của bạn</h2>
-              <p className="text-sm text-white/70 mt-1">Các bản thu bạn đã tải lên gần đây</p>
-            </div>
-
-            <div className="space-y-4">
-              {localRecordings.slice(0, 3).map((rec) => (
-                <div
-                  key={rec.id}
-                  className="p-5 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors"
-                >
-                  <AudioPlayer
-                    src={rec.audioData}
-                    title={rec.basicInfo?.title || rec.name}
-                    artist={rec.basicInfo?.artist}
-                    className="w-full"
-                  />
-                  
-                  {/* Metadata Tags */}
-                  <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-white/10">
-                    {(rec.basicInfo?.genre || rec.userType || rec.detectedType) && (
-                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-full">
-                        <Music className="h-3 w-3" />
-                        {rec.basicInfo?.genre || rec.userType || rec.detectedType}
-                      </span>
-                    )}
-                    {rec.culturalContext?.ethnicity && (
-                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-white/10 text-white/70 rounded-full">
-                        <Users className="h-3 w-3" />
-                        {rec.culturalContext.ethnicity}
-                      </span>
-                    )}
-                    {rec.culturalContext?.region && (
-                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-white/10 text-white/70 rounded-full">
-                        <MapPin className="h-3 w-3" />
-                        {rec.culturalContext.region}
-                      </span>
-                    )}
-                    {rec.uploadedAt && (
-                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-white/10 text-white/50 rounded-full ml-auto">
-                        <Clock className="h-3 w-3" />
-                        {new Date(rec.uploadedAt).toLocaleDateString("vi-VN")}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {localRecordings.length > 3 && (
-              <div className="mt-4 text-center">
-                <Link
-                  to="/my-recordings"
-                  className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
-                >
-                  Xem tất cả {localRecordings.length} bản thu →
-                </Link>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Popular Recordings Section */}
-        {popularRecordings.length > 0 && (
-          <div
-            ref={popularRef}
-            className="spotlight-container backdrop-blur-xl bg-white/20 rounded-2xl shadow-2xl border border-white/40 p-8 mb-8"
-            style={{
-              boxShadow:
-                "0 8px 32px 0 rgba(31, 38, 135, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)",
-            }}
-          >
+        {/* Popular / Recent grids — tắt mặc định (SHOW_HOME_RECORDING_HIGHLIGHTS) */}
+        {SHOW_HOME_RECORDING_HIGHLIGHTS && popularRecordings.length > 0 && (
+          <div className={`${exploreLikePanel} mb-8 p-8`}>
             <SectionHeader
               icon={TrendingUp}
               title="Bản thu phổ biến"
               subtitle="Được nghe nhiều nhất trong tuần"
-              action={{ label: "Xem tất cả", to: "/explore" }}
+              action={{ label: 'Xem tất cả', to: '/explore' }}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {popularRecordings.map((recording) => (
-                <RecordingCard key={recording.id} recording={recording} />
-              ))}
-            </div>
+            <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {popularRecordings
+                .filter((r) => r.id)
+                .map((recording) => (
+                  <li key={recording.id} className="min-w-0">
+                    <MemoRecordingCardCompact
+                      recording={recording}
+                      to={`/recordings/${recording.id}`}
+                      linkState={{ from: '/' }}
+                    />
+                  </li>
+                ))}
+            </ul>
           </div>
         )}
 
-        {/* Recent Recordings Section */}
-        {recentRecordings.length > 0 && (
-          <div
-            ref={recentRef}
-            className="spotlight-container backdrop-blur-xl bg-white/20 rounded-2xl shadow-2xl border border-white/40 p-8 mb-8"
-            style={{
-              boxShadow:
-                "0 8px 32px 0 rgba(31, 38, 135, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)",
-            }}
-          >
+        {SHOW_HOME_RECORDING_HIGHLIGHTS && recentRecordings.length > 0 && (
+          <div className={`${exploreLikePanel} mb-8 p-8`}>
             <SectionHeader
               icon={Clock}
               title="Tải lên gần đây"
               subtitle="Bản thu mới nhất từ cộng đồng"
-              action={{ label: "Xem tất cả", to: "/explore" }}
+              action={{ label: 'Xem tất cả', to: '/explore' }}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {recentRecordings.map((recording) => (
-                <RecordingCard key={recording.id} recording={recording} />
-              ))}
-            </div>
+            <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {recentRecordings
+                .filter((r) => r.id)
+                .map((recording) => (
+                  <li key={recording.id} className="min-w-0">
+                    <MemoRecordingCardCompact
+                      recording={recording}
+                      to={`/recordings/${recording.id}`}
+                      linkState={{ from: '/' }}
+                    />
+                  </li>
+                ))}
+            </ul>
           </div>
         )}
+      </div>
 
-        {/* Call to Action Section */}
+      {/* Login/Register Gateway Modal */}
+      {isGatewayModalOpen && (
         <div
-          ref={ctaRef}
-          className="spotlight-container backdrop-blur-xl bg-white/20 rounded-2xl shadow-2xl border border-white/40 p-8"
-          style={{
-            boxShadow:
-              "0 8px 32px 0 rgba(31, 38, 135, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)",
-          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-neutral-900/40 p-4 backdrop-blur-[2px]"
+          onClick={() => setIsGatewayModalOpen(false)}
+          role="presentation"
         >
-          <div className="text-center max-w-2xl mx-auto">
-            <div className="p-3 bg-emerald-500/20 rounded-2xl w-fit mx-auto mb-4">
-              <Heart className="h-8 w-8 text-emerald-400" />
-            </div>
-            
-            <h2 className="text-2xl font-semibold text-white mb-4">
-              Hãy cùng gìn giữ di sản
-            </h2>
-            
-            <p className="text-white leading-relaxed mb-6 max-w-6xl mx-auto">
-              Mỗi bản thu, mỗi giai điệu đều là một phần của di sản văn hóa dân tộc.
-              <br />
-              Hãy cùng các nhà nghiên cứu, nghệ nhân và những người yêu văn hóa
-              <br />
-              chung tay bảo tồn âm nhạc truyền thống Việt Nam cho thế hệ mai sau.
+          <div
+            className={`${SURFACE_PANEL_GRADIENT} relative w-full max-w-2xl animate-in fade-in zoom-in-95 duration-200 p-6 pt-10 text-center sm:p-8 sm:pt-8`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="gateway-modal-title"
+            aria-describedby="gateway-modal-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Đóng"
+              onClick={() => setIsGatewayModalOpen(false)}
+              className="absolute right-2 top-2 rounded-lg p-2 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 sm:right-4 sm:top-4"
+            >
+              <X className="h-5 w-5" strokeWidth={2.25} />
+            </button>
+            <h3
+              id="gateway-modal-title"
+              className="mx-auto mb-3 max-w-3xl text-2xl font-semibold text-neutral-900 sm:text-3xl"
+            >
+              Yêu cầu quyền truy cập
+            </h3>
+            <p
+              id="gateway-modal-desc"
+              className="mx-auto max-w-3xl font-medium leading-relaxed text-neutral-700"
+            >
+              Hệ thống đã tìm thấy các bản ghi âm và sơ đồ tri thức phù hợp! Đăng nhập hoặc đăng ký
+              ngay để xem kết quả chi tiết và truy cập toàn bộ kho lưu trữ VietTune.
             </p>
 
-            <div className="flex justify-center">
-              <QuickActionButton
-                icon={Upload}
-                label="Đóng góp bản thu"
-                to="/upload"
-                primary
-              />
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button
+                ref={loginCtaRef}
+                type="button"
+                onClick={() => {
+                  setIsGatewayModalOpen(false);
+                  openLoginModal();
+                }}
+                className="inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 px-5 py-3 font-semibold text-white shadow-xl shadow-primary-600/35 transition-all hover:from-primary-500 hover:to-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 sm:w-auto"
+              >
+                Đăng nhập
+              </button>
+              <Link
+                to="/register"
+                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-secondary-300/70 bg-gradient-to-br from-secondary-100 to-secondary-200/75 px-5 py-3 font-semibold text-primary-900 shadow-sm transition-colors hover:from-secondary-200 hover:to-secondary-300/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 sm:w-auto"
+              >
+                Đăng ký cấp quyền
+              </Link>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
