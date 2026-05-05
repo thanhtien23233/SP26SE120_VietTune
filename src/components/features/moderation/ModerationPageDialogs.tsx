@@ -26,7 +26,7 @@ export interface ModerationPageDialogsProps {
     id: string | null,
     step: number,
     field: string,
-    value: boolean | string,
+    value: unknown,
   ) => void;
 
   showRejectDialog: string | null;

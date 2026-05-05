@@ -1,16 +1,24 @@
-import { X } from 'lucide-react';
+import { AlertCircle, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, Ref } from 'react';
 import { createPortal } from 'react-dom';
 
 import AudioPlayer from '@/components/features/AudioPlayer';
+import DeclaredDetectedInstrumentPanel from '@/components/features/moderation/DeclaredDetectedInstrumentPanel';
+import InstrumentConfidencePanel from '@/components/features/moderation/InstrumentConfidencePanel';
+import MetadataSuggestionPanel from '@/components/features/upload/MetadataSuggestionPanel';
 import VideoPlayer from '@/components/features/VideoPlayer';
 import { EXPERT_API_PHASE2 } from '@/config/expertWorkflowPhase';
 import { MODERATION_EXPERT_TEXTAREA_MAX_LENGTH } from '@/config/validationConstants';
+import { VERIFICATION_STEPS } from '@/features/moderation/constants/verificationStepDefinitions';
+import { useRecordingMetadataSuggestions } from '@/features/moderation/hooks/useRecordingMetadataSuggestions';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
 import { buildRecordingForModerationWizard } from '@/features/moderation/utils/buildRecordingForModerationWizard';
 import { resolveCulturalContextForDisplay } from '@/features/moderation/utils/resolveReferenceDisplayStrings';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
+import type { MetadataSuggestion } from '@/types/instrumentDetection';
+import { detectCrossCaseWarning } from '@/utils/crossCaseInstrumentWarning';
+import { metadataSuggestionKey } from '@/utils/instrumentMetadataMapper';
 import { isYouTubeUrl } from '@/utils/youtube';
 
 function culturalContextDepsKey(ctx: LocalRecordingMini['culturalContext']): string {
@@ -158,18 +166,9 @@ export function ModerationVerificationWizardDialog({
   onCompleteFinalStep: () => void;
   isCurrentStepValid: boolean;
   allStepsComplete: boolean;
-  onUpdateVerificationForm: (step: number, field: string, value: boolean | string) => void;
+  onUpdateVerificationForm: (step: number, field: string, value: unknown) => void;
 }) {
-  const stepNames = [
-    'Bước 1: Kiểm tra sơ bộ',
-    'Bước 2: Xác minh chuyên môn',
-    'Bước 3: Đối chiếu và phê duyệt',
-  ];
-  const stepDescriptions = [
-    'Đánh giá tính đầy đủ và phù hợp của thông tin',
-    'Đánh giá bởi chuyên gia về tính chính xác và giá trị văn hóa',
-    'Đối chiếu với các nguồn tài liệu và quyết định phê duyệt',
-  ];
+  const stepDef = VERIFICATION_STEPS[(currentStep === 2 || currentStep === 3 ? currentStep : 1) - 1];
 
   const [resolvedCulturalContext, setResolvedCulturalContext] = useState<
     LocalRecordingMini['culturalContext'] | null
@@ -195,6 +194,36 @@ export function ModerationVerificationWizardDialog({
   }, [culturalContextKey, item.id]);
   const step1CulturalContext =
     item.culturalContext != null ? (resolvedCulturalContext ?? item.culturalContext) : undefined;
+  const [newInstrumentOverride, setNewInstrumentOverride] = useState('');
+  const step2Overrides = (formSlice?.step2?.instrumentOverrides ?? {}) as Record<
+    string,
+    'confirmed' | 'rejected' | 'added'
+  >;
+  const metadataOverrides =
+    (formSlice?.step2?.expertMetadataOverrides ?? {}) as NonNullable<
+      ModerationVerificationData['step2']
+    >['expertMetadataOverrides'];
+  const listedInstruments = Array.from(new Set(step1CulturalContext?.instruments ?? []));
+  const { suggestions: metadataSuggestions, loading: metadataSuggestionsLoading } =
+    useRecordingMetadataSuggestions(item.id, Boolean(item.id));
+  const [metadataCorrectionDrafts, setMetadataCorrectionDrafts] = useState<Record<string, string>>({});
+  const crossCase = detectCrossCaseWarning({
+    instruments: step1CulturalContext?.instruments ?? [],
+    songSignals: [
+      item.basicInfo?.genre ?? '',
+      step1CulturalContext?.performanceType ?? '',
+      step1CulturalContext?.eventType ?? '',
+    ],
+  });
+  const crossCaseSelection = formSlice?.step2?.crossCaseClassification ?? 'none';
+
+  const upsertMetadataOverride = (suggestion: MetadataSuggestion, action: 'confirmed' | 'corrected' | 'skipped', value?: string) => {
+    const key = metadataSuggestionKey(suggestion);
+    onUpdateVerificationForm(2, 'expertMetadataOverrides', {
+      ...(metadataOverrides ?? {}),
+      [key]: { action, value: value?.trim() || undefined },
+    });
+  };
 
   return createPortal(
     <div
@@ -219,7 +248,7 @@ export function ModerationVerificationWizardDialog({
       >
         <div className="flex items-center justify-between p-6 border-b border-neutral-200/80 bg-gradient-to-br from-primary-600 to-primary-700">
           <h2 id="verification-dialog-title" className="text-2xl font-bold text-white">
-            {stepNames[currentStep - 1]}
+            {stepDef.wizardTitle}
           </h2>
           <button
             type="button"
@@ -448,13 +477,13 @@ export function ModerationVerificationWizardDialog({
                   id={`verification-step-heading-${currentStep}`}
                   className="text-base font-semibold text-neutral-900 mb-2"
                 >
-                  {stepNames[currentStep - 1]}
+                  {stepDef.wizardTitle}
                 </h3>
                 <p
                   id={`verification-step-description-${currentStep}`}
                   className="text-neutral-700 mb-4"
                 >
-                  {stepDescriptions[currentStep - 1]}
+                  {stepDef.description}
                 </p>
                 <div
                   className="flex items-center gap-2 mb-6"
@@ -487,65 +516,35 @@ export function ModerationVerificationWizardDialog({
               {currentStep === 1 && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-neutral-800 mb-3">
-                    Yêu cầu kiểm tra <span className="text-sm text-neutral-500">(Bắt buộc)</span>
+                    {VERIFICATION_STEPS[0].sectionTitle}{' '}
+                    <span className="text-sm text-neutral-500">(Bắt buộc)</span>
                   </h3>
                   <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        aria-label="Thông tin đầy đủ: Tiêu đề, nghệ sĩ, ngày thu, địa điểm, dân tộc, thể loại đã được điền đầy đủ"
-                        checked={formSlice?.step1?.infoComplete || false}
-                        onChange={(e) =>
-                          onUpdateVerificationForm(1, 'infoComplete', e.target.checked)
-                        }
-                        className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
-                      />
-                      <span className="text-neutral-700">
-                        Thông tin đầy đủ: Tiêu đề, nghệ sĩ, ngày thu, địa điểm, dân tộc, thể loại đã
-                        được điền đầy đủ
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        aria-label="Thông tin chính xác: Các thông tin cơ bản phù hợp và không có mâu thuẫn"
-                        checked={formSlice?.step1?.infoAccurate || false}
-                        onChange={(e) =>
-                          onUpdateVerificationForm(1, 'infoAccurate', e.target.checked)
-                        }
-                        className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
-                      />
-                      <span className="text-neutral-700">
-                        Thông tin chính xác: Các thông tin cơ bản phù hợp và không có mâu thuẫn
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        aria-label="Định dạng đúng: File media hợp lệ, chất lượng đạt yêu cầu tối thiểu"
-                        checked={formSlice?.step1?.formatCorrect || false}
-                        onChange={(e) =>
-                          onUpdateVerificationForm(1, 'formatCorrect', e.target.checked)
-                        }
-                        className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
-                      />
-                      <span className="text-neutral-700">
-                        Định dạng đúng: File media hợp lệ, chất lượng đạt yêu cầu tối thiểu
-                      </span>
-                    </div>
+                    {VERIFICATION_STEPS[0].fields.map((field) => (
+                      <div key={field.key} className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          aria-label={field.label}
+                          checked={!!(formSlice?.step1 as Record<string, unknown> | undefined)?.[field.key]}
+                          onChange={(e) => onUpdateVerificationForm(1, field.key, e.target.checked)}
+                          className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
+                        />
+                        <span className="text-neutral-700">{field.label}</span>
+                      </div>
+                    ))}
                   </div>
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Ghi chú kiểm tra sơ bộ{' '}
+                      {VERIFICATION_STEPS[0].notesLabel}{' '}
                       <span className="text-sm text-neutral-500">(Tùy chọn)</span>
                     </label>
                     <textarea
                       value={formSlice?.step1?.notes || ''}
-                      onChange={(e) => onUpdateVerificationForm(1, 'notes', e.target.value)}
+                      onChange={(e) => onUpdateVerificationForm(1, VERIFICATION_STEPS[0].notesField, e.target.value)}
                       rows={3}
                       maxLength={MODERATION_EXPERT_TEXTAREA_MAX_LENGTH}
                       className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:border-primary-500"
-                      placeholder="Ghi chú về các vấn đề cần lưu ý hoặc cần bổ sung..."
+                      placeholder={VERIFICATION_STEPS[0].notesPlaceholder}
                     />
                   </div>
                 </div>
@@ -553,65 +552,232 @@ export function ModerationVerificationWizardDialog({
 
               {currentStep === 2 && (
                 <div className="space-y-4">
+                  {crossCase.warning && (
+                    <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2">
+                      <p className="flex items-start gap-2 text-xs text-amber-800">
+                        <AlertCircle className="mt-0.5 h-4 w-4" />
+                        {crossCase.warning}
+                      </p>
+                    </div>
+                  )}
+                  {item.id && <InstrumentConfidencePanel recordingId={item.id} enabled />}
+                  {item.id && (
+                    <DeclaredDetectedInstrumentPanel
+                      recordingId={item.id}
+                      declaredInstruments={step1CulturalContext?.instruments ?? []}
+                      enabled
+                    />
+                  )}
                   <h3 className="font-semibold text-neutral-800 mb-3">
-                    Đánh giá chuyên môn <span className="text-sm text-neutral-500">(Bắt buộc)</span>
+                    {VERIFICATION_STEPS[1].sectionTitle}{' '}
+                    <span className="text-sm text-neutral-500">(Bắt buộc)</span>
                   </h3>
                   <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        aria-label="Giá trị văn hóa: Bản thu có giá trị văn hóa, lịch sử hoặc nghệ thuật đáng kể"
-                        checked={formSlice?.step2?.culturalValue || false}
-                        onChange={(e) =>
-                          onUpdateVerificationForm(2, 'culturalValue', e.target.checked)
-                        }
-                        className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
-                      />
-                      <span className="text-neutral-700">
-                        Giá trị văn hóa: Bản thu có giá trị văn hóa, lịch sử hoặc nghệ thuật đáng kể
-                      </span>
+                    {VERIFICATION_STEPS[1].fields.map((field) => (
+                      <div key={field.key} className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          aria-label={field.label}
+                          checked={!!(formSlice?.step2 as Record<string, unknown> | undefined)?.[field.key]}
+                          onChange={(e) => onUpdateVerificationForm(2, field.key, e.target.checked)}
+                          className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
+                        />
+                        <span className="text-neutral-700">{field.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rounded-xl border border-neutral-200 bg-white p-4">
+                    <p className="mb-3 text-sm font-medium text-neutral-800">
+                      Đánh dấu cross-case nhạc cụ truyền thống/hiện đại
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        {
+                          key: 'traditional_with_modern_instruments',
+                          label: 'Traditional + modern instruments',
+                        },
+                        {
+                          key: 'contemporary_with_traditional_instruments',
+                          label: 'Contemporary + traditional instruments',
+                        },
+                        { key: 'none', label: 'Không có cross-case' },
+                      ].map((option) => (
+                        <button
+                          key={option.key}
+                          type="button"
+                          onClick={() => onUpdateVerificationForm(2, 'crossCaseClassification', option.key)}
+                          className={`rounded-full px-3 py-1 text-xs font-medium ${
+                            crossCaseSelection === option.key
+                              ? 'bg-primary-600 text-white'
+                              : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
                     </div>
-                    <div className="flex items-start gap-3">
+                  </div>
+                  <div className="rounded-xl border border-neutral-200 bg-white p-4">
+                    <p className="mb-3 text-sm font-medium text-neutral-800">
+                      Xác minh nhạc cụ (confirm/reject/add)
+                    </p>
+                    {listedInstruments.length > 0 ? (
+                      <div className="space-y-2">
+                        {listedInstruments.map((instrumentName) => {
+                          const status = step2Overrides[instrumentName];
+                          return (
+                            <div
+                              key={instrumentName}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-200 px-3 py-2"
+                            >
+                              <span className="text-sm text-neutral-800">{instrumentName}</span>
+                              <div className="flex items-center gap-2">
+                                {(['confirmed', 'rejected'] as const).map((choice) => (
+                                  <button
+                                    key={choice}
+                                    type="button"
+                                    onClick={() =>
+                                      onUpdateVerificationForm(2, 'instrumentOverrides', {
+                                        ...step2Overrides,
+                                        [instrumentName]: choice,
+                                      })
+                                    }
+                                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                                      status === choice
+                                        ? choice === 'confirmed'
+                                          ? 'bg-emerald-600 text-white'
+                                          : 'bg-red-600 text-white'
+                                        : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                                    }`}
+                                  >
+                                    {choice === 'confirmed' ? 'Xác nhận' : 'Bác bỏ'}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-neutral-600">Chưa có nhạc cụ để xác minh.</p>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       <input
-                        type="checkbox"
-                        aria-label="Tính xác thực: Bản thu là bản gốc, không phải bản sao chép hoặc chỉnh sửa không được phép"
-                        checked={formSlice?.step2?.authenticity || false}
-                        onChange={(e) =>
-                          onUpdateVerificationForm(2, 'authenticity', e.target.checked)
-                        }
-                        className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
+                        type="text"
+                        value={newInstrumentOverride}
+                        onChange={(e) => setNewInstrumentOverride(e.target.value)}
+                        placeholder="Thêm nhạc cụ bị thiếu..."
+                        className="min-w-[220px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                       />
-                      <span className="text-neutral-700">
-                        Tính xác thực: Bản thu là bản gốc, không phải bản sao chép hoặc chỉnh sửa
-                        không được phép
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const name = newInstrumentOverride.trim();
+                          if (!name) return;
+                          onUpdateVerificationForm(2, 'instrumentOverrides', {
+                            ...step2Overrides,
+                            [name]: 'added',
+                          });
+                          setNewInstrumentOverride('');
+                        }}
+                        className="rounded-lg bg-primary-600 px-3 py-2 text-xs font-medium text-white hover:bg-primary-700"
+                      >
+                        Thêm nhạc cụ
+                      </button>
                     </div>
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        aria-label="Độ chính xác: Thông tin về dân tộc, thể loại, phong cách phù hợp với nội dung bản thu"
-                        checked={formSlice?.step2?.accuracy || false}
-                        onChange={(e) => onUpdateVerificationForm(2, 'accuracy', e.target.checked)}
-                        className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
-                      />
-                      <span className="text-neutral-700">
-                        Độ chính xác: Thông tin về dân tộc, thể loại, phong cách phù hợp với nội
-                        dung bản thu
-                      </span>
-                    </div>
+                    {Object.entries(step2Overrides).some(([, status]) => status === 'added') && (
+                      <p className="mt-2 text-xs text-neutral-600">
+                        Đã thêm:{' '}
+                        {Object.entries(step2Overrides)
+                          .filter(([, status]) => status === 'added')
+                          .map(([name]) => name)
+                          .join(', ')}
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded-xl border border-neutral-200 bg-white p-4">
+                    <p className="mb-3 text-sm font-medium text-neutral-800">
+                      Xác minh metadata gợi ý từ AI
+                    </p>
+                    <MetadataSuggestionPanel
+                      suggestions={metadataSuggestions}
+                      loading={metadataSuggestionsLoading}
+                      readOnly
+                    />
+                    {metadataSuggestions.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {metadataSuggestions.map((s) => {
+                          const key = metadataSuggestionKey(s);
+                          const current = metadataOverrides?.[key];
+                          const draft = metadataCorrectionDrafts[key] ?? '';
+                          return (
+                            <div key={key} className="rounded-lg border border-neutral-200 px-3 py-2">
+                              <p className="text-xs text-neutral-700">
+                                <strong>{s.field}</strong>: {s.value}
+                              </p>
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => upsertMetadataOverride(s, 'confirmed')}
+                                  className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                    current?.action === 'confirmed'
+                                      ? 'bg-emerald-600 text-white'
+                                      : 'bg-neutral-100 text-neutral-700'
+                                  }`}
+                                >
+                                  Xác nhận
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => upsertMetadataOverride(s, 'skipped')}
+                                  className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                    current?.action === 'skipped'
+                                      ? 'bg-amber-600 text-white'
+                                      : 'bg-neutral-100 text-neutral-700'
+                                  }`}
+                                >
+                                  Bỏ qua
+                                </button>
+                                <input
+                                  type="text"
+                                  value={draft}
+                                  onChange={(e) =>
+                                    setMetadataCorrectionDrafts((prev) => ({
+                                      ...prev,
+                                      [key]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="Giá trị chỉnh sửa..."
+                                  className="min-w-[180px] flex-1 rounded-md border border-neutral-300 px-2 py-1 text-xs"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => upsertMetadataOverride(s, 'corrected', draft)}
+                                  disabled={!draft.trim()}
+                                  className="rounded-full bg-primary-600 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+                                >
+                                  Sửa
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Đánh giá chuyên môn{' '}
+                      {VERIFICATION_STEPS[1].notesLabel}{' '}
                       <span className="text-sm text-neutral-500">(Tùy chọn)</span>
                     </label>
                     <textarea
                       value={formSlice?.step2?.expertNotes || ''}
-                      onChange={(e) => onUpdateVerificationForm(2, 'expertNotes', e.target.value)}
+                      onChange={(e) => onUpdateVerificationForm(2, VERIFICATION_STEPS[1].notesField, e.target.value)}
                       rows={4}
                       maxLength={MODERATION_EXPERT_TEXTAREA_MAX_LENGTH}
                       className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:border-primary-500"
-                      placeholder="Đánh giá chi tiết về giá trị văn hóa, tính xác thực, và độ chính xác của bản thu..."
+                      placeholder={VERIFICATION_STEPS[1].notesPlaceholder}
                     />
                   </div>
                 </div>
@@ -620,58 +786,26 @@ export function ModerationVerificationWizardDialog({
               {currentStep === 3 && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-neutral-800 mb-3">
-                    Đối chiếu và phê duyệt cuối cùng{' '}
+                    {VERIFICATION_STEPS[2].sectionTitle}{' '}
                     <span className="text-sm text-neutral-500">(Bắt buộc)</span>
                   </h3>
                   <div className="space-y-3">
+                    {VERIFICATION_STEPS[2].fields.map((field) => (
+                      <div key={field.key} className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          aria-label={field.label}
+                          checked={!!(formSlice?.step3 as Record<string, unknown> | undefined)?.[field.key]}
+                          onChange={(e) => onUpdateVerificationForm(3, field.key, e.target.checked)}
+                          className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
+                        />
+                        <span className="text-neutral-700">{field.label}</span>
+                      </div>
+                    ))}
                     <div className="flex items-start gap-3">
                       <input
                         type="checkbox"
-                        aria-label="Đã đối chiếu: Đã kiểm tra và đối chiếu với các nguồn tài liệu, cơ sở dữ liệu liên quan"
-                        checked={formSlice?.step3?.crossChecked || false}
-                        onChange={(e) =>
-                          onUpdateVerificationForm(3, 'crossChecked', e.target.checked)
-                        }
-                        className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
-                      />
-                      <span className="text-neutral-700">
-                        Đã đối chiếu: Đã kiểm tra và đối chiếu với các nguồn tài liệu, cơ sở dữ liệu
-                        liên quan
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        aria-label="Nguồn đã xác minh: Nguồn gốc, người thu thập, quyền sở hữu đã được xác minh"
-                        checked={formSlice?.step3?.sourcesVerified || false}
-                        onChange={(e) =>
-                          onUpdateVerificationForm(3, 'sourcesVerified', e.target.checked)
-                        }
-                        className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
-                      />
-                      <span className="text-neutral-700">
-                        Nguồn đã xác minh: Nguồn gốc, người thu thập, quyền sở hữu đã được xác minh
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        aria-label="Xác nhận phê duyệt: Tôi xác nhận đã hoàn thành tất cả các bước kiểm tra và đồng ý phê duyệt bản thu này"
-                        checked={formSlice?.step3?.finalApproval || false}
-                        onChange={(e) =>
-                          onUpdateVerificationForm(3, 'finalApproval', e.target.checked)
-                        }
-                        className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
-                      />
-                      <span className="text-neutral-700">
-                        Xác nhận phê duyệt: Tôi xác nhận đã hoàn thành tất cả các bước kiểm tra và
-                        đồng ý phê duyệt bản thu này
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        aria-label="Nội dung nhạy cảm: Đề xuất áp dụng hạn chế công bố cho bản ghi này"
+                        aria-label={VERIFICATION_STEPS[2].optionalFields?.[0]?.label}
                         checked={formSlice?.step3?.sensitiveContent || false}
                         onChange={(e) =>
                           onUpdateVerificationForm(3, 'sensitiveContent', e.target.checked)
@@ -679,7 +813,7 @@ export function ModerationVerificationWizardDialog({
                         className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
                       />
                       <span className="text-neutral-700">
-                        Nội dung nhạy cảm: Đề xuất áp dụng hạn chế công bố cho bản ghi này
+                        {VERIFICATION_STEPS[2].optionalFields?.[0]?.label}
                       </span>
                     </div>
                   </div>
@@ -688,16 +822,17 @@ export function ModerationVerificationWizardDialog({
                       htmlFor="verification-final-notes"
                       className="block text-sm font-medium text-neutral-700 mb-2"
                     >
-                      Ghi chú cuối cùng <span className="text-sm text-neutral-500">(Tùy chọn)</span>
+                      {VERIFICATION_STEPS[2].notesLabel}{' '}
+                      <span className="text-sm text-neutral-500">(Tùy chọn)</span>
                     </label>
                     <textarea
                       id="verification-final-notes"
                       value={formSlice?.step3?.finalNotes || ''}
-                      onChange={(e) => onUpdateVerificationForm(3, 'finalNotes', e.target.value)}
+                      onChange={(e) => onUpdateVerificationForm(3, VERIFICATION_STEPS[2].notesField, e.target.value)}
                       rows={4}
                       maxLength={MODERATION_EXPERT_TEXTAREA_MAX_LENGTH}
                       className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:border-primary-500"
-                      placeholder="Ghi chú cuối cùng về quá trình kiểm duyệt, các điểm đáng chú ý..."
+                      placeholder={VERIFICATION_STEPS[2].notesPlaceholder}
                     />
                   </div>
                 </div>

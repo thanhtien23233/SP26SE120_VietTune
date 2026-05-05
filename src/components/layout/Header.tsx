@@ -3,12 +3,11 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { NotificationTypeIcon } from '@/components/common/NotificationTypeIcon';
-import logo from '@/components/image/VietTune logo.png';
+import logo from '@/components/image/viettune_logo_img';
 import { APP_NAME, INTELLIGENCE_NAME } from '@/config/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationPolling } from '@/hooks/useNotificationPolling';
 import { recordingRequestService } from '@/services/recordingRequestService';
-import { useLoginModalStore } from '@/stores/loginModalStore';
 import { UserRole, type AppNotification } from '@/types';
 import { formatRelativeTimeVi } from '@/utils/helpers';
 import { getLayoutFeatureItems } from '@/utils/layoutFeatureItems';
@@ -18,7 +17,6 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  const openLoginModal = useLoginModalStore((s) => s.openLoginModal);
 
   // Account dropdown refs/state
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -108,7 +106,6 @@ export default function Header() {
                   className="h-9 w-9 object-contain rounded-lg"
                   loading="eager"
                   // @ts-expect-error -- fetchpriority is valid HTML but React types lag behind
-                  // eslint-disable-next-line react/no-unknown-property
                   fetchpriority="high"
                   decoding="async"
                   width={36}
@@ -325,13 +322,12 @@ export default function Header() {
                 </>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => openLoginModal()}
+                  <Link
+                    to="/login"
                     className="flex h-9 cursor-pointer items-center px-3 text-sm font-semibold text-white transition-colors hover:text-secondary-300 active:text-secondary-400"
                   >
                     Đăng nhập
-                  </button>
+                  </Link>
                   <Link
                     to="/register"
                     className="flex h-9 items-center rounded-xl bg-gradient-to-br from-secondary-500 to-secondary-600 px-3 text-sm font-semibold text-white shadow-md transition-colors duration-300 hover:from-secondary-400 hover:to-secondary-500 hover:shadow-lg cursor-pointer"
@@ -501,16 +497,13 @@ export default function Header() {
                 </>
               ) : (
                 <>
-                  <button
-                    type="button"
+                  <Link
+                    to="/login"
                     className="block w-full px-4 py-3 text-left text-white font-medium hover:bg-white/10 rounded-lg transition-colors"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      openLoginModal();
-                    }}
+                    onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Đăng nhập
-                  </button>
+                  </Link>
                   <Link
                     to="/register"
                     className="block px-4 py-3 text-secondary-300 font-medium hover:bg-white/10 rounded-lg transition-colors"

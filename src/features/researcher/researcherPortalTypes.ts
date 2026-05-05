@@ -1,13 +1,28 @@
+import { Recording } from '@/types';
+
 export type ResearcherCatalogSource = 'api-filter' | 'empty';
+
+export type ResearcherSearchResult = Recording;
+
+export interface ResearcherAnalysisRecord extends Recording {
+  normalizedBaseTitle?: string;
+  mappedEthnicity?: string;
+  mappedInstruments?: string[];
+}
+
+export interface ResearcherUiRecord extends Recording {
+  uiTitle: string;
+  uiSubtitle: string;
+}
 
 export type ResearcherFilterDropdownKey = 'ethnic' | 'instrument' | 'ceremony' | 'region' | 'commune';
 
 export interface SearchFiltersState {
-  ethnicGroup: string;
-  instrument: string;
-  region: string;
-  ceremony: string;
-  commune: string;
+  ethnicGroupId: string;
+  instrumentId: string;
+  regionCode: string;
+  ceremonyId: string;
+  communeId: string;
 }
 
 export interface ChatCitation {
@@ -22,9 +37,10 @@ export interface ResearcherPortalChatMessage {
   citations?: ChatCitation[];
 }
 
-export type ResearcherGraphTabView = 'overview' | 'instruments' | 'ethnicity';
-
+/** @deprecated Use `ResearcherGraphSelection` from `@/features/knowledge-graph/utils/researcherGraphUx`. */
 export type ResearcherSelectedGraphNode = {
   type: 'instrument' | 'ethnicity';
   name: string;
 } | null;
+
+export type { ResearcherGraphTabView, ResearcherGraphSelection } from '@/features/knowledge-graph/utils/researcherGraphUx';

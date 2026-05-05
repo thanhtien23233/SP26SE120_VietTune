@@ -44,7 +44,7 @@ test.describe("researcher — QA tab + Knowledge Graph tab (35)", () => {
       .toBe(true);
   });
 
-  test("Biểu đồ tri thức: khung Tổng quan / Nhạc cụ / Dân tộc", async ({ page }) => {
+  test("Biểu đồ tri thức: tab Tổng quan / Nhạc cụ / Dân tộc / Nghi lễ / Bản thu + Làm mới", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Cổng nghiên cứu" })).toBeVisible({
       timeout: 45_000,
     });
@@ -55,6 +55,9 @@ test.describe("researcher — QA tab + Knowledge Graph tab (35)", () => {
     await page.getByRole("button", { name: "Tổng quan" }).click();
     await page.getByRole("button", { name: "Nhạc cụ" }).click();
     await page.getByRole("button", { name: "Dân tộc" }).click();
+    await page.getByRole("button", { name: "Nghi lễ" }).click();
+    await page.getByRole("button", { name: "Bản thu" }).click();
+    await expect(page.getByRole("button", { name: "Làm mới" })).toBeVisible();
     await page.getByRole("button", { name: "Tổng quan" }).click();
   });
 });

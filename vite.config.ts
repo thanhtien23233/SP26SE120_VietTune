@@ -10,11 +10,45 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function manualChunks(id: string): string | undefined {
   if (!id.includes('node_modules')) return undefined;
+
   if (
     /[/\\]node_modules[/\\](?:react|react-dom|scheduler)[/\\]/.test(id) ||
     /[/\\]node_modules[/\\]react-router(?:-dom)?[/\\]/.test(id)
   ) {
     return 'vendor-react';
+  }
+  if (/[/\\]node_modules[/\\]@sentry[/\\]/.test(id)) {
+    return 'vendor-sentry';
+  }
+  if (/[/\\]node_modules[/\\]@supabase[/\\]/.test(id)) {
+    return 'vendor-supabase';
+  }
+  if (/[/\\]node_modules[/\\]@microsoft[/\\]signalr[/\\]/.test(id)) {
+    return 'vendor-signalr';
+  }
+  if (/[/\\]node_modules[/\\]wavesurfer\.js[/\\]/.test(id)) {
+    return 'vendor-wavesurfer';
+  }
+  if (/[/\\]node_modules[/\\]react-force-graph-2d[/\\]/.test(id)) {
+    return 'vendor-force-graph';
+  }
+  if (/[/\\]node_modules[/\\]lucide-react[/\\]/.test(id)) {
+    return 'vendor-lucide';
+  }
+  if (/[/\\]node_modules[/\\]@tanstack[/\\]react-virtual[/\\]/.test(id)) {
+    return 'vendor-virtual';
+  }
+  if (/[/\\]node_modules[/\\]date-fns[/\\]/.test(id)) {
+    return 'vendor-date-fns';
+  }
+  if (/[/\\]node_modules[/\\]react-hook-form[/\\]/.test(id)) {
+    return 'vendor-rhf';
+  }
+  if (/[/\\]node_modules[/\\]openapi-fetch[/\\]/.test(id)) {
+    return 'vendor-openapi';
+  }
+  if (/[/\\]node_modules[/\\]react-hot-toast[/\\]/.test(id)) {
+    return 'vendor-toast';
   }
   if (/[/\\]node_modules[/\\]recharts[/\\]/.test(id)) {
     return 'vendor-charts';
@@ -28,6 +62,10 @@ function manualChunks(id: string): string | undefined {
   if (/[/\\]node_modules[/\\]xlsx[/\\]/.test(id)) {
     return 'vendor-xlsx';
   }
+  if (/[/\\]node_modules[/\\]zustand[/\\]/.test(id)) {
+    return 'vendor-zustand';
+  }
+
   return undefined;
 }
 

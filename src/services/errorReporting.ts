@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/react';
+import { captureReactException, init } from '@sentry/react';
 import type { ErrorInfo } from 'react';
 
 export interface ErrorReportContext {
@@ -18,19 +18,13 @@ let reporter: ((error: Error, errorInfo?: ErrorInfo, context?: ErrorReportContex
 export function initErrorReporting(): void {
   const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
   if (dsn && typeof dsn === 'string' && dsn.trim() !== '') {
-    Sentry.init({
+    init({
       dsn,
       environment: import.meta.env.MODE,
-      integrations: [Sentry.browserTracingIntegration()],
       tracesSampleRate: 0.1,
     });
-    setErrorReporter((error, errorInfo, context) => {
-      Sentry.captureException(error, {
-        extra: {
-          componentStack: errorInfo?.componentStack,
-          ...context,
-        },
-      });
+    setErrorReporter((error, errorInfo) => {
+      captureReactException(error, errorInfo ?? { componentStack: '' });
     });
   }
 }

@@ -2,31 +2,36 @@ import { CalendarDays, Map, MapPin, Music2, Users } from 'lucide-react';
 import React, { useState } from 'react';
 
 import SearchableDropdown from '@/components/common/SearchableDropdown';
+import { REGION_NAMES } from '@/config/constants';
 import type {
   ResearcherFilterDropdownKey,
   SearchFiltersState,
 } from '@/features/researcher/researcherPortalTypes';
+import type {
+  CeremonyItem,
+  CommuneItem,
+  EthnicGroupItem,
+  InstrumentItem,
+} from '@/services/referenceDataService';
 
 export interface ResearcherFilterBarProps {
   filters: SearchFiltersState;
   setFilters: React.Dispatch<React.SetStateAction<SearchFiltersState>>;
   activeFilterCount: number;
-  ETHNICITIES: string[];
-  REGIONS: string[];
-  EVENT_TYPES: string[];
-  INSTRUMENTS: string[];
-  COMMUNES: string[];
+  ethnicRefData: EthnicGroupItem[];
+  instrumentRefData: InstrumentItem[];
+  ceremonyRefData: CeremonyItem[];
+  communeRefData: CommuneItem[];
 }
 
 export default function ResearcherFilterBar({
   filters,
   setFilters,
   activeFilterCount,
-  ETHNICITIES,
-  REGIONS,
-  EVENT_TYPES,
-  INSTRUMENTS,
-  COMMUNES,
+  ethnicRefData,
+  instrumentRefData,
+  ceremonyRefData,
+  communeRefData,
 }: ResearcherFilterBarProps) {
   const [filterDropdownOpen, setFilterDropdownOpen] = useState<ResearcherFilterDropdownKey | null>(
     null,
@@ -48,11 +53,11 @@ export default function ResearcherFilterBar({
           type="button"
           onClick={() =>
             setFilters({
-              ethnicGroup: '',
-              instrument: '',
-              region: '',
-              ceremony: '',
-              commune: '',
+              ethnicGroupId: '',
+              instrumentId: '',
+              regionCode: '',
+              ceremonyId: '',
+              communeId: '',
             })
           }
           disabled={activeFilterCount === 0}
@@ -69,9 +74,13 @@ export default function ResearcherFilterBar({
               label: 'Dân tộc',
               icon: Users,
               placeholder: 'Tất cả dân tộc',
-              value: filters.ethnicGroup,
-              onChange: (v: string) => setFilters((p) => ({ ...p, ethnicGroup: v })),
-              options: ETHNICITIES,
+              value: ethnicRefData.find((x) => x.id === filters.ethnicGroupId)?.name || '',
+              onChange: (v: string) =>
+                setFilters((p) => ({
+                  ...p,
+                  ethnicGroupId: ethnicRefData.find((x) => x.name === v)?.id || '',
+                })),
+              options: ethnicRefData.map((x) => x.name),
               searchable: true,
             },
             {
@@ -79,9 +88,13 @@ export default function ResearcherFilterBar({
               label: 'Nhạc cụ',
               icon: Music2,
               placeholder: 'Tất cả nhạc cụ',
-              value: filters.instrument,
-              onChange: (v: string) => setFilters((p) => ({ ...p, instrument: v })),
-              options: INSTRUMENTS,
+              value: instrumentRefData.find((x) => x.id === filters.instrumentId)?.name || '',
+              onChange: (v: string) =>
+                setFilters((p) => ({
+                  ...p,
+                  instrumentId: instrumentRefData.find((x) => x.name === v)?.id || '',
+                })),
+              options: instrumentRefData.map((x) => x.name),
               searchable: true,
             },
             {
@@ -89,9 +102,13 @@ export default function ResearcherFilterBar({
               label: 'Nghi lễ',
               icon: CalendarDays,
               placeholder: 'Tất cả nghi lễ',
-              value: filters.ceremony,
-              onChange: (v: string) => setFilters((p) => ({ ...p, ceremony: v })),
-              options: EVENT_TYPES,
+              value: ceremonyRefData.find((x) => x.id === filters.ceremonyId)?.name || '',
+              onChange: (v: string) =>
+                setFilters((p) => ({
+                  ...p,
+                  ceremonyId: ceremonyRefData.find((x) => x.name === v)?.id || '',
+                })),
+              options: ceremonyRefData.map((x) => x.name),
               searchable: false,
             },
             {
@@ -99,9 +116,15 @@ export default function ResearcherFilterBar({
               label: 'Vùng miền',
               icon: Map,
               placeholder: 'Tất cả vùng miền',
-              value: filters.region,
-              onChange: (v: string) => setFilters((p) => ({ ...p, region: v })),
-              options: REGIONS,
+              value: filters.regionCode
+                ? REGION_NAMES[filters.regionCode as keyof typeof REGION_NAMES] || ''
+                : '',
+              onChange: (v: string) =>
+                setFilters((p) => ({
+                  ...p,
+                  regionCode: Object.entries(REGION_NAMES).find(([, label]) => label === v)?.[0] || '',
+                })),
+              options: Object.values(REGION_NAMES),
               searchable: false,
             },
             {
@@ -109,9 +132,13 @@ export default function ResearcherFilterBar({
               label: 'Xã / Phường',
               icon: MapPin,
               placeholder: 'Tất cả xã / phường',
-              value: filters.commune,
-              onChange: (v: string) => setFilters((p) => ({ ...p, commune: v })),
-              options: COMMUNES,
+              value: communeRefData.find((x) => x.id === filters.communeId)?.name || '',
+              onChange: (v: string) =>
+                setFilters((p) => ({
+                  ...p,
+                  communeId: communeRefData.find((x) => x.name === v)?.id || '',
+                })),
+              options: communeRefData.map((x) => x.name),
               searchable: true,
             },
           ] as const

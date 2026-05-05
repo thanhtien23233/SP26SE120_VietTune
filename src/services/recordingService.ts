@@ -284,27 +284,37 @@ export const recordingService = {
     );
   },
 
-  // Search recordings (backend: GET /api/Search/songs with query params)
+  /**
+   * Authenticated catalog search with text + facet filters.
+   * Legacy `GET /api/Search/songs` was removed from OpenAPI; use `GET /api/Recording/search-by-filter`
+   * (same endpoint as researcher filter search; optional `q` passed loose for backends that support it).
+   */
   searchRecordings: async (
     filters: SearchFilters,
     page: number = 1,
     pageSize: number = 20,
     opts?: { signal?: AbortSignal },
   ) => {
-    const ethnicNames = filters.ethnicityIds?.join(',') || undefined;
-    const genreTags = filters.tags?.join(',') || undefined;
+    const q = filters.query?.trim();
+    const ethnicId = filters.ethnicityIds?.find((id) => id?.trim());
+    const instrumentId = filters.instrumentIds?.find((id) => id?.trim());
+    const regionCode = filters.regions?.[0];
+    const genreTags = filters.tags?.join(',')?.trim();
+
+    const merged: Record<string, string | number> = {
+      page,
+      pageSize,
+    };
+    if (q) merged.q = q;
+    if (ethnicId) merged.ethnicGroupId = ethnicId.trim();
+    if (instrumentId) merged.instrumentId = instrumentId.trim();
+    if (regionCode) merged.regionCode = String(regionCode);
+    if (genreTags) merged.genre = genreTags;
+
     return apiOk(
       asApiEnvelope<PaginatedResponse<Recording>>(
-        apiFetch.GET('/api/Search/songs', {
-          params: {
-            query: openApiQueryRecord({
-              q: filters.query,
-              ethnic: ethnicNames,
-              genre: genreTags,
-              page,
-              pageSize,
-            }),
-          },
+        apiFetchLoose.GET('/api/Recording/search-by-filter', {
+          params: { query: openApiQueryRecord(merged) },
           signal: opts?.signal,
         }),
       ),
@@ -373,34 +383,34 @@ export const recordingService = {
     );
   },
 
-  // Get popular recordings (backend: GET /api/Song/popular)
+  // Get popular recordings
   getPopularRecordings: async (limit: number = 10) => {
     return apiOk(
       asApiEnvelope<ApiResponse<Recording[]>>(
-        apiFetch.GET('/api/Song/popular', {
-          params: { query: { limit } },
+        apiFetchLoose.GET('/api/Recording/search-by-filter', {
+          params: { query: { sortBy: 'popular', limit } },
         }),
       ),
     );
   },
 
-  // Get recent recordings (backend: GET /api/Song/recent)
+  // Get recent recordings
   getRecentRecordings: async (limit: number = 10) => {
     return apiOk(
       asApiEnvelope<ApiResponse<Recording[]>>(
-        apiFetch.GET('/api/Song/recent', {
-          params: { query: { limit } },
+        apiFetchLoose.GET('/api/Recording/search-by-filter', {
+          params: { query: { sortBy: 'recent', limit } },
         }),
       ),
     );
   },
 
-  // Get featured recordings (backend: GET /api/Song/featured)
+  // Get featured recordings
   getFeaturedRecordings: async (limit: number = 10) => {
     return apiOk(
       asApiEnvelope<ApiResponse<Recording[]>>(
-        apiFetch.GET('/api/Song/featured', {
-          params: { query: { limit } },
+        apiFetchLoose.GET('/api/Recording/search-by-filter', {
+          params: { query: { sortBy: 'featured', limit } },
         }),
       ),
     );

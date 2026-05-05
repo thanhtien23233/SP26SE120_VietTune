@@ -2,7 +2,7 @@ import { Download, Eye, Pause, Play } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 
-import logo from '@/components/image/VietTune logo.png';
+import logo from '@/components/image/viettune_logo_img';
 import type { Recording } from '@/types';
 
 type SingleTrackPlayerProps = {

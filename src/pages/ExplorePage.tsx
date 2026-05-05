@@ -101,7 +101,7 @@ function buildExploreSearchParams(
  * - `searchMode` → URL `mode` (`keyword` | `semantic`).
  * - Keyword query → `filters.query` / `q`; semantic text → `sq` (applied when user submits).
  * - `facetDraft` = pending sidebar edits until **Áp dụng** commits to URL → `filters`.
- * - `currentPage` = pagination (guest semantic path ignores page on pool fetch).
+ * - `currentPage` = pagination (semantic uses API pool + client slice; token fallback ranks then slices).
  */
 export default function ExplorePage() {
   const location = useLocation();

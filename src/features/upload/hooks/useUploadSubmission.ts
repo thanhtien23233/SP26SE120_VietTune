@@ -4,13 +4,26 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { RecordingUploadDto } from '@/api';
 import { legacyPost } from '@/api/legacyHttp';
 import { LANGUAGES } from '@/features/upload/uploadConstants';
+import {
+  instrumentDetectionFlags,
+  instrumentDetectionService,
+} from '@/services/instrumentDetectionService';
 import { recordingService } from '@/services/recordingService';
-import type { InstrumentItem } from '@/services/referenceDataService';
+import type {
+  EthnicGroupItem,
+  InstrumentItem,
+  VocalStyleItem,
+} from '@/services/referenceDataService';
 import { submissionService } from '@/services/submissionService';
 import { submissionVersionApi } from '@/services/submissionVersionApi';
 import { uploadFileToSupabase } from '@/services/uploadService';
 import { UserRole } from '@/types';
+import type { DetectedInstrument, MetadataSuggestion } from '@/types/instrumentDetection';
 import { uiToast } from '@/uiToast';
+import {
+  mapInstrumentsToMetadataSuggestions,
+  normalizeInstrumentMatchKey,
+} from '@/utils/instrumentMetadataMapper';
 
 type NameItem = { id?: string; name: string };
 type IdNameItem = { id: string; name: string };
@@ -46,6 +59,10 @@ type UseUploadSubmissionOptions = {
   setRecordingLocation: Dispatch<SetStateAction<string>>;
   setTranscription: (value: string) => void;
   setInstruments: Dispatch<SetStateAction<string[]>>;
+  setInstrumentPredictions: Dispatch<SetStateAction<DetectedInstrument[]>>;
+  setAiMetadataSuggestions: Dispatch<SetStateAction<MetadataSuggestion[]>>;
+  setAiAnalysisLoading?: (value: boolean) => void;
+  setAiAnalysisError?: (value: string | null) => void;
   setEthnicity: (value: string) => void;
   setCustomEthnicity: (value: string) => void;
   setVocalStyle: (value: string) => void;
@@ -56,14 +73,15 @@ type UseUploadSubmissionOptions = {
   setTitle: (value: string) => void;
   setComposer: (value: string) => void;
   setComposerUnknown: (value: boolean) => void;
-  ethnicGroupsData: NameItem[];
+  ethnicGroupsData: EthnicGroupItem[];
   ceremoniesData: NameItem[];
   provincesData: IdNameItem[];
   districtsData: DistrictLike[];
   communesData: CommuneLike[];
-  vocalStylesData: IdNameItem[];
+  vocalStylesData: VocalStyleItem[];
   musicalScalesData: IdNameItem[];
   instrumentsData: InstrumentItem[];
+  REGIONS: string[];
   title: string;
   description: string;
   artist: string;
@@ -119,7 +137,13 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
 
     try {
       let publicUrl = '';
-      type AiInstrument = { name?: string };
+      type AiInstrument = {
+        id?: string;
+        name?: string;
+        confidence?: number;
+        confidenceScore?: number;
+        max_confidence?: number;
+      };
       type AiAnalysisResult = {
         language?: string;
         recordingLocation?: string;
@@ -134,36 +158,73 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
         performanceContext?: string;
       };
       let aiRes: AiAnalysisResult | null = null;
+      let detectedInstruments: DetectedInstrument[] = [];
+      let mlDetectionResult:
+        | import('@/types/instrumentDetection').InstrumentDetectionResult
+        | null = null;
 
       if (options.useAiAnalysis) {
-        const formData = new FormData();
-        formData.append('audioFile', options.file);
+        options.setAiAnalysisLoading?.(true);
+        options.setAiAnalysisError?.(null);
+        try {
+          const formData = new FormData();
+          formData.append('audioFile', options.file);
 
-        const [uploadResult, aiResult] = await Promise.allSettled([
-          uploadFileToSupabase(options.file),
-          legacyPost('/AIAnalysis/analyze-only', formData, {
-            timeout: 300000,
-          }),
-        ]);
+          // Call 3 endpoints in parallel:
+          // 1. Upload to Supabase
+          // 2. AI metadata analysis (language, ethnicity, instrument names, etc.)
+          // 3. ML instrument detection (returns confidence scores)
+          const shouldDetect =
+            instrumentDetectionFlags.confidenceEnabled && options.mediaType === 'audio';
+          const [uploadResult, aiResult, detectionResult] = await Promise.allSettled([
+            uploadFileToSupabase(options.file),
+            legacyPost('/AIAnalysis/analyze-only', formData, {
+              timeout: 300000,
+            }),
+            shouldDetect
+              ? instrumentDetectionService.analyzeOnlyFromFile(options.file)
+              : Promise.resolve(null),
+          ]);
 
-        if (uploadResult.status === 'fulfilled') {
-          publicUrl = uploadResult.value as string;
-        } else {
-          throw uploadResult.reason;
-        }
+          if (uploadResult.status === 'fulfilled') {
+            publicUrl = uploadResult.value as string;
+          } else {
+            throw uploadResult.reason;
+          }
 
-        if (aiResult.status === 'fulfilled' && aiResult.value) {
-          const payload = aiResult.value as { data?: unknown };
-          aiRes = (payload.data ?? aiResult.value) as AiAnalysisResult;
-        } else {
-          console.warn(
-            'AI Analysis failed:',
-            aiResult.status === 'rejected' ? aiResult.reason : 'No value',
-          );
-          uiToast.warning('upload.ai.partial_fail');
+          if (aiResult.status === 'fulfilled' && aiResult.value) {
+            const payload = aiResult.value as { data?: unknown };
+            aiRes = (payload.data ?? aiResult.value) as AiAnalysisResult;
+          } else {
+            console.warn(
+              'AI Analysis failed:',
+              aiResult.status === 'rejected' ? aiResult.reason : 'No value',
+            );
+            uiToast.warning('upload.ai.partial_fail');
+          }
+
+          if (aiResult.status === 'rejected') {
+            options.setAiAnalysisError?.(
+              aiResult.reason instanceof Error ? aiResult.reason.message : String(aiResult.reason),
+            );
+          }
+
+          // Store ML detection results for confidence merging
+          if (detectionResult.status === 'fulfilled' && detectionResult.value) {
+            mlDetectionResult = detectionResult.value;
+          } else if (detectionResult.status === 'rejected') {
+            console.warn(
+              'Instrument detection failed (confidence unavailable):',
+              detectionResult.reason,
+            );
+          }
+        } finally {
+          options.setAiAnalysisLoading?.(false);
         }
       } else {
         publicUrl = await uploadFileToSupabase(options.file);
+        options.setInstrumentPredictions([]);
+        options.setAiMetadataSuggestions([]);
       }
 
       options.setUploadProgress(99);
@@ -187,6 +248,98 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
 
       if (aiRes) {
         uiToast.success('upload.ai.success_detail');
+        if (instrumentDetectionFlags.confidenceEnabled && Array.isArray(aiRes.instruments)) {
+          const seen = new Set<string>();
+          const mappedFromAi = aiRes.instruments
+            .map((item) => {
+              // DEBUG: inspect raw AI instrument prediction shape
+              // eslint-disable-next-line no-console
+              console.log('[VietTune AI Debug] Raw instrument prediction:', item);
+              const name = item?.name?.trim();
+              if (!name) return null;
+              const key = name.toLowerCase();
+              if (seen.has(key)) return null;
+              seen.add(key);
+
+              const normalizedConfidenceRaw =
+                typeof item.confidence === 'number'
+                  ? item.confidence
+                  : typeof item.confidenceScore === 'number'
+                    ? item.confidenceScore
+                    : undefined;
+              const clamp01 = (v: number) => Math.max(0, Math.min(1, v > 1 ? v / 100 : v));
+              let confidence: number | null =
+                typeof normalizedConfidenceRaw === 'number' && Number.isFinite(normalizedConfidenceRaw)
+                  ? clamp01(normalizedConfidenceRaw)
+                  : null;
+              if (confidence === null && typeof item.max_confidence === 'number' && Number.isFinite(item.max_confidence)) {
+                confidence = clamp01(item.max_confidence);
+              }
+
+              const id = typeof item.id === 'string' && item.id.trim() ? item.id.trim() : undefined;
+
+              const row: DetectedInstrument = {
+                name,
+                confidence,
+                ...(id ? { id } : {}),
+              };
+              return row;
+            })
+            .filter((row): row is DetectedInstrument => !!row);
+
+          detectedInstruments = mappedFromAi;
+
+          // ── Merge ML detection confidence into AI-identified instruments ──
+          if (mlDetectionResult && mlDetectionResult.instruments.length > 0) {
+            const mlByKey = new Map<string, DetectedInstrument>();
+            for (const mlInst of mlDetectionResult.instruments) {
+              const k = normalizeInstrumentMatchKey(mlInst.name);
+              if (!k) continue;
+              const prev = mlByKey.get(k);
+              const mlConf =
+                mlInst.confidence !== null &&
+                typeof mlInst.confidence === 'number' &&
+                Number.isFinite(mlInst.confidence)
+                  ? mlInst.confidence
+                  : -1;
+              const prevConf =
+                prev &&
+                prev.confidence !== null &&
+                typeof prev.confidence === 'number' &&
+                Number.isFinite(prev.confidence)
+                  ? prev.confidence
+                  : -1;
+              if (!prev || mlConf > prevConf) mlByKey.set(k, mlInst);
+            }
+
+            detectedInstruments = detectedInstruments.map((inst) => {
+              const mlMatch = mlByKey.get(normalizeInstrumentMatchKey(inst.name));
+              if (mlMatch) {
+                const nextConf =
+                  mlMatch.confidence !== null &&
+                  typeof mlMatch.confidence === 'number' &&
+                  Number.isFinite(mlMatch.confidence)
+                    ? mlMatch.confidence
+                    : inst.confidence;
+                return {
+                  ...inst,
+                  confidence: nextConf,
+                  id: inst.id ?? mlMatch.id,
+                };
+              }
+              return inst;
+            });
+
+            // Add ML-only instruments that AI didn't identify
+            const aiKeys = new Set(
+              detectedInstruments.map((i) => normalizeInstrumentMatchKey(i.name)),
+            );
+            for (const [k, mlInst] of mlByKey) {
+              if (!aiKeys.has(k)) detectedInstruments.push(mlInst);
+            }
+          }
+        }
+
         let isInstrumental = false;
         if (aiRes.language) {
           const langLower = aiRes.language.toLowerCase();
@@ -259,13 +412,30 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
             options.setPerformanceType(pt);
           } else {
             options.setPerformanceType(
-              pt === 'Hát với nhạc cụ' ? 'vocal_accompaniment' : pt === 'Nhạc cụ' ? 'instrumental' : '',
+              pt === 'Hát với nhạc cụ'
+                ? 'vocal_accompaniment'
+                : pt === 'Nhạc cụ'
+                  ? 'instrumental'
+                  : '',
             );
           }
         }
         options.setTitle('');
         options.setComposer('');
         options.setComposerUnknown(false);
+      }
+      options.setInstrumentPredictions(detectedInstruments);
+      if (instrumentDetectionFlags.confidenceEnabled && detectedInstruments.length > 0) {
+        const suggestions = mapInstrumentsToMetadataSuggestions({
+          detected: detectedInstruments,
+          instrumentsData: options.instrumentsData,
+          ethnicGroupsData: options.ethnicGroupsData,
+          vocalStylesData: options.vocalStylesData,
+          availableRegions: options.REGIONS,
+        });
+        options.setAiMetadataSuggestions(suggestions);
+      } else {
+        options.setAiMetadataSuggestions([]);
       }
       options.setUploadProgress(100);
     } catch (error: unknown) {
@@ -292,9 +462,11 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
       }
 
       try {
-        const finalEthnicity = options.ethnicity === 'Khác' ? options.customEthnicity : options.ethnicity;
+        const finalEthnicity =
+          options.ethnicity === 'Khác' ? options.customEthnicity : options.ethnicity;
         const ethnicGroupId = options.ethnicGroupsData.find((e) => e.name === finalEthnicity)?.id;
-        const finalEventType = options.eventType === 'Khác' ? options.customEventType : options.eventType;
+        const finalEventType =
+          options.eventType === 'Khác' ? options.customEventType : options.eventType;
         const ceremonyId = options.ceremoniesData.find((c) => c.name === finalEventType)?.id;
         const provinceId = options.provincesData.find((p) => p.name === options.province)?.id;
         const districtId = options.districtsData.find(
@@ -303,7 +475,9 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
         const selectedCommuneId = options.communesData.find(
           (c) => c.name === options.commune && c.districtId === districtId,
         )?.id;
-        const selectedVocalStyleId = options.vocalStylesData.find((v) => v.name === options.vocalStyle)?.id;
+        const selectedVocalStyleId = options.vocalStylesData.find(
+          (v) => v.name === options.vocalStyle,
+        )?.id;
         const selectedMusicalScaleId = options.musicalScalesData.find(
           (m) => m.name === options.musicalScale,
         )?.id;
@@ -311,9 +485,12 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           .map((name) => options.instrumentsData.find((i: InstrumentItem) => i.name === name)?.id)
           .filter((id): id is string => !!id);
 
-        const durationSeconds = options.audioInfo?.duration || options.existingMediaInfo?.duration || 0;
-        const audioFormat = options.audioInfo?.type || options.existingMediaInfo?.type || options.file?.type || '';
-        const fileSizeBytes = options.audioInfo?.size || options.existingMediaInfo?.size || options.file?.size || 0;
+        const durationSeconds =
+          options.audioInfo?.duration || options.existingMediaInfo?.duration || 0;
+        const audioFormat =
+          options.audioInfo?.type || options.existingMediaInfo?.type || options.file?.type || '';
+        const fileSizeBytes =
+          options.audioInfo?.size || options.existingMediaInfo?.size || options.file?.size || 0;
         const finalMediaUrl = options.newUploadedUrl || options.existingMediaSrc || '';
 
         const payload: RecordingUploadDto = {
@@ -387,11 +564,14 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
         };
 
         if (isFinal) {
-          const subIdToConfirm = options.currentSubmissionId || (options.isEditMode ? options.editingRecordingId : null);
+          const subIdToConfirm =
+            options.currentSubmissionId || (options.isEditMode ? options.editingRecordingId : null);
           if (subIdToConfirm) {
             const confirmRes = await submissionService.confirmSubmission(subIdToConfirm);
             if (!confirmRes || !confirmRes.isSuccess) {
-              throw new Error(confirmRes?.message || 'Không thể xác nhận bản đóng góp. Vui lòng thử lại.');
+              throw new Error(
+                confirmRes?.message || 'Không thể xác nhận bản đóng góp. Vui lòng thử lại.',
+              );
             }
             // Backend auto-notification: NewRecordingPending → tránh tạo thông báo kép ở FE.
             // NOTE: nhánh edit-mode có thể cần notification riêng (submission_updated) nếu backend KHÔNG gửi.
@@ -406,7 +586,9 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           );
         } else {
           await createSubmissionVersionBestEffort();
-          uiToast.success(options.isEditMode ? 'upload.save.success_edit' : 'upload.save.success_draft');
+          uiToast.success(
+            options.isEditMode ? 'upload.save.success_edit' : 'upload.save.success_draft',
+          );
         }
       } catch (error: unknown) {
         console.error('Lỗi khi lưu dữ liệu:', error);
@@ -420,13 +602,17 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
             const rec = data as Record<string, unknown>;
             const rawErrors = rec.errors;
             if (Array.isArray(rawErrors)) {
-              const msgs = rawErrors.map((e: unknown) => (typeof e === 'string' ? e : JSON.stringify(e)));
+              const msgs = rawErrors.map((e: unknown) =>
+                typeof e === 'string' ? e : JSON.stringify(e),
+              );
               const msg = typeof rec.message === 'string' ? rec.message : '';
               errorDetail = `Lỗi hệ thống: ${msg} - ${msgs.join(' | ')}`;
             } else if (rawErrors && typeof rawErrors === 'object') {
               const validationErrors = Object.entries(rawErrors as Record<string, unknown>)
                 .map(([field, msgs]) =>
-                  Array.isArray(msgs) ? `${field}: ${msgs.join(', ')}` : `${field}: ${JSON.stringify(msgs)}`,
+                  Array.isArray(msgs)
+                    ? `${field}: ${msgs.join(', ')}`
+                    : `${field}: ${JSON.stringify(msgs)}`,
                 )
                 .join(' | ');
               errorDetail = `Lỗi dữ liệu: ${validationErrors}`;

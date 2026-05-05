@@ -2,6 +2,17 @@ import { recordingFacetHaystack } from '@/features/explore/utils/exploreFacetDra
 import type { Recording, SearchFilters } from '@/types';
 import { normalizeSearchText } from '@/utils/searchText';
 
+/** True when `applyGuestFilters` can narrow rows (fields it actually reads). */
+export function hasActiveGuestFilters(filters: SearchFilters): boolean {
+  if (normalizeSearchText(filters.query ?? '')) return true;
+  if ((filters.regions?.length ?? 0) > 0) return true;
+  if ((filters.recordingTypes?.length ?? 0) > 0) return true;
+  if ((filters.ethnicityIds?.length ?? 0) > 0) return true;
+  if ((filters.tags?.length ?? 0) > 0) return true;
+  if (filters.dateFrom || filters.dateTo) return true;
+  return false;
+}
+
 /** Client-side facet + keyword filter for guest catalog rows. */
 export function applyGuestFilters(rows: Recording[], filters: SearchFilters): Recording[] {
   const query = normalizeSearchText(filters.query ?? '');

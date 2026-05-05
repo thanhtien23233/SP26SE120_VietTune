@@ -1355,6 +1355,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Auth/resend-confirmation-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "multipart/form-data": {
+                        email?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Auth/confirm-email": {
         parameters: {
             query?: never;
@@ -1362,7 +1401,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: {
+        get?: never;
+        put: {
             parameters: {
                 query?: {
                     token?: string;
@@ -1382,7 +1422,6 @@ export interface paths {
                 };
             };
         };
-        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1398,8 +1437,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
-        post: {
+        put: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -1408,9 +1446,9 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": components["schemas"]["VietTuneArchive.API.Controllers.AuthController+ForgotPasswordModel"];
-                    "text/json": components["schemas"]["VietTuneArchive.API.Controllers.AuthController+ForgotPasswordModel"];
-                    "application/*+json": components["schemas"]["VietTuneArchive.API.Controllers.AuthController+ForgotPasswordModel"];
+                    "multipart/form-data": {
+                        Email?: string;
+                    };
                 };
             };
             responses: {
@@ -1423,6 +1461,7 @@ export interface paths {
                 };
             };
         };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1437,8 +1476,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
-        post: {
+        put: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -1447,9 +1485,11 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": components["schemas"]["VietTuneArchive.API.Controllers.AuthController+ResetPasswordModel"];
-                    "text/json": components["schemas"]["VietTuneArchive.API.Controllers.AuthController+ResetPasswordModel"];
-                    "application/*+json": components["schemas"]["VietTuneArchive.API.Controllers.AuthController+ResetPasswordModel"];
+                    "multipart/form-data": {
+                        Email?: string;
+                        OTP?: string;
+                        NewPassword?: string;
+                    };
                 };
             };
             responses: {
@@ -1462,6 +1502,7 @@ export interface paths {
                 };
             };
         };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6244,214 +6285,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/Search/songs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    q?: string;
-                    ethnic?: string;
-                    genre?: string;
-                    page?: number;
-                    pageSize?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+SongSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+SongSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+SongSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Search/instruments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    q?: string;
-                    category?: string;
-                    ethnic?: string;
-                    page?: number;
-                    pageSize?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+InstrumentSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+InstrumentSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+InstrumentSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Search/knowledge-base": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    q?: string;
-                    category?: string;
-                    page?: number;
-                    pageSize?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+ArticleSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+ArticleSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+ArticleSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Search/all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    q?: string;
-                    page?: number;
-                    pageSize?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SearchDto+UnifiedSearchResultDto"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SearchDto+UnifiedSearchResultDto"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SearchDto+UnifiedSearchResultDto"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Search/suggestions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    q?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SearchDto+SearchSuggestionDto"][];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SearchDto+SearchSuggestionDto"][];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SearchDto+SearchSuggestionDto"][];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/search/semantic": {
         parameters: {
             query?: never;
@@ -6515,485 +6348,6 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    page?: number;
-                    pageSize?: number;
-                    search?: string;
-                    sort?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song/{songId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    songId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SongDto+SongDetailDto"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SongDto+SongDetailDto"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SongDto+SongDetailDto"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song/{songId}/media": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    songId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.MediaDto+MediaFileDetailDto"][];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.MediaDto+MediaFileDetailDto"][];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.MediaDto+MediaFileDetailDto"][];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song/{songId}/transcription": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    songId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.TranscriptionDto"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.TranscriptionDto"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.TranscriptionDto"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song/{songId}/annotations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    songId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AnnotationDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AnnotationDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AnnotationDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song/{songId}/related": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path: {
-                    songId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song/{songId}/view": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    songId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.BaseResponse"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.BaseResponse"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.BaseResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song/featured": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song/recent": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song/popular": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song/by-ethnic-group/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    page?: number;
-                    pageSize?: number;
-                };
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Song/by-genre/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    page?: number;
-                    pageSize?: number;
-                };
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                    };
                 };
             };
         };
@@ -7249,6 +6603,111 @@ export interface paths {
                 };
             };
         };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Submission/done-stage-one": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: {
+                    submissionId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Submission/done-stage-two": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: {
+                    submissionId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Submission/get-related-submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    submissionId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -8337,159 +7796,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/vector-sync/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/vector-sync/all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/vector-sync/resync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/vector-sync/{recordingId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    recordingId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    recordingId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/error": {
         parameters: {
             query?: never;
@@ -8685,14 +7991,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        "VietTuneArchive.API.Controllers.AuthController+ForgotPasswordModel": {
-            email?: string | null;
-        };
-        "VietTuneArchive.API.Controllers.AuthController+ResetPasswordModel": {
-            email?: string | null;
-            otp?: string | null;
-            newPassword?: string | null;
-        };
         "VietTuneArchive.API.Controllers.ChatController+ChatRequest": {
             message?: string | null;
         };
@@ -8812,23 +8110,6 @@ export interface components {
             audioUrl?: string | null;
             mimeType?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AnnotationDto": {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            recordingId?: string;
-            /** Format: uuid */
-            expertId?: string;
-            content?: string | null;
-            type?: string | null;
-            researchCitation?: string | null;
-            /** Format: int32 */
-            timestampStart?: number | null;
-            /** Format: int32 */
-            timestampEnd?: number | null;
-            /** Format: date-time */
-            createdAt?: string;
-        };
         "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisInfo": {
             filename?: string | null;
             /** Format: double */
@@ -8904,10 +8185,6 @@ export interface components {
             fileName?: string | null;
             url?: string | null;
             isPrimary?: boolean;
-        };
-        "VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto": {
-            id?: string | null;
-            title?: string | null;
         };
         "VietTuneArchive.Application.Mapper.DTOs.CommonDto+TranscriptionJobDto": {
             id?: string | null;
@@ -9161,15 +8438,6 @@ export interface components {
             /** Format: int32 */
             total?: number;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AnnotationDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
-            items?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnnotationDto"][] | null;
-            /** Format: int32 */
-            page?: number;
-            /** Format: int32 */
-            pageSize?: number;
-            /** Format: int32 */
-            total?: number;
-        };
         "VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AuditLogDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
             items?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AuditLogDto"][] | null;
             /** Format: int32 */
@@ -9179,44 +8447,8 @@ export interface components {
             /** Format: int32 */
             total?: number;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
-            items?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+SongSummaryDto"][] | null;
-            /** Format: int32 */
-            page?: number;
-            /** Format: int32 */
-            pageSize?: number;
-            /** Format: int32 */
-            total?: number;
-        };
         "VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.NotificationDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
             items?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.NotificationDto"][] | null;
-            /** Format: int32 */
-            page?: number;
-            /** Format: int32 */
-            pageSize?: number;
-            /** Format: int32 */
-            total?: number;
-        };
-        "VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+ArticleSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
-            items?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SearchDto+ArticleSearchResultDto"][] | null;
-            /** Format: int32 */
-            page?: number;
-            /** Format: int32 */
-            pageSize?: number;
-            /** Format: int32 */
-            total?: number;
-        };
-        "VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+InstrumentSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
-            items?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SearchDto+InstrumentSearchResultDto"][] | null;
-            /** Format: int32 */
-            page?: number;
-            /** Format: int32 */
-            pageSize?: number;
-            /** Format: int32 */
-            total?: number;
-        };
-        "VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+SongSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
-            items?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.SearchDto+SongSearchResultDto"][] | null;
             /** Format: int32 */
             page?: number;
             /** Format: int32 */
@@ -9366,51 +8598,6 @@ export interface components {
         "VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest+VerifyTranscriptionRequest": {
             isApproved?: boolean;
             feedback?: string | null;
-        };
-        "VietTuneArchive.Application.Mapper.DTOs.SearchDto+ArticleSearchResultDto": {
-            id?: string | null;
-            title?: string | null;
-            excerpt?: string | null;
-            /** Format: double */
-            score?: number;
-        };
-        "VietTuneArchive.Application.Mapper.DTOs.SearchDto+InstrumentSearchResultDto": {
-            id?: string | null;
-            name?: string | null;
-            category?: string | null;
-            /** Format: double */
-            score?: number;
-        };
-        "VietTuneArchive.Application.Mapper.DTOs.SearchDto+SearchSuggestionDto": {
-            text?: string | null;
-            type?: string | null;
-            /** Format: double */
-            score?: number;
-        };
-        "VietTuneArchive.Application.Mapper.DTOs.SearchDto+SongSearchResultDto": {
-            id?: string | null;
-            title?: string | null;
-            artist?: string | null;
-            /** Format: double */
-            score?: number;
-            ethnicGroup?: string | null;
-        };
-        "VietTuneArchive.Application.Mapper.DTOs.SearchDto+UnifiedSearchResultDto": {
-            songs?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+SongSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-            instruments?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+InstrumentSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-            articles?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.SearchDto+ArticleSearchResultDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-            /** Format: int32 */
-            total?: number;
-        };
-        "VietTuneArchive.Application.Mapper.DTOs.SongDto+SongDetailDto": {
-            id?: string | null;
-            title?: string | null;
-            artist?: string | null;
-            region?: string | null;
-            duration?: string | null;
-            /** Format: date-time */
-            publishedAt?: string;
-            description?: string | null;
         };
         "VietTuneArchive.Application.Mapper.DTOs.SubmissionDto": {
             audioFileUrl?: string | null;

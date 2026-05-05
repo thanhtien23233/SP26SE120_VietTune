@@ -4,7 +4,7 @@ import type {
   ApiUpdateAnnotationDto as UpdateAnnotationDto,
 } from '@/api';
 import type { AnnotationDto, AnnotationDtoPagedList } from '@/types/annotation';
-import { extractArray, extractObject } from '@/utils/apiHelpers';
+import { extractArray } from '@/utils/apiHelpers';
 import { getHttpStatus } from '@/utils/httpError';
 
 type AnnotationCollectionResponse =
@@ -18,20 +18,7 @@ type AnnotationCollectionResponse =
       Results?: AnnotationDto[];
     };
 
-function readNumber(value: unknown, fallback = 0): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
 
-function asPagedList(data: unknown): AnnotationDtoPagedList {
-  const rows = extractArray<AnnotationDto>(data, ['items', 'Items', 'data', 'Data']);
-  const obj = extractObject(data);
-  return {
-    items: rows,
-    page: readNumber(obj?.page ?? obj?.Page, 1),
-    pageSize: readNumber(obj?.pageSize ?? obj?.PageSize, rows.length || 20),
-    total: readNumber(obj?.total ?? obj?.Total, rows.length),
-  };
-}
 
 function normalizeRows(data: unknown): AnnotationDto[] {
   if (Array.isArray(data)) return data as AnnotationDto[];
@@ -67,16 +54,15 @@ export const annotationApi = {
     return normalizeRows(res as AnnotationCollectionResponse);
   },
 
-  /** Swagger: GET /api/Song/{songId}/annotations — không có query phân trang. */
+  /** Alias to getByRecordingId but returning paged format. */
   async getBySongId(songId: string): Promise<AnnotationDtoPagedList> {
-    const res = await apiOk(
-      asApiEnvelope<unknown>(
-        apiFetch.GET('/api/Song/{songId}/annotations', {
-          params: { path: { songId } },
-        }),
-      ),
-    );
-    return asPagedList(res as AnnotationCollectionResponse);
+    const rows = await this.getByRecordingId(songId);
+    return {
+      items: rows,
+      page: 1,
+      pageSize: Math.max(20, rows.length),
+      total: rows.length,
+    };
   },
 
   async create(data: CreateAnnotationDto): Promise<void> {

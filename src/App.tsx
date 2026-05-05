@@ -16,8 +16,8 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import LoadingState from './components/common/LoadingState';
 import ScrollToTop from './components/common/ScrollToTop';
 import MainLayout from './components/layout/MainLayout';
-import ResearcherPortalPage from './pages/researcher/ResearcherPortalPage';
 
+const ResearcherPortalPage = lazy(() => import('./pages/researcher/ResearcherPortalPage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
 const SemanticSearchPage = lazy(() => import('./pages/SemanticSearchPage'));
 const ChatbotPage = lazy(() => import('./pages/ChatbotPage'));

@@ -14,6 +14,7 @@ import type { ModerationPortalModal } from '@/components/features/moderation/Mod
 import ModerationPageDialogs from '@/components/features/moderation/ModerationPageDialogs';
 import { ModerationPageHeader } from '@/components/features/moderation/ModerationPageHeader';
 import ModerationReviewTab from '@/components/features/moderation/ModerationReviewTab';
+import { VERIFICATION_STEPS } from '@/features/moderation/constants/verificationStepDefinitions';
 import { useExpertQueue } from '@/features/moderation/hooks/useExpertQueue';
 import { useModerationWizard } from '@/features/moderation/hooks/useModerationWizard';
 import { useSubmissionOverlay } from '@/features/moderation/hooks/useSubmissionOverlay';
@@ -36,6 +37,10 @@ import { LocalRecording, UserRole } from '@/types';
 import { toModerationUiStatus } from '@/types/moderation';
 import { uiToast } from '@/uiToast';
 import { migrateVideoDataToVideoData } from '@/utils/helpers';
+
+const STAGE_NAME_BY_STEP: Record<number, string> = Object.fromEntries(
+  VERIFICATION_STEPS.map((stepDef) => [stepDef.step, stepDef.name]),
+) as Record<number, string>;
 
 export default function ModerationPage() {
   const user = useAuthStore((s) => s.user);
@@ -105,6 +110,18 @@ export default function ModerationPage() {
       return haystack.includes(q);
     });
   }, [items, queueSearchQuery]);
+
+  const selectedStageInfo = useMemo(() => {
+    if (!selectedId) return null;
+    const listItem = allItems.find((i) => i.id === selectedId);
+    const item = mergeDisplayItem(listItem, selectedItemFull);
+    if (!item) return null;
+    const claimedByCurrentUser =
+      item.moderation?.claimedBy === user?.id || item.moderation?.reviewerId === user?.id;
+    if (!claimedByCurrentUser) return null;
+    const step = getCurrentVerificationStep(selectedId);
+    return { step, stepName: STAGE_NAME_BY_STEP[step] ?? STAGE_NAME_BY_STEP[1] };
+  }, [selectedId, allItems, selectedItemFull, user?.id, getCurrentVerificationStep]);
 
   const handleExpertReviewNotesChange = useCallback((submissionId: string, text: string) => {
     setExpertReviewNotesDraft((prev) => ({ ...prev, [submissionId]: text }));
@@ -571,7 +588,7 @@ export default function ModerationPage() {
         <div className="sr-only" aria-live="polite" aria-atomic="true">
           {moderationA11yMessage}
         </div>
-        <ModerationPageHeader />
+        <ModerationPageHeader selectedStageInfo={selectedStageInfo} />
 
         {/* Tabs — VietTune UI */}
         <div className="rounded-3xl overflow-hidden shadow-lg ring-1 ring-amber-200/70 backdrop-blur-sm mb-6 sm:mb-8 transition-all duration-300 min-w-0 overflow-x-hidden bg-white/80">
@@ -602,6 +619,12 @@ export default function ModerationPage() {
                     selectedItemFull={selectedItemFull}
                     currentUserId={user?.id}
                     userRole={user.role}
+                    currentVerificationStep={item.id ? getCurrentVerificationStep(item.id) : undefined}
+                    verificationData={
+                      item.id
+                        ? (verificationForms[item.id] ?? item.moderation?.verificationData)
+                        : undefined
+                    }
                     expertReviewNotesDraft={item.id ? (expertReviewNotesDraft[item.id] ?? '') : ''}
                     onExpertReviewNotesChange={handleExpertReviewNotesChange}
                     onAssign={assignOnly}

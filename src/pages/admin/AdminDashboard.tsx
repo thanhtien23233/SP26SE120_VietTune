@@ -85,11 +85,12 @@ export default function AdminDashboard() {
 
   const handleAssignRole = async (userId: string, newRole: string) => {
     try {
-      // Prefer backend, fallback to local overrides
+      let apiOk = false;
       try {
         await adminApi.updateUserRole(userId, newRole);
+        apiOk = true;
       } catch {
-        // ignore and fallback
+        apiOk = false;
       }
       const oRaw = getItem('users_overrides');
       const o = oRaw ? (JSON.parse(oRaw) as Record<string, Record<string, unknown>>) : {};
@@ -97,35 +98,52 @@ export default function AdminDashboard() {
       o[userId].role = newRole;
       void setItem('users_overrides', JSON.stringify(o));
       setUsersOverrides((prev) => ({ ...prev, [userId]: { ...prev[userId], role: newRole } }));
-      // Backend auto-notification: RoleChanged → tránh tạo thông báo kép ở FE.
-      uiToast.success(
-        notifyLine(
-          'Thành công',
-          `Đã gán vai trò "${ROLE_NAMES_VI[newRole] ?? newRole}" cho người dùng.`,
-        ),
-      );
-    } catch (e) {
+      if (apiOk) {
+        uiToast.success(
+          notifyLine(
+            'Thành công',
+            `Đã gán vai trò "${ROLE_NAMES_VI[newRole] ?? newRole}" cho người dùng.`,
+          ),
+        );
+      } else {
+        uiToast.warning(
+          notifyLine(
+            'Chỉ cập nhật trên giao diện',
+            `Máy chủ chưa cập nhật vai trò. Đã lưu tạm "${ROLE_NAMES_VI[newRole] ?? newRole}" trong giao diện — vui lòng thử lại sau.`,
+          ),
+        );
+      }
+    } catch {
       uiToast.error(notifyLine('Lỗi', 'Không thể cập nhật vai trò.'));
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      // Prefer deactivating on backend; keep UI removal locally as well
+      let apiOk = false;
       try {
         await adminApi.updateUserStatus(userId, false);
+        apiOk = true;
       } catch {
-        // ignore and fallback
+        apiOk = false;
       }
-      // Backend auto-notification: AccountDeactivated → tránh tạo thông báo kép ở FE.
       const next = new Set(deletedUserIds);
       next.add(userId);
       setDeletedUserIds(next);
       void setItem('admin_deleted_user_ids', JSON.stringify([...next]));
       setDeleteUserTarget(null);
-      uiToast.success(notifyLine('Thành công', 'Đã vô hiệu hóa người dùng.'));
-    } catch (e) {
-      uiToast.error(notifyLine('Lỗi', 'Không thể xóa người dùng.'));
+      if (apiOk) {
+        uiToast.success(notifyLine('Thành công', 'Đã vô hiệu hóa người dùng.'));
+      } else {
+        uiToast.warning(
+          notifyLine(
+            'Chỉ cập nhật trên giao diện',
+            'Máy chủ chưa vô hiệu hóa tài khoản. Đã ẩn người dùng trong giao diện — vui lòng thử lại sau.',
+          ),
+        );
+      }
+    } catch {
+      uiToast.error(notifyLine('Lỗi', 'Không thể vô hiệu hóa người dùng.'));
     }
   };
 
@@ -145,22 +163,17 @@ export default function AdminDashboard() {
       setRemoveTarget(null);
       void load();
       uiToast.success(notifyLine('Thành công', 'Đã xóa bản ghi khỏi hệ thống.'));
-    } catch (e) {
+    } catch {
       uiToast.error(notifyLine('Lỗi', 'Không thể xóa bản ghi.'));
     }
   };
 
   const expertOptions = useMemo(() => {
-    const o = usersOverrides;
     const experts: { id: string; username: string; fullName?: string }[] = [];
-    ['expert_a', 'expert_b', 'expert_c'].forEach((id) => {
-      const u = o[id];
-      if (u?.role === UserRole.EXPERT || !u)
-        experts.push({ id, username: u?.username ?? id, fullName: u?.fullName });
-    });
-    Object.entries(o).forEach(([id, u]) => {
-      if (u?.role === UserRole.EXPERT && !experts.some((e) => e.id === id))
+    Object.entries(usersOverrides).forEach(([id, u]) => {
+      if (u?.role === UserRole.EXPERT) {
         experts.push({ id, username: u.username ?? id, fullName: u.fullName });
+      }
     });
     return experts;
   }, [usersOverrides]);
@@ -321,7 +334,11 @@ export default function AdminDashboard() {
         onClose={() => setRemoveTarget(null)}
         onConfirm={() => void handleRemoveRecording()}
         title="Xóa bản ghi"
-        message={removeTarget ? `Bạn có chắc muốn xóa "${removeTarget.title}" khỏi hệ thống?` : ''}
+        message={
+          removeTarget
+            ? `Bạn có chắc muốn xóa "${removeTarget.title?.trim() || 'Bản thu'}" khỏi hệ thống?`
+            : ''
+        }
         description="Hành động này không thể hoàn tác."
         confirmText="Xóa"
         cancelText="Hủy"

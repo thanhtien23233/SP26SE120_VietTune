@@ -77,6 +77,8 @@ export interface VocalStyleItem {
   id: string;
   name: string;
   description?: string | null;
+  /** When set, links vocal style to an ethnic group (OpenAPI `VocalStyleDto.ethnicGroupId`). */
+  ethnicGroupId?: string | null;
 }
 
 export interface MusicalScaleItem {

@@ -1,17 +1,24 @@
-import { Music, User as UserIcon } from 'lucide-react';
+import { AlertCircle, Music, User as UserIcon } from 'lucide-react';
 import { memo } from 'react';
 
+import DeclaredDetectedInstrumentPanel from '@/components/features/moderation/DeclaredDetectedInstrumentPanel';
 import EmbargoSection from '@/components/features/moderation/EmbargoSection';
+import InstrumentConfidencePanel from '@/components/features/moderation/InstrumentConfidencePanel';
 import { ModerationClaimActions } from '@/components/features/moderation/ModerationClaimActions';
 import { ModerationDetailMedia } from '@/components/features/moderation/ModerationDetailMedia';
+import { ModerationStageChecklist } from '@/components/features/moderation/ModerationStageChecklist';
+import { ModerationStageProgressBar } from '@/components/features/moderation/ModerationStageProgressBar';
 import { ModerationSubmissionDetailPanels } from '@/components/features/moderation/ModerationSubmissionDetailPanels';
 import SubmissionVersionTimeline from '@/components/features/submission/SubmissionVersionTimeline';
+import MetadataSuggestionPanel from '@/components/features/upload/MetadataSuggestionPanel';
+import { useRecordingMetadataSuggestions } from '@/features/moderation/hooks/useRecordingMetadataSuggestions';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
 import {
   cleanInstrumentList,
   cleanMetadataText,
   isPlaceholderField,
 } from '@/features/moderation/utils/moderationDisplayMerge';
+import type { ModerationVerificationData } from '@/services/expertWorkflowService';
 import {
   Region,
   RecordingType,
@@ -22,6 +29,7 @@ import {
   RecordingMetadata,
   Instrument,
 } from '@/types';
+import { detectCrossCaseWarning } from '@/utils/crossCaseInstrumentWarning';
 import { formatDateTime } from '@/utils/helpers';
 import { buildTagsFromLocal } from '@/utils/recordingTags';
 import { isYouTubeUrl } from '@/utils/youtube';
@@ -45,6 +53,8 @@ export interface ModerationDetailViewProps {
   onUnclaim: (id?: string) => void;
   onOpenWizard: (id?: string) => void;
   onRequestDelete: (id: string) => void;
+  currentVerificationStep?: number;
+  verificationData?: ModerationVerificationData;
 }
 
 function buildConvertedRecording(
@@ -167,6 +177,8 @@ function ModerationDetailView({
   onUnclaim,
   onOpenWizard,
   onRequestDelete,
+  currentVerificationStep,
+  verificationData,
 }: ModerationDetailViewProps) {
   const { mediaSrc, isVideo } = resolveMediaSource(item);
   const convertedForPlayer = buildConvertedRecording(item, selectedItemFull);
@@ -209,6 +221,23 @@ function ModerationDetailView({
       : `Thiếu metadata (${missingInfoCount + (headerMetadataSparse ? 1 : 0)})`;
 
   const canEditEmbargo = userRole === UserRole.EXPERT || userRole === UserRole.ADMIN;
+  const claimedByCurrentUser =
+    !!currentUserId &&
+    (item.moderation?.claimedBy === currentUserId || item.moderation?.reviewerId === currentUserId);
+  const stageStep = currentVerificationStep ?? item.moderation?.verificationStep ?? 1;
+  const {
+    suggestions: metadataSuggestions,
+    loading: metadataSuggestionsLoading,
+    error: metadataSuggestionsError,
+  } = useRecordingMetadataSuggestions(item.id, claimedByCurrentUser);
+  const crossCase = detectCrossCaseWarning({
+    instruments: item.culturalContext?.instruments ?? [],
+    songSignals: [
+      item.basicInfo?.genre ?? '',
+      item.culturalContext?.performanceType ?? '',
+      item.culturalContext?.eventType ?? '',
+    ],
+  });
 
   return (
     <div className="space-y-6">
@@ -227,14 +256,30 @@ function ModerationDetailView({
               {metadataHealthLabel}
             </p>
           </div>
-          <ModerationClaimActions
-            item={item}
-            currentUserId={currentUserId}
-            onAssign={onAssign}
-            onUnclaim={onUnclaim}
-            onOpenWizard={onOpenWizard}
-            onRequestDelete={onRequestDelete}
-          />
+          <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:items-end">
+            {claimedByCurrentUser && (
+              <div className="w-full max-w-xl rounded-2xl border border-secondary-200/50 bg-surface-panel p-4 text-neutral-900 shadow-sm sm:w-[26rem]">
+                <ModerationStageProgressBar
+                  currentStep={stageStep}
+                  verificationData={verificationData ?? item.moderation?.verificationData}
+                />
+                <div className="mt-3 border-t border-neutral-200/80 pt-3">
+                  <ModerationStageChecklist
+                    currentStep={stageStep}
+                    verificationData={verificationData ?? item.moderation?.verificationData}
+                  />
+                </div>
+              </div>
+            )}
+            <ModerationClaimActions
+              item={item}
+              currentUserId={currentUserId}
+              onAssign={onAssign}
+              onUnclaim={onUnclaim}
+              onOpenWizard={onOpenWizard}
+              onRequestDelete={onRequestDelete}
+            />
+          </div>
         </div>
         <ModerationDetailMedia
           mediaSrc={mediaSrc}
@@ -251,6 +296,32 @@ function ModerationDetailView({
         onExpertReviewNotesChange={onExpertReviewNotesChange}
         infoRows={infoRows}
       />
+      {item.id && claimedByCurrentUser && (
+        <InstrumentConfidencePanel recordingId={item.id} enabled={claimedByCurrentUser} />
+      )}
+      {crossCase.warning && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2">
+          <p className="flex items-start gap-2 text-xs text-amber-800">
+            <AlertCircle className="mt-0.5 h-4 w-4" />
+            {crossCase.warning}
+          </p>
+        </div>
+      )}
+      {item.id && claimedByCurrentUser && (
+        <DeclaredDetectedInstrumentPanel
+          recordingId={item.id}
+          declaredInstruments={item.culturalContext?.instruments ?? []}
+          enabled={claimedByCurrentUser}
+        />
+      )}
+      {item.id && claimedByCurrentUser && (
+        <MetadataSuggestionPanel
+          suggestions={metadataSuggestions}
+          loading={metadataSuggestionsLoading}
+          error={metadataSuggestionsError}
+          readOnly
+        />
+      )}
       {item.id && (
         <>
           <div className="hidden sm:block">

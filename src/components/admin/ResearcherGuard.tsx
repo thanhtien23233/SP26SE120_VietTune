@@ -28,7 +28,6 @@ export default function ResearcherGuard() {
       }),
     [isLoading, location.pathname, user],
   );
-  const canAccess = decision.status === 'allow';
   const decisionStatus = decision.status;
   const decisionReason = decision.status === 'redirect' ? decision.reason : null;
   const redirectTo = decision.status === 'redirect' ? decision.redirectTo : null;
@@ -161,8 +160,6 @@ export default function ResearcherGuard() {
       </div>
     );
   }
-
-  if (!canAccess) return null;
 
   return (
     <ErrorBoundary region="researcher">

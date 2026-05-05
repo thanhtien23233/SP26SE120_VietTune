@@ -1,13 +1,13 @@
-import { BookOpen, Music } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { BookOpen, Lock, Music } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, Link } from 'react-router-dom';
 
-import BackButton from '@/components/common/BackButton';
+import AuthHeader from '@/components/auth/AuthHeader';
 import Input from '@/components/common/Input';
 import TermsAndConditions from '@/components/features/TermsAndConditions';
-import { BronzeDrum } from '@/components/image/pattern/BackgroundPatterns';
-import logo from '@/components/image/VietTune logo.png';
+import backgroundImage from '@/components/image/background.png';
+import logo from '@/components/image/viettune_logo_img';
 import { authService } from '@/services/authService';
 import { sessionGetItem, sessionRemoveItem } from '@/services/storageService';
 import { RegisterForm } from '@/types';
@@ -32,6 +32,16 @@ export default function RegisterPage() {
   } = useForm<RegisterForm>();
 
   const password = watch('password');
+  const backgroundAttachment = useMemo(() => {
+    if (typeof navigator === 'undefined') return 'fixed';
+
+    const ua = navigator.userAgent || '';
+    const platform = navigator.platform || '';
+    const maxTouchPoints = navigator.maxTouchPoints || 0;
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (platform === 'MacIntel' && maxTouchPoints > 1);
+
+    return isIOS ? 'scroll' : 'fixed';
+  }, []);
 
   useEffect(() => {
     void sessionRemoveItem('fromLogout');
@@ -59,7 +69,7 @@ export default function RegisterPage() {
           ? (result as { message: string }).message
           : 'Đăng ký thành công. Vui lòng xác thực tài khoản.';
       uiToast.success(notifyLine('Thành công', msg));
-      navigate('/confirm-account');
+      navigate('/confirm-account', { state: { email: data.email } });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error && 'response' in error
@@ -73,56 +83,60 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 z-0">
-        <BronzeDrum />
+    <div className="min-h-screen bg-[#FFF2D6] relative overflow-hidden">
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          backgroundImage: `url(${backgroundImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'top center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment,
+        }}
+      />
+
+      <div className="relative z-10">
+        <AuthHeader hideHomeLink={fromLogout} />
       </div>
 
-      {!fromLogout && (
-        <div className="absolute top-6 left-6 z-10">
-          <BackButton />
-        </div>
-      )}
-
-      <div className="max-w-md w-full space-y-8 relative z-10">
+      <div className="relative z-10 mx-auto w-full max-w-lg px-4 pb-10 pt-5 sm:pb-12 sm:pt-8 lg:max-w-xl lg:pt-10">
+        <div className="rounded-2xl border border-neutral-200/80 bg-surface-panel p-6 shadow-lg sm:p-8">
         {/* Header Section */}
-        <div className="flex flex-col items-center text-center">
-          <img
-            src={logo}
-            alt="VietTune Logo"
-            className="w-20 h-20 object-contain mb-4 rounded-2xl cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => navigate('/')}
-            loading="eager"
-            // @ts-expect-error -- fetchpriority is valid HTML but React types lag behind
-            // eslint-disable-next-line react/no-unknown-property
-            fetchpriority="high"
-            decoding="async"
-            width={80}
-            height={80}
-          />
-          <h1 className="text-2xl font-bold text-white mb-2">Tham gia VietTune</h1>
-          <p className="text-neutral-300 font-medium">
-            Tạo tài khoản để kết nối và sẻ chia âm hưởng nghìn năm.
-          </p>
-        </div>
+          <div className="mb-8 flex flex-col items-center text-center">
+            <img
+              src={logo}
+              alt="VietTune Logo"
+              className="mb-4 h-20 w-20 cursor-pointer rounded-2xl object-contain transition-opacity hover:opacity-80"
+              onClick={() => navigate('/')}
+              loading="eager"
+              // @ts-expect-error -- fetchpriority is valid HTML but React types lag behind
+              fetchpriority="high"
+              decoding="async"
+              width={80}
+              height={80}
+            />
+            <h1 className="mb-2 text-2xl font-bold text-neutral-900">Tham gia VietTune</h1>
+            <p className="font-medium text-neutral-600">
+              Tạo tài khoản để kết nối và sẻ chia âm hưởng nghìn năm.
+            </p>
+          </div>
 
         {/* Form Section */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Role selector */}
           <fieldset>
-            <legend className="text-sm font-semibold text-white/90 mb-3 text-center">
+              <legend className="mb-3 text-center text-sm font-semibold text-neutral-800">
               Bạn muốn tham gia với vai trò nào?
             </legend>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => setSelectedRole('contributor')}
                 className={cn(
                   'flex flex-col items-center gap-2 rounded-2xl border-2 px-4 py-4 text-center transition-all duration-200',
                   selectedRole === 'contributor'
-                    ? 'border-secondary-400 bg-white/15 text-white shadow-lg shadow-secondary-500/20 scale-[1.02]'
-                    : 'border-white/20 bg-white/5 text-white/70 hover:border-white/40 hover:bg-white/10',
+                    ? 'border-secondary-400 bg-cream-50 text-neutral-900 shadow-md shadow-secondary-500/20 scale-[1.02]'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50',
                 )}
               >
                 <Music className="h-6 w-6 shrink-0" strokeWidth={2} />
@@ -137,8 +151,8 @@ export default function RegisterPage() {
                 className={cn(
                   'flex flex-col items-center gap-2 rounded-2xl border-2 px-4 py-4 text-center transition-all duration-200',
                   selectedRole === 'researcher'
-                    ? 'border-secondary-400 bg-white/15 text-white shadow-lg shadow-secondary-500/20 scale-[1.02]'
-                    : 'border-white/20 bg-white/5 text-white/70 hover:border-white/40 hover:bg-white/10',
+                    ? 'border-secondary-400 bg-cream-50 text-neutral-900 shadow-md shadow-secondary-500/20 scale-[1.02]'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50',
                 )}
               >
                 <BookOpen className="h-6 w-6 shrink-0" strokeWidth={2} />
@@ -150,78 +164,78 @@ export default function RegisterPage() {
             </div>
           </fieldset>
 
-          <div className="space-y-4">
-            <Input
-              labelColor="light"
-              label="Họ và tên"
-              placeholder="Nhập họ và tên đầy đủ"
-              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
-              {...register('fullName', {
-                required: 'Họ và tên là bắt buộc',
-              })}
-              error={errors.fullName?.message}
-            />
+            <div className="space-y-4 sm:space-y-5">
+              <Input
+                labelColor="dark"
+                label="Họ và tên"
+                placeholder="Nhập họ và tên đầy đủ"
+                className="border-neutral-300 py-3 sm:py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+                {...register('fullName', {
+                  required: 'Họ và tên là bắt buộc',
+                })}
+                error={errors.fullName?.message}
+              />
 
-            <Input
-              labelColor="light"
-              label="Số điện thoại"
-              placeholder="Nhập số điện thoại"
-              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
-              {...register('phoneNumber', {
-                required: 'Số điện thoại là bắt buộc',
-                pattern: {
-                  value: /^[0-9]{10,11}$/,
-                  message: 'Số điện thoại không hợp lệ (10-11 chữ số)',
-                },
-              })}
-              error={errors.phoneNumber?.message}
-            />
+              <Input
+                labelColor="dark"
+                label="Số điện thoại"
+                placeholder="Nhập số điện thoại"
+                className="border-neutral-300 py-3 sm:py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+                {...register('phoneNumber', {
+                  required: 'Số điện thoại là bắt buộc',
+                  pattern: {
+                    value: /^[0-9]{10,11}$/,
+                    message: 'Số điện thoại không hợp lệ (10-11 chữ số)',
+                  },
+                })}
+                error={errors.phoneNumber?.message}
+              />
 
-            <Input
-              labelColor="light"
-              label="Địa chỉ Email"
-              type="email"
-              placeholder="Nhập địa chỉ email"
-              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
-              {...register('email', {
-                required: 'Email là bắt buộc',
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: 'Địa chỉ email không hợp lệ',
-                },
-              })}
-              error={errors.email?.message}
-            />
+              <Input
+                labelColor="dark"
+                label="Địa chỉ Email"
+                type="email"
+                placeholder="Nhập địa chỉ email"
+                className="border-neutral-300 py-3 sm:py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+                {...register('email', {
+                  required: 'Email là bắt buộc',
+                  pattern: {
+                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                    message: 'Địa chỉ email không hợp lệ',
+                  },
+                })}
+                error={errors.email?.message}
+              />
 
-            <Input
-              labelColor="light"
-              label="Mật khẩu"
-              type="password"
-              placeholder="Ít nhất 6 ký tự, chữ hoa, chữ thường và số"
-              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
-              {...register('password', {
-                required: 'Mật khẩu là bắt buộc',
-                validate: (v) => {
-                  const r = validatePassword(v || '');
-                  return r.valid || r.errors[0];
-                },
-              })}
-              error={errors.password?.message}
-            />
+              <Input
+                labelColor="dark"
+                label="Mật khẩu"
+                type="password"
+                placeholder="Ít nhất 6 ký tự, chữ hoa, chữ thường và số"
+                className="border-neutral-300 py-3 sm:py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+                {...register('password', {
+                  required: 'Mật khẩu là bắt buộc',
+                  validate: (v) => {
+                    const r = validatePassword(v || '');
+                    return r.valid || r.errors[0];
+                  },
+                })}
+                error={errors.password?.message}
+              />
 
-            <Input
-              labelColor="light"
-              label="Xác nhận mật khẩu"
-              type="password"
-              placeholder="Nhập lại mật khẩu"
-              className="border-neutral-300 py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
-              {...register('confirmPassword', {
-                required: 'Vui lòng xác nhận mật khẩu',
-                validate: (value) => value === password || 'Mật khẩu không khớp',
-              })}
-              error={errors.confirmPassword?.message}
-            />
-          </div>
+              <Input
+                labelColor="dark"
+                label="Xác nhận mật khẩu"
+                type="password"
+                placeholder="Nhập lại mật khẩu"
+                className="border-neutral-300 py-3 sm:py-3.5 focus:border-primary-500 shadow-none ring-0 focus:ring-2 focus:ring-primary-500/20"
+                {...register('confirmPassword', {
+                  required: 'Vui lòng xác nhận mật khẩu',
+                  validate: (value) => value === password || 'Mật khẩu không khớp',
+                })}
+                error={errors.confirmPassword?.message}
+              />
+            </div>
 
           {/* Legal / Terms */}
           <div className="text-center">
@@ -241,17 +255,23 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 bg-primary-600 text-white text-lg font-bold rounded-full hover:bg-primary-700 transition-all shadow-md active:scale-[0.98] disabled:bg-neutral-400"
+            className="w-full rounded-full bg-primary-600 py-3.5 text-lg font-bold text-white shadow-lg transition-all hover:bg-primary-700 hover:shadow-xl active:scale-[0.98] disabled:bg-neutral-400 disabled:shadow-none"
           >
             {isLoading ? 'Đang xử lý...' : 'Đăng ký'}
           </button>
+
+          <p className="flex items-center justify-center gap-1.5 text-xs font-medium text-neutral-500">
+            <Lock className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden />
+            Dữ liệu của bạn được mã hóa và bảo vệ an toàn.
+          </p>
 
           <div className="text-center pt-2">
             <Link to="/login" className="text-sm font-semibold text-primary-600 hover:underline">
               Đã có tài khoản? <span className="text-secondary-400">Đăng nhập tại đây</span>
             </Link>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
 
       <TermsAndConditions isOpen={showTerms} onClose={() => setShowTerms(false)} />

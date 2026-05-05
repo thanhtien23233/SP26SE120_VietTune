@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import BackButton from '@/components/common/BackButton';
 import Input from '@/components/common/Input';
-import logo from '@/components/image/VietTune logo.png';
+import logo from '@/components/image/viettune_logo_img';
 import { authService } from '@/services/authService';
 import { uiToast, notifyLine } from '@/uiToast';
 

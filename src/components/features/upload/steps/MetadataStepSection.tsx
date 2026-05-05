@@ -1,5 +1,9 @@
-import { AlertCircle, Check, MapPin, Music, Navigation, Sparkles } from 'lucide-react';
+import { AlertCircle, Check, Info, MapPin, Music, Navigation, Sparkles } from 'lucide-react';
 
+import InstrumentConfidenceBar from '@/components/common/InstrumentConfidenceBar';
+import MetadataSuggestionPanel from '@/components/features/upload/MetadataSuggestionPanel';
+import { CONFIDENCE_THRESHOLDS } from '@/features/upload/constants/instrumentConfidence';
+import { instrumentDetectionFlags } from '@/services/instrumentDetectionService';
 import type {
   CommuneItem,
   DistrictItem,
@@ -7,6 +11,8 @@ import type {
   ProvinceItem,
   VocalStyleItem,
 } from '@/services/referenceDataService';
+import type { DetectedInstrument, MetadataSuggestion } from '@/types/instrumentDetection';
+import { detectCrossCaseWarning } from '@/utils/crossCaseInstrumentWarning';
 
 type SectionHeaderProps = {
   icon: React.ElementType;
@@ -104,6 +110,8 @@ type MetadataStepSectionProps = {
   setPerformanceType: (value: string) => void;
   instruments: string[];
   setInstruments: (value: string[]) => void;
+  instrumentPredictions: DetectedInstrument[];
+  aiMetadataSuggestions: MetadataSuggestion[];
   vocalStyle: string;
   setVocalStyle: (value: string) => void;
   requiresInstruments: boolean;
@@ -149,6 +157,8 @@ type MetadataStepSectionProps = {
   getRegionName: (regionCode: string) => string;
   gpsLoading: boolean;
   gpsError: string | null;
+  gpsAddressResolved: boolean;
+  gpsReverseLookupCompleted: boolean;
   capturedGpsLat: number | null;
   capturedGpsLon: number | null;
   capturedGpsAccuracy: number | null;
@@ -198,6 +208,8 @@ export default function MetadataStepSection({
   setPerformanceType,
   instruments,
   setInstruments,
+  instrumentPredictions,
+  aiMetadataSuggestions,
   vocalStyle,
   setVocalStyle,
   requiresInstruments,
@@ -243,6 +255,8 @@ export default function MetadataStepSection({
   getRegionName,
   gpsLoading,
   gpsError,
+  gpsAddressResolved,
+  gpsReverseLookupCompleted,
   capturedGpsLat,
   capturedGpsLon,
   capturedGpsAccuracy,
@@ -261,19 +275,44 @@ export default function MetadataStepSection({
 }: MetadataStepSectionProps) {
   if (!show) return null;
   const hasGps = capturedGpsLat != null && capturedGpsLon != null;
+  const showFatalGps = Boolean(gpsError) && !gpsLoading;
+  const showCoordsNoAddress =
+    hasGps &&
+    !gpsLoading &&
+    !gpsError &&
+    gpsReverseLookupCompleted &&
+    !gpsAddressResolved;
+  const gpsExtrasVisible = hasGps && !gpsLoading && !gpsError;
   const gpsAccuracyLabel =
     capturedGpsAccuracy == null
       ? null
       : capturedGpsAccuracy < 50
-        ? 'Chinh xac cao'
+        ? 'Chính xác cao'
         : capturedGpsAccuracy <= 200
-          ? 'Trung binh'
-          : 'Thap - nen kiem tra lai';
+          ? 'Trung bình'
+          : 'Thấp — nên kiểm tra lại';
   const mapEmbedUrl = hasGps
     ? `https://www.openstreetmap.org/export/embed.html?bbox=${capturedGpsLon - 0.01},${
         capturedGpsLat - 0.01
       },${capturedGpsLon + 0.01},${capturedGpsLat + 0.01}&marker=${capturedGpsLat},${capturedGpsLon}`
     : null;
+  const predictionByName = new Map(
+    instrumentPredictions.map((item) => [item.name.trim().toLowerCase(), item]),
+  );
+  const selectedPredictions = instruments
+    .map((name) => predictionByName.get(name.trim().toLowerCase()))
+    .filter((item): item is DetectedInstrument => !!item);
+  const hasPredictionData = selectedPredictions.length > 0;
+  const hasLowConfidencePredictions = selectedPredictions.some(
+    (item) =>
+      item.confidence === null ||
+      !Number.isFinite(item.confidence) ||
+      item.confidence < CONFIDENCE_THRESHOLDS.MEDIUM,
+  );
+  const crossCase = detectCrossCaseWarning({
+    instruments,
+    songSignals: [vocalStyle, performanceType, eventType],
+  });
 
   return (
     <>
@@ -510,8 +549,49 @@ export default function MetadataStepSection({
                 />
                 {errors.instruments && <p className="text-sm text-red-400">{errors.instruments}</p>}
               </FormFieldComponent>
+
+              {instrumentDetectionFlags.confidenceEnabled && hasPredictionData && (
+                <div className="mt-3 space-y-2 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                  <p className="text-xs font-medium text-neutral-700">
+                    AI confidence cho nhạc cụ đã chọn
+                  </p>
+                  <div className="space-y-1.5">
+                    {selectedPredictions.map((prediction) => (
+                      <InstrumentConfidenceBar
+                        key={prediction.id ?? prediction.name}
+                        name={prediction.name}
+                        confidence={prediction.confidence}
+                        compact
+                      />
+                    ))}
+                  </div>
+                  {hasLowConfidencePredictions && (
+                    <p className="text-xs text-amber-700">
+                      Có nhạc cụ confidence thấp, vui lòng xác minh thủ công trước khi gửi.
+                    </p>
+                  )}
+                </div>
+              )}
+              {crossCase.warning && (
+                <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4 text-amber-700" />
+                  <p className="text-xs text-amber-800">{crossCase.warning}</p>
+                </div>
+              )}
             </div>
           )}
+
+          <div className="md:col-span-2 mt-1">
+            <MetadataSuggestionPanel
+              suggestions={aiMetadataSuggestions}
+              onApply={(field, value) => {
+                if (field === 'ethnicity') setEthnicity(value);
+                if (field === 'region') setRegion(value);
+                if (field === 'vocalStyle') setVocalStyle(value);
+                if (field === 'eventType') setEventType(value);
+              }}
+            />
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2">
             {(performanceType === 'instrumental' || performanceType === 'vocal_accompaniment') && (
@@ -773,26 +853,32 @@ export default function MetadataStepSection({
                   {gpsLoading ? 'Đang lấy vị trí...' : 'Lấy vị trí hiện tại'}
                 </button>
               </div>
-              {gpsError && (
+              {showFatalGps && (
                 <p className="text-xs text-red-600 flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5" />
                   {gpsError}
                 </p>
               )}
-              {capturedGpsLat != null && capturedGpsLon != null && (
-                <p className="text-xs text-green-700 flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5" />
-                  {`Da gan GPS: ${capturedGpsLat.toFixed(6)}, ${capturedGpsLon.toFixed(6)}`}
+              {gpsExtrasVisible && showCoordsNoAddress && (
+                <p className="text-xs text-amber-900/90 flex items-center gap-1">
+                  <Info className="w-3.5 h-3.5 shrink-0" />
+                  Đã lấy tọa độ GPS. Chưa xác định được địa chỉ chi tiết.
                 </p>
               )}
-              {capturedGpsAccuracy != null && (
+              {gpsExtrasVisible && !showCoordsNoAddress && hasGps && (
+                <p className="text-xs text-green-700 flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5" />
+                  {`Đã gắn GPS: ${capturedGpsLat!.toFixed(6)}, ${capturedGpsLon!.toFixed(6)}`}
+                </p>
+              )}
+              {gpsExtrasVisible && capturedGpsAccuracy != null && (
                 <p className="text-xs text-neutral-700">
-                  {`Do chinh xac: ~${Math.round(capturedGpsAccuracy)}m${
+                  {`Độ chính xác: ~${Math.round(capturedGpsAccuracy)}m${
                     gpsAccuracyLabel ? ` (${gpsAccuracyLabel})` : ''
                   }`}
                 </p>
               )}
-              {mapEmbedUrl && (
+              {gpsExtrasVisible && mapEmbedUrl && (
                 <div className="pt-2">
                   <iframe
                     title="GPS map preview"

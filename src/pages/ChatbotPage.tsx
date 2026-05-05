@@ -157,7 +157,13 @@ export default function ChatbotPage() {
       });
 
       const reply = await sendResearcherChatMessage(text);
-      const content = reply?.trim() || FALLBACK_REPLY;
+      const content = reply?.answer?.trim() || FALLBACK_REPLY;
+      
+      const citations = (reply?.citations ?? []).map((c) => ({
+        recordingId: c.recordingId,
+        label: c.title || `Bản thu ${c.recordingId.split('-')[0]}`,
+      }));
+
       const botMsgId = crypto.randomUUID();
       const botTimestamp = new Date();
       const botMsg: Message = {
@@ -174,7 +180,7 @@ export default function ChatbotPage() {
         conversationId: conversationId,
         role: 1,
         content: content,
-        sourceRecordingIdsJson: '[]',
+        sourceRecordingIdsJson: JSON.stringify(citations.map(c => c.recordingId)),
         sourceKBEntryIdsJson: '[]',
         confidenceScore: 0,
         flaggedByExpert: false,

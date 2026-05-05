@@ -15,6 +15,8 @@ interface ImportMetaEnv {
   readonly VITE_RESEARCHER_VERIFIED_SUBMISSION_STATUS?: string;
   readonly VITE_SENTRY_DSN?: string;
   readonly VITE_SIGNALR_HUB_URL?: string;
+  readonly VITE_INSTRUMENT_CONFIDENCE?: string;
+  readonly VITE_INSTRUMENT_DETECTION_MOCK?: string;
 }
 
 interface ImportMeta {

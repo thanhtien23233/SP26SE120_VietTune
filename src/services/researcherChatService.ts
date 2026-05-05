@@ -127,11 +127,55 @@ function buildPayloads(message: string): unknown[] {
   return [{ message: m }, { Message: m }, { request: { message: m } }, { request: { Message: m } }];
 }
 
+export interface ResearcherChatCitation {
+  recordingId: string;
+  title?: string;
+  score?: number;
+  sourceType?: string;
+  snippet?: string;
+}
+
+export interface ResearcherChatResponse {
+  answer: string;
+  citations?: ResearcherChatCitation[];
+}
+
+export function normalizeResearcherChatResponse(raw: unknown, errorMessage?: string): ResearcherChatResponse {
+  if (errorMessage) {
+    return { answer: errorMessage, citations: [] };
+  }
+  const answer = extractReply(raw) || (typeof raw === 'string' ? raw : '');
+  let citations: ResearcherChatCitation[] = [];
+  if (raw && typeof raw === 'object') {
+    const obj = raw as Record<string, unknown>;
+    if (Array.isArray(obj.citations)) {
+      const out: ResearcherChatCitation[] = [];
+      for (const c of obj.citations) {
+        if (c == null || typeof c !== 'object') continue;
+        const item = c as Record<string, unknown>;
+        const rid =
+          (typeof item.recordingId === 'string' && item.recordingId) ||
+          (typeof item.id === 'string' && item.id) ||
+          '';
+        if (!rid) continue;
+        const row: ResearcherChatCitation = { recordingId: rid };
+        if (typeof item.title === 'string') row.title = item.title;
+        if (typeof item.score === 'number') row.score = item.score;
+        if (typeof item.sourceType === 'string') row.sourceType = item.sourceType;
+        if (typeof item.snippet === 'string') row.snippet = item.snippet;
+        out.push(row);
+      }
+      citations = out;
+    }
+  }
+  return { answer, citations };
+}
+
 /**
  * Send a message to VietTune backend POST /api/Chat.
- * Tries multiple request body formats for compatibility. Always returns a string (reply or error message).
+ * Tries multiple request body formats for compatibility.
  */
-export async function sendResearcherChatMessage(userMessage: string): Promise<string> {
+export async function sendResearcherChatMessage(userMessage: string): Promise<ResearcherChatResponse> {
   const configuredPath = (import.meta.env.VITE_VIETTUNE_AI_CHAT_PATH as string | undefined)?.trim();
   const defaultPath = baseURL.toLowerCase().endsWith('/api') ? '/Chat' : '/api/Chat';
   const path = configuredPath || defaultPath;
@@ -149,14 +193,16 @@ export async function sendResearcherChatMessage(userMessage: string): Promise<st
           try {
             const parsed = JSON.parse(raw) as unknown;
             const reply = extractReply(parsed);
-            if (reply) return reply;
+            if (reply) {
+              return normalizeResearcherChatResponse(parsed);
+            }
           } catch {
             // ignore
           }
         }
-        return raw;
+        return normalizeResearcherChatResponse(raw);
       }
-      return 'Bot chưa trả lời. Bạn thử đặt câu hỏi khác hoặc thử lại sau.';
+      return normalizeResearcherChatResponse(null, 'Bot chưa trả lời. Bạn thử đặt câu hỏi khác hoặc thử lại sau.');
     } catch (err) {
       lastError = err;
       const status = getHttpStatus(err);
@@ -165,5 +211,5 @@ export async function sendResearcherChatMessage(userMessage: string): Promise<st
   }
 
   const msg = getErrorMessage(lastError);
-  return `${msg} (endpoint: ${baseURL}${path})`;
+  return normalizeResearcherChatResponse(null, `${msg} (endpoint: ${baseURL}${path})`);
 }

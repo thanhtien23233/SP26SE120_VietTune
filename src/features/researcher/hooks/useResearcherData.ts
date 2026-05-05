@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { ResearcherCatalogSource, SearchFiltersState } from '../researcherPortalTypes';
+import type {
+  ResearcherAnalysisRecord,
+  ResearcherCatalogSource,
+  ResearcherSearchResult,
+  ResearcherUiRecord,
+  SearchFiltersState,
+} from '../researcherPortalTypes';
+import { mapRecordingToAnalysisRecord, mapRecordingToUiRecord } from '../researcherRecordingUtils';
 
 import { REGION_NAMES } from '@/config/constants';
 import {
@@ -14,20 +21,25 @@ import {
   fetchRecordingsSearchByFilter,
   type RecordingSearchByFilterQuery,
 } from '@/services/researcherRecordingFilterSearch';
-import { Recording } from '@/types';
-import { normalizeSearchText } from '@/utils/searchText';
+
 
 
 export function useResearcherData() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<SearchFiltersState>({
-    ethnicGroup: '',
-    instrument: '',
-    region: '',
-    ceremony: '',
-    commune: '',
+    ethnicGroupId: '',
+    instrumentId: '',
+    regionCode: '',
+    ceremonyId: '',
+    communeId: '',
   });
-  const [approvedRecordings, setApprovedRecordings] = useState<Recording[]>([]);
+  const [searchResults, setSearchResults] = useState<ResearcherSearchResult[]>([]);
+  const [analysisDataset, setAnalysisDataset] = useState<ResearcherAnalysisRecord[]>([]);
+  const [uiDerivedData, setUiDerivedData] = useState<ResearcherUiRecord[]>([]);
+
+  // Backward compatibility for existing components.
+  /** @deprecated Use searchResults, analysisDataset, or uiDerivedData instead. */
+  const approvedRecordings = searchResults;
   const [searchLoading, setSearchLoading] = useState(true);
   const [catalogSource, setCatalogSource] = useState<ResearcherCatalogSource>('empty');
 
@@ -39,11 +51,11 @@ export function useResearcherData() {
   const activeFilterCount = useMemo(
     () =>
       [
-        filters.ethnicGroup,
-        filters.instrument,
-        filters.region,
-        filters.ceremony,
-        filters.commune,
+        filters.ethnicGroupId,
+        filters.instrumentId,
+        filters.regionCode,
+        filters.ceremonyId,
+        filters.communeId,
       ].filter((x) => Boolean(x?.trim())).length,
     [filters],
   );
@@ -97,35 +109,17 @@ export function useResearcherData() {
   }, []);
 
   const buildRecordingSearchQuery = useCallback((): RecordingSearchByFilterQuery => {
-    const pickByNormalizedName = <T extends { name: string; id: string }>(
-      list: T[],
-      selected: string,
-    ): string | undefined => {
-      const normalizedSelected = normalizeSearchText(selected);
-      if (!normalizedSelected) return undefined;
-      return list.find((x) => normalizeSearchText(x.name) === normalizedSelected)?.id;
-    };
-    const regionCode =
-      filters.region.trim().length > 0
-        ? (Object.entries(REGION_NAMES) as [string, string][]).find(
-            ([, label]) => label === filters.region,
-          )?.[0]
-        : undefined;
-    const ethnicGroupId = pickByNormalizedName(ethnicRefData, filters.ethnicGroup);
-    const instrumentId = pickByNormalizedName(instrumentRefData, filters.instrument);
-    const ceremonyId = pickByNormalizedName(ceremonyRefData, filters.ceremony);
-    const communeId = pickByNormalizedName(communeRefData, filters.commune);
     return {
       page: 1,
       pageSize: 500,
       q: searchQuery.trim() || undefined,
-      ethnicGroupId,
-      instrumentId,
-      ceremonyId,
-      regionCode,
-      communeId,
+      ethnicGroupId: filters.ethnicGroupId || undefined,
+      instrumentId: filters.instrumentId || undefined,
+      ceremonyId: filters.ceremonyId || undefined,
+      regionCode: filters.regionCode || undefined,
+      communeId: filters.communeId || undefined,
     };
-  }, [searchQuery, filters, ethnicRefData, instrumentRefData, ceremonyRefData, communeRefData]);
+  }, [searchQuery, filters]);
 
   const loadResearcherCatalog = useCallback(async () => {
     setSearchLoading(true);
@@ -144,17 +138,23 @@ export function useResearcherData() {
       const apiList = await fetchRecordingsSearchByFilter(q);
 
       if (apiList && apiList.length > 0) {
-        setApprovedRecordings(apiList);
+        setSearchResults(apiList);
+        setAnalysisDataset(apiList.map(mapRecordingToAnalysisRecord));
+        setUiDerivedData(apiList.map(mapRecordingToUiRecord));
         setCatalogSource('api-filter');
         logTelemetry('api-filter', apiList.length, { status: 'success' });
       } else {
-        setApprovedRecordings([]);
+        setSearchResults([]);
+        setAnalysisDataset([]);
+        setUiDerivedData([]);
         setCatalogSource('empty');
         logTelemetry('empty', 0, { status: 'no-results' });
       }
     } catch (err) {
       console.error('Researcher catalog load API failed:', err);
-      setApprovedRecordings([]);
+      setSearchResults([]);
+      setAnalysisDataset([]);
+      setUiDerivedData([]);
       setCatalogSource('empty');
       logTelemetry('error', 0, { status: 'failed', error: String(err) });
     } finally {
@@ -178,6 +178,9 @@ export function useResearcherData() {
     setSearchQuery,
     filters,
     setFilters,
+    searchResults,
+    analysisDataset,
+    uiDerivedData,
     approvedRecordings,
     searchLoading,
     catalogSource,

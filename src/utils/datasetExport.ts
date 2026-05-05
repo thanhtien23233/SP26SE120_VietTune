@@ -42,6 +42,7 @@ export interface ExportColumn {
 export interface ExportMeta {
   dataset: string;
   version: string;
+  schemaVersion?: string;
   license: string;
   exportedAt: string;
   exportedBy?: string;
@@ -188,7 +189,17 @@ export function buildRows(recordings: Recording[], columns: ExportColumn[]): Exp
 
 function quoteCsvCell(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const stringValue = String(value);
+  let stringValue = '';
+  if (typeof value === 'object') {
+    try {
+      stringValue = JSON.stringify(value);
+    } catch {
+      stringValue = String(value);
+    }
+  } else {
+    stringValue = String(value);
+  }
+  
   if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
     return `"${stringValue.replace(/"/g, '""')}"`;
   }
@@ -199,10 +210,11 @@ export function toJson(rows: ExportRow[], meta: ExportMeta): Blob {
   const payload = {
     dataset: meta.dataset,
     version: meta.version,
+    schemaVersion: meta.schemaVersion || '1.0',
     license: meta.license,
     exportedAt: meta.exportedAt,
-    exportedBy: meta.exportedBy ?? 'Researcher Portal',
-    total: meta.total,
+    generatedBy: meta.exportedBy ?? 'VietTune Researcher Portal',
+    totalRecords: meta.total,
     columns: meta.columns,
     filters: meta.filters ?? '',
     records: rows,

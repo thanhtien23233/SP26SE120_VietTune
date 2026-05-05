@@ -44,7 +44,7 @@ vi.mock('wavesurfer.js', () => ({
   },
 }));
 
-vi.mock('@/components/image/VietTune logo.png', () => ({
+vi.mock('@/components/image/viettune_logo_img', () => ({
   default: 'logo.png',
 }));
 

@@ -1,10 +1,22 @@
 import type { ExploreSearchMode } from '@/components/features/ExploreSearchHeader';
-import { applyGuestFilters } from '@/features/explore/utils/exploreGuestFilters';
+import { applyGuestFilters, hasActiveGuestFilters } from '@/features/explore/utils/exploreGuestFilters';
+import {
+  rankRecordingsBySemanticQuery,
+  scoreRecordingSemantic,
+  tokenizeExploreSemantic,
+} from '@/features/explore/utils/exploreSemanticRank';
 import { recordingService } from '@/services/recordingService';
 import { fetchVerifiedSubmissionsAsRecordings } from '@/services/researcherArchiveService';
 import { fetchRecordingsSearchByFilter } from '@/services/researcherRecordingFilterSearch';
 import { semanticSearchService } from '@/services/semanticSearchService';
 import type { Recording, SearchFilters } from '@/types';
+
+/** Must match `EXPLORE_PAGE_SIZE` in `ExplorePage.tsx` for correct pagination UI. */
+const EXPLORE_PAGE_SIZE = 20;
+/** Backend `SemanticSearchController` clamps `topK` to max 50 — use full pool for client pages. */
+const SEMANTIC_SEARCH_TOPK = 50;
+/** Guest catalog client-filter pool (aligned with researcher filter fallback page size). */
+const GUEST_FILTER_POOL_SIZE = 500;
 
 export type ExploreDataSource =
   | 'recordingGuest'
@@ -58,6 +70,19 @@ function sortByUploadedDesc(items: Recording[]): Recording[] {
   return [...items].sort(
     (a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime(),
   );
+}
+
+/** Token-overlap score 0–1 for UI (`RecordingCardCompact` Độ khớp) when vector API is unavailable. */
+function withTokenOverlapSemanticScore(recording: Recording, rawQuery: string): Recording {
+  const tokens = tokenizeExploreSemantic(rawQuery);
+  if (tokens.length === 0) return recording;
+  const score = scoreRecordingSemantic(recording, tokens);
+  const normalized = Math.min(1, score / tokens.length);
+  return { ...recording, _semanticScore: normalized };
+}
+
+function rankCatalogBySemanticTokens(rows: Recording[], rawQuery: string): Recording[] {
+  return rankRecordingsBySemanticQuery(rows, rawQuery).map((r) => withTokenOverlapSemanticScore(r, rawQuery));
 }
 
 async function fetchApprovedLocalFallback(): Promise<Recording[]> {
@@ -116,6 +141,8 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
 
   let response: ApiResponseType;
   let fetchWarning: string | undefined;
+  /** True when results are ranked by local token overlap instead of vector API. */
+  let usedTokenSemanticFallback = false;
 
   try {
     // ── Semantic search ──────────────────────────────────────────────────
@@ -123,7 +150,7 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
       try {
         const semanticResponse = await semanticSearchService.searchSemantic({
           q: sqActive,
-          topK: 10,
+          topK: SEMANTIC_SEARCH_TOPK,
         });
         const ranked = semanticResponse.map((r) => ({
           ...r.recording,
@@ -131,13 +158,25 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
         }));
         const needFacet = !isAuthenticated || Object.keys(facetOnly).length > 0;
         const pooled = needFacet ? applyGuestFilters(ranked, facetOnly) : ranked;
-        response = { items: pooled, total: pooled.length, totalPages: 1 };
+        const start = Math.max(0, (currentPage - 1) * EXPLORE_PAGE_SIZE);
+        response = {
+          items: pooled.slice(start, start + EXPLORE_PAGE_SIZE),
+          total: pooled.length,
+          totalPages: Math.max(1, Math.ceil(pooled.length / EXPLORE_PAGE_SIZE)),
+        };
       } catch (semErr) {
         if (isExploreRequestAborted(semErr)) throw semErr;
+        usedTokenSemanticFallback = true;
         const catalog = await fetchFullCatalog(signal);
-        const clientFiltered = applyGuestFilters(catalog, { ...facetOnly, query: sqActive });
-        response = { items: clientFiltered, total: clientFiltered.length, totalPages: 1 };
-        if (clientFiltered.length > 0) {
+        const facetFiltered = applyGuestFilters(catalog, facetOnly);
+        const clientRanked = rankCatalogBySemanticTokens(facetFiltered, sqActive);
+        const fbStart = Math.max(0, (currentPage - 1) * EXPLORE_PAGE_SIZE);
+        response = {
+          items: clientRanked.slice(fbStart, fbStart + EXPLORE_PAGE_SIZE),
+          total: clientRanked.length,
+          totalPages: Math.max(1, Math.ceil(clientRanked.length / EXPLORE_PAGE_SIZE)),
+        };
+        if (clientRanked.length > 0) {
           fetchWarning = 'Tìm ngữ nghĩa tạm lỗi — hiển thị kết quả từ kho dữ liệu.';
         } else {
           fetchWarning = 'Hệ thống tìm kiếm ngữ nghĩa tạm thời không khả dụng.';
@@ -146,22 +185,41 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
 
     // ── Guest keyword / facets ───────────────────────────────────────────
     } else if (!isAuthenticated) {
-      const guestRes = await recordingService.getGuestRecordings(currentPage, 20, apiOpts);
       const activeFilters = exploreMode === 'semantic' ? facetOnly : filters;
-      const filteredGuestItems = applyGuestFilters(
-        Array.isArray(guestRes?.items) ? guestRes.items : [],
-        activeFilters,
-      );
-      response = {
-        items: filteredGuestItems,
-        total: filteredGuestItems.length,
-        totalPages: 1,
-      };
+      if (!hasActiveGuestFilters(activeFilters)) {
+        const guestRes = await recordingService.getGuestRecordings(currentPage, EXPLORE_PAGE_SIZE, apiOpts);
+        const rawItems = Array.isArray(guestRes?.items) ? guestRes.items : [];
+        const filteredGuestItems = applyGuestFilters(rawItems, activeFilters);
+        const total =
+          typeof guestRes?.total === 'number' && Number.isFinite(guestRes.total)
+            ? guestRes.total
+            : filteredGuestItems.length;
+        const totalPages =
+          typeof guestRes?.totalPages === 'number' && guestRes.totalPages >= 1
+            ? guestRes.totalPages
+            : Math.max(1, Math.ceil(total / EXPLORE_PAGE_SIZE));
+        response = {
+          items: filteredGuestItems,
+          total,
+          totalPages,
+        };
+      } else {
+        const guestRes = await recordingService.getGuestRecordings(1, GUEST_FILTER_POOL_SIZE, apiOpts);
+        const pool = Array.isArray(guestRes?.items) ? guestRes.items : [];
+        const filtered = applyGuestFilters(pool, activeFilters);
+        const sorted = sortByUploadedDesc(filtered);
+        const start = Math.max(0, (currentPage - 1) * EXPLORE_PAGE_SIZE);
+        response = {
+          items: sorted.slice(start, start + EXPLORE_PAGE_SIZE),
+          total: sorted.length,
+          totalPages: Math.max(1, Math.ceil(sorted.length / EXPLORE_PAGE_SIZE)),
+        };
+      }
 
     // ── Authenticated keyword / facets ───────────────────────────────────
     } else if (Object.keys(exploreMode === 'semantic' ? facetOnly : filters).length > 0) {
       const activeFilters = exploreMode === 'semantic' ? facetOnly : filters;
-      const res = await recordingService.searchRecordings(activeFilters, currentPage, 20, apiOpts);
+      const res = await recordingService.searchRecordings(activeFilters, currentPage, EXPLORE_PAGE_SIZE, apiOpts);
       response = asApiResponse(res);
 
       if (response.items.length === 0 && activeFilters.query) {
@@ -169,13 +227,12 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
           const catalog = await fetchFullCatalog(signal);
           const clientFiltered = applyGuestFilters(catalog, activeFilters);
           if (clientFiltered.length > 0) {
-            const pageSize = 20;
-            const start = Math.max(0, (currentPage - 1) * pageSize);
-            const paged = clientFiltered.slice(start, start + pageSize);
+            const start = Math.max(0, (currentPage - 1) * EXPLORE_PAGE_SIZE);
+            const paged = clientFiltered.slice(start, start + EXPLORE_PAGE_SIZE);
             response = {
               items: paged,
               total: clientFiltered.length,
-              totalPages: Math.max(1, Math.ceil(clientFiltered.length / pageSize)),
+              totalPages: Math.max(1, Math.ceil(clientFiltered.length / EXPLORE_PAGE_SIZE)),
             };
           }
         } catch {
@@ -187,13 +244,12 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
     } else {
       const verified = await fetchFullCatalog(signal);
       const sorted = sortByUploadedDesc(verified);
-      const pageSize = 20;
-      const start = Math.max(0, (currentPage - 1) * pageSize);
-      const items = sorted.slice(start, start + pageSize);
+      const start = Math.max(0, (currentPage - 1) * EXPLORE_PAGE_SIZE);
+      const items = sorted.slice(start, start + EXPLORE_PAGE_SIZE);
       response = {
         items,
         total: sorted.length,
-        totalPages: Math.max(1, Math.ceil(sorted.length / pageSize)),
+        totalPages: Math.max(1, Math.ceil(sorted.length / EXPLORE_PAGE_SIZE)),
       };
     }
   } catch (error) {
@@ -205,14 +261,26 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
       const filteredFallback = !isAuthenticated
         ? applyGuestFilters(catalog, activeFilters)
         : catalog;
-      const sorted = sortByUploadedDesc(filteredFallback);
-      const sliceLen = exploreMode === 'semantic' && sqActive ? sorted.length : 20;
-      response = {
-        items: sorted.slice(0, sliceLen),
-        total: sorted.length,
-        totalPages: Math.max(1, Math.ceil(sorted.length / Math.max(sliceLen, 1))),
-      };
-      if (sorted.length === 0) {
+
+      if (exploreMode === 'semantic' && sqActive) {
+        usedTokenSemanticFallback = true;
+        const ordered = rankCatalogBySemanticTokens(filteredFallback, sqActive);
+        const start = Math.max(0, (currentPage - 1) * EXPLORE_PAGE_SIZE);
+        response = {
+          items: ordered.slice(start, start + EXPLORE_PAGE_SIZE),
+          total: ordered.length,
+          totalPages: Math.max(1, Math.ceil(ordered.length / EXPLORE_PAGE_SIZE)),
+        };
+      } else {
+        const sorted = sortByUploadedDesc(filteredFallback);
+        const sliceLen = EXPLORE_PAGE_SIZE;
+        response = {
+          items: sorted.slice(0, sliceLen),
+          total: sorted.length,
+          totalPages: Math.max(1, Math.ceil(sorted.length / Math.max(sliceLen, 1))),
+        };
+      }
+      if (response.total === 0) {
         fetchWarning = 'Không tải được dữ liệu. Bạn có thể thử lại sau.';
       }
     } catch (inner) {
@@ -232,7 +300,13 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
   let dataSource: ExploreDataSource = 'empty';
 
   if (exploreMode === 'semantic' && sqActive) {
-    dataSource = apiItems.length > 0 ? 'searchApi' : 'empty';
+    if (apiItems.length === 0) {
+      dataSource = 'empty';
+    } else if (usedTokenSemanticFallback) {
+      dataSource = 'semanticLocal';
+    } else {
+      dataSource = 'searchApi';
+    }
   } else if (!isAuthenticated) {
     dataSource = apiItems.length > 0 ? 'recordingGuest' : 'empty';
   } else if (hasActiveFilters) {
@@ -241,8 +315,9 @@ export async function loadExploreRecordings(input: ExploreLoadInput): Promise<Ex
     dataSource = apiItems.length > 0 ? 'recordingApi' : 'empty';
   }
 
+  const preserveSemanticRanking = exploreMode === 'semantic' && Boolean(sqActive);
   return {
-    recordings: sortByUploadedDesc(apiItems),
+    recordings: preserveSemanticRanking ? apiItems : sortByUploadedDesc(apiItems),
     totalResults: apiTotal,
     dataSource,
     fetchWarning,

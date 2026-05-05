@@ -24,7 +24,6 @@ import {
   type Submission,
 } from '@/services/submissionService';
 import { deleteFileFromSupabase } from '@/services/uploadService';
-import { useLoginModalStore } from '@/stores/loginModalStore';
 import { UserRole } from '@/types';
 import { uiToast, notifyLine } from '@/uiToast';
 import { cn } from '@/utils/helpers';
@@ -34,7 +33,6 @@ import { SURFACE_PANEL_GRADIENT } from '@/utils/surfaceTokens';
 export default function ContributionsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const openLoginModal = useLoginModalStore((s) => s.openLoginModal);
   const {
     submissions,
     setSubmissions,
@@ -345,7 +343,7 @@ export default function ContributionsPage() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-panel mx-auto"
               onClick={() => {
                 window.scrollTo({ top: 0, behavior: 'auto' });
-                openLoginModal({ redirect: '/contributions' });
+                navigate(`/login?redirect=${encodeURIComponent('/contributions')}`);
               }}
               type="button"
             >

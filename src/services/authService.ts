@@ -1,10 +1,5 @@
 import { apiFetchLoose, apiOk, asApiEnvelope } from '@/api';
-import type {
-  ApiAuthConfirmEmailQuery,
-  ApiAuthForgotPasswordModel,
-  ApiAuthLoginModel,
-  ApiAuthRegisterModel,
-} from '@/api';
+import type { ApiAuthConfirmEmailQuery, ApiAuthLoginModel, ApiAuthRegisterModel } from '@/api';
 import { legacyGet, legacyPost, legacyPut } from '@/api/legacyHttp';
 import { logServiceError, logServiceWarn } from '@/services/serviceLogger';
 import { getItem, setItem, removeItem, sessionSetItem } from '@/services/storageService';
@@ -149,13 +144,13 @@ export const authService = {
     }
   },
 
-  // Confirm Email (GET)
+  // Confirm Email (PUT per OpenAPI)
   confirmEmail: async (token: string) => {
     try {
       const params: ApiAuthConfirmEmailQuery = { token };
       return await apiOk<unknown>(
         asApiEnvelope<unknown>(
-          apiFetchLoose.GET('/api/Auth/confirm-email', { params: { query: params } }),
+          apiFetchLoose.PUT('/api/Auth/confirm-email', { params: { query: params } }),
         ),
       );
     } catch (error) {
@@ -165,10 +160,11 @@ export const authService = {
   },
 
   forgotPassword: async (email: string) => {
-    const payload: ApiAuthForgotPasswordModel = { email: email.trim() };
+    const form = new FormData();
+    form.set('Email', email.trim());
     return await apiOk<unknown>(
       asApiEnvelope<unknown>(
-        apiFetchLoose.POST('/api/Auth/forgot-password', { body: payload }),
+        apiFetchLoose.PUT('/api/Auth/forgot-password', { body: form }),
       ),
     );
   },

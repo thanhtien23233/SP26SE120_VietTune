@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-import { legacyGet, legacyPost } from '@/api/legacyHttp';
 import BackButton from '@/components/common/BackButton';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import AudioPlayer from '@/components/features/AudioPlayer';
@@ -19,38 +18,18 @@ import ResearcherRecordingList from '@/components/researcher/ResearcherRecording
 import { useAuth } from '@/contexts/AuthContext';
 import { useKnowledgeGraphData } from '@/features/knowledge-graph/hooks/useKnowledgeGraphData';
 import { useResearcherData } from '@/features/researcher/hooks/useResearcherData';
-import type {
-  ResearcherGraphTabView,
-  ResearcherPortalChatMessage,
-  ResearcherSelectedGraphNode,
-} from '@/features/researcher/researcherPortalTypes';
+import type { ResearcherPortalChatMessage } from '@/features/researcher/researcherPortalTypes';
 import { buildCitationCandidates } from '@/features/researcher/researcherRecordingUtils';
+import { createQAConversation, fetchUserConversations } from '@/services/qaConversationService';
+import {
+  createQAMessage,
+  fetchConversationMessages,
+} from '@/services/qaMessageService';
 import { sendResearcherChatMessage } from '@/services/researcherChatService';
 import { Recording, UserRole } from '@/types';
 import { isYouTubeUrl } from '@/utils/youtube';
 
 type TabId = 'search' | 'qa' | 'graph' | 'compare' | 'kb';
-
-interface QAConversationRequest {
-  id: string;
-  userId: string;
-  title: string;
-  createdAt: string;
-}
-
-interface QAMessageRequest {
-  id: string;
-  conversationId: string;
-  role: number;
-  content: string;
-  sourceRecordingIdsJson?: string | null;
-  sourceKBEntryIdsJson?: string | null;
-  confidenceScore?: number;
-  flaggedByExpert?: boolean;
-  correctedByExpertId?: string | null;
-  expertCorrection?: string | null;
-  createdAt: string;
-}
 
 const WELCOME_CHAT =
   'Xin chào! Tôi có thể giúp bạn tìm hiểu về âm nhạc truyền thống Việt Nam. Hãy đặt câu hỏi về nhạc cụ, nghi lễ, hoặc phong cách âm nhạc của các dân tộc.';
@@ -59,46 +38,6 @@ const CHAT_API_FALLBACK =
   'Hiện không kết nối được với VietTune Intelligence. Bạn vẫn có thể xem thông tin từ phần Tìm kiếm nâng cao và Biểu đồ tri thức.';
 
 const QA_DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000000';
-
-const createQAConversation = async (data: QAConversationRequest) => {
-  try {
-    await legacyPost('/QAConversation', data);
-  } catch (err) {
-    console.error('Lỗi khi tạo conversation:', err);
-  }
-};
-
-const createQAMessage = async (data: QAMessageRequest) => {
-  try {
-    await legacyPost('/QAMessage', data);
-  } catch (err) {
-    console.error('Lỗi khi lưu tin nhắn:', err);
-  }
-};
-
-const fetchUserConversations = async (userId: string): Promise<QAConversationRequest[]> => {
-  try {
-    const res = await legacyGet<{ data?: QAConversationRequest[] }>('/QAConversation/get-by-user', {
-      params: { userId },
-    });
-    return res?.data ?? [];
-  } catch (err) {
-    console.error('Lỗi khi lấy lịch sử hội thoại:', err);
-    return [];
-  }
-};
-
-const fetchConversationMessages = async (conversationId: string): Promise<QAMessageRequest[]> => {
-  try {
-    const res = await legacyGet<{ data?: QAMessageRequest[] }>('/QAMessage/get-by-conversation', {
-      params: { conversationId },
-    });
-    return res?.data ?? [];
-  } catch (err) {
-    console.error('Lỗi khi lấy tin nhắn hội thoại:', err);
-    return [];
-  }
-};
 
 export default function ResearcherPortalPage() {
   const { user } = useAuth();
@@ -117,14 +56,13 @@ export default function ResearcherPortalPage() {
     ethnicRefData,
     instrumentRefData,
     ceremonyRefData,
+    communeRefData,
     activeFilterCount,
-    ETHNICITIES,
-    REGIONS,
-    EVENT_TYPES,
-    INSTRUMENTS,
-    COMMUNES,
     handleSearchClick,
+    analysisDataset,
   } = useResearcherData();
+
+  const EVENT_TYPES = useMemo(() => ceremonyRefData.map((c) => c.name), [ceremonyRefData]);
 
   const [activeTab, setActiveTab] = useState<TabId>('search');
   const [playModalRecording, setPlayModalRecording] = useState<Recording | null>(null);
@@ -139,37 +77,15 @@ export default function ResearcherPortalPage() {
   const [isFirstQaMessage, setIsFirstQaMessage] = useState(true);
   const [compareLeftId, setCompareLeftId] = useState('');
   const [compareRightId, setCompareRightId] = useState('');
-  const [graphView, setGraphView] = useState<ResearcherGraphTabView>('overview');
-  const [selectedGraphNode, setSelectedGraphNode] = useState<ResearcherSelectedGraphNode>(null);
   const chatListRef = useRef<HTMLDivElement>(null);
 
-  // Knowledge graph data mapper từ bản thu đã kiểm duyệt
-  const graphData = useKnowledgeGraphData(
-    approvedRecordings,
+  /** Client-side KG fallback when API overview is unavailable. */
+  const fallbackGraphData = useKnowledgeGraphData(
+    analysisDataset,
     ethnicRefData,
     instrumentRefData,
     ceremonyRefData,
   );
-
-  const ethnicitiesList = useMemo(
-    () =>
-      Array.from(
-        new Set(graphData.nodes.filter((n) => n.type === 'ethnic_group').map((n) => n.name)),
-      ).sort((a, b) => a.localeCompare(b, 'vi')),
-    [graphData.nodes],
-  );
-  const instrumentsList = useMemo(
-    () =>
-      Array.from(
-        new Set(graphData.nodes.filter((n) => n.type === 'instrument').map((n) => n.name)),
-      ).sort((a, b) => a.localeCompare(b, 'vi')),
-    [graphData.nodes],
-  );
-
-  // Clear selected node when switching graph view to avoid stale "Bản thu liên quan".
-  useEffect(() => {
-    setSelectedGraphNode(null);
-  }, [graphView]);
 
   // When Play modal opens, load full local recording to get media src and type
   useEffect(() => {
@@ -181,18 +97,6 @@ export default function ResearcherPortalPage() {
     // However getRecordings already returns audioUrl
     setPlayModalLoading(false);
   }, [playModalRecording?.id]);
-
-  const graphRelatedRecordings = useMemo(() => {
-    if (!selectedGraphNode) return [];
-    if (selectedGraphNode.type === 'instrument') {
-      return approvedRecordings.filter((r) =>
-        r.instruments?.some((i) => (i.nameVietnamese ?? i.name) === selectedGraphNode.name),
-      );
-    }
-    return approvedRecordings.filter(
-      (r) => (r.ethnicity?.nameVietnamese ?? r.ethnicity?.name) === selectedGraphNode.name,
-    );
-  }, [approvedRecordings, selectedGraphNode]);
 
   const handlePlay = useCallback((recording: Recording) => {
     setPlayModalRecording(recording);
@@ -279,15 +183,24 @@ export default function ResearcherPortalPage() {
           createdAt: now.toISOString(),
         });
         const reply = await sendResearcherChatMessage(text);
-        const content = reply ?? CHAT_API_FALLBACK;
-        const citations = buildCitationCandidates(text, approvedRecordings);
+        const content = reply?.answer ?? CHAT_API_FALLBACK;
+        let citations = (reply?.citations ?? []).map((c) => ({
+          recordingId: c.recordingId,
+          label: c.title || `Bản thu ${c.recordingId.split('-')[0]}`,
+        }));
+        
+        // Fallback for debug if backend doesn't support yet
+        if (citations.length === 0) {
+          citations = buildCitationCandidates(text, approvedRecordings);
+        }
+
         setChatMessages((prev) => [...prev, { role: 'assistant', content, citations }]);
         await createQAMessage({
           id: crypto.randomUUID(),
           conversationId: currentConversationId,
           role: 1,
           content,
-          sourceRecordingIdsJson: '[]',
+          sourceRecordingIdsJson: JSON.stringify(citations.map(c => c.recordingId)),
           sourceKBEntryIdsJson: '[]',
           confidenceScore: 0,
           flaggedByExpert: false,
@@ -434,11 +347,10 @@ export default function ResearcherPortalPage() {
                 filters={filters}
                 setFilters={setFilters}
                 activeFilterCount={activeFilterCount}
-                ETHNICITIES={ETHNICITIES}
-                REGIONS={REGIONS}
-                EVENT_TYPES={EVENT_TYPES}
-                INSTRUMENTS={INSTRUMENTS}
-                COMMUNES={COMMUNES}
+                ethnicRefData={ethnicRefData}
+                instrumentRefData={instrumentRefData}
+                ceremonyRefData={ceremonyRefData}
+                communeRefData={communeRefData}
               />
 
               {/* Kết quả — chỉ bản thu đã được expert kiểm duyệt */}
@@ -561,7 +473,8 @@ export default function ResearcherPortalPage() {
               <ExportDatasetDialog
                 open={showExportDialog}
                 onClose={() => setShowExportDialog(false)}
-                recordings={approvedRecordings}
+                recordings={analysisDataset && analysisDataset.length > 0 ? analysisDataset : approvedRecordings}
+                filtersSummary={`Query: "${searchQuery}" | Filters: ${activeFilterCount} active`}
               />
             </div>
           )}
@@ -585,14 +498,8 @@ export default function ResearcherPortalPage() {
           {/* Tab: Biểu đồ tri thức (knowledge graph: dân tộc – nhạc cụ từ bản thu đã kiểm duyệt) */}
           {activeTab === 'graph' && (
             <ResearcherPortalGraphTab
-              graphData={graphData}
-              graphView={graphView}
-              setGraphView={setGraphView}
-              selectedGraphNode={selectedGraphNode}
-              setSelectedGraphNode={setSelectedGraphNode}
-              ethnicitiesList={ethnicitiesList}
-              instrumentsList={instrumentsList}
-              graphRelatedRecordings={graphRelatedRecordings}
+              fallbackGraphData={fallbackGraphData}
+              approvedRecordings={approvedRecordings}
               onRecordingDetail={handleDetail}
             />
           )}

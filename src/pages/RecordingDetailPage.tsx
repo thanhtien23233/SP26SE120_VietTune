@@ -1,6 +1,6 @@
 import { AlertTriangle, Download, User, MapPin, ShieldAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 
 import BackButton from '@/components/common/BackButton';
 import Badge from '@/components/common/Badge';
@@ -12,7 +12,6 @@ import VideoPlayer from '@/components/features/VideoPlayer';
 import { RECORDING_TYPE_NAMES } from '@/config/constants';
 import { useRecordingDetail } from '@/hooks/useRecordingDetail';
 import { useAuthStore } from '@/stores/authStore';
-import { useLoginModalStore } from '@/stores/loginModalStore';
 import { Recording } from '@/types';
 import type { AnnotationDto, AnnotationType } from '@/types/annotation';
 import { ANNOTATION_TYPE_LABELS } from '@/types/annotation';
@@ -98,8 +97,8 @@ function isRecordingVideoUrl(url: string): boolean {
 }
 
 export default function RecordingDetailPage() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const openLoginModal = useLoginModalStore((s) => s.openLoginModal);
   const { id: idParam } = useParams<{ id: string }>();
   const id = idParam ? decodeURIComponent(idParam) : undefined;
   const location = useLocation();
@@ -201,7 +200,7 @@ export default function RecordingDetailPage() {
   function openDisputeModal(): void {
     if (!user?.id) {
       uiToast.warning('Bạn cần đăng nhập để báo cáo tranh chấp bản quyền.');
-      openLoginModal({ redirect: location.pathname });
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
       return;
     }
     setShowDisputeModal(true);

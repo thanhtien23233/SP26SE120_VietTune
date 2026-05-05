@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 import Badge from '../common/Badge';
 
-import logo from '@/components/image/VietTune logo.png';
+import logo from '@/components/image/viettune_logo_img';
 import { RECORDING_TYPE_NAMES } from '@/config/constants';
 import { Recording } from '@/types';
 

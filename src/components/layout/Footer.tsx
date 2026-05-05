@@ -1,7 +1,7 @@
 import { Mail, Facebook, Youtube } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-import logo from '@/components/image/VietTune logo.png';
+import logo from '@/components/image/viettune_logo_img';
 import { APP_NAME } from '@/config/constants';
 import { useAuthStore } from '@/stores/authStore';
 import { UserRole } from '@/types';
@@ -29,9 +29,10 @@ export default function Footer() {
   };
   return (
     <footer className="pb-4 px-4">
-      <div className="bg-gradient-to-br from-primary-700 to-primary-800 rounded-2xl px-8 py-12 shadow-lg backdrop-blur-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[minmax(0,1.5fr)_1fr_1fr_1fr] gap-8 sm:gap-12 lg:gap-16 gap-y-10">
-          {/* About */}
+      <div className="bg-gradient-to-br from-primary-700 to-primary-800 rounded-2xl px-10 sm:px-16 py-14 shadow-lg backdrop-blur-sm">
+        <div className="mx-auto max-w-[1040px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[minmax(0,1.5fr)_1fr_1fr_1fr] gap-8 sm:gap-12 lg:gap-16 gap-y-10">
+            {/* About */}
           <div className="min-w-0">
             <Link
               to="/"
@@ -161,12 +162,13 @@ export default function Footer() {
               </div>
             </div>
           </div>
-        </div>
+          </div>
 
-        <div className="border-t border-white/20 mt-10 pt-8 text-center">
-          <p className="text-white/90 text-sm font-medium">
-            Bản quyền © {new Date().getFullYear()} {APP_NAME}. Tất cả quyền được bảo lưu.
-          </p>
+          <div className="border-t border-white/20 mt-10 pt-8 text-center">
+            <p className="text-white/90 text-sm font-medium">
+              Bản quyền © {new Date().getFullYear()} {APP_NAME}. Tất cả quyền được bảo lưu.
+            </p>
+          </div>
         </div>
       </div>
     </footer>

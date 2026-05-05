@@ -133,6 +133,14 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setPerformanceType,
     instruments,
     setInstruments,
+    instrumentPredictions,
+    setInstrumentPredictions,
+    aiMetadataSuggestions,
+    setAiMetadataSuggestions,
+    aiAnalysisLoading,
+    setAiAnalysisLoading,
+    aiAnalysisError,
+    setAiAnalysisError,
     description,
     setDescription,
     fieldNotes,
@@ -164,6 +172,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setIsSubmitting,
     gpsLoading,
     gpsError,
+    gpsAddressResolved,
+    gpsReverseLookupCompleted,
     capturedGpsLat,
     setCapturedGpsLat,
     capturedGpsLon,
@@ -359,9 +369,24 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setAudioInfo(null);
     setCreatedRecordingId(null);
     setNewUploadedUrl(null);
+    setInstrumentPredictions([]);
+    setAiMetadataSuggestions([]);
+    setAiAnalysisError(null);
+    setAiAnalysisLoading(false);
     setUploadProgress(0);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  }, [setFile, setAudioInfo, setCreatedRecordingId, setNewUploadedUrl, setUploadProgress, fileInputRef]);
+  }, [
+    setFile,
+    setAudioInfo,
+    setCreatedRecordingId,
+    setNewUploadedUrl,
+    setInstrumentPredictions,
+    setAiMetadataSuggestions,
+    setAiAnalysisError,
+    setAiAnalysisLoading,
+    setUploadProgress,
+    fileInputRef,
+  ]);
 
   const handleLyricsFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -420,6 +445,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setRecordingLocation,
     setTranscription,
     setInstruments,
+    setInstrumentPredictions,
+    setAiMetadataSuggestions,
+    setAiAnalysisLoading,
+    setAiAnalysisError,
     setEthnicity,
     setCustomEthnicity,
     setVocalStyle,
@@ -438,6 +467,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     vocalStylesData,
     musicalScalesData,
     instrumentsData,
+    REGIONS,
     title,
     description,
     artist,
@@ -542,7 +572,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   // Navigation guard for Step 2 (Metadata entry)
   // Triggers browser confirmation if leaving during meaningful progress
   useEffect(() => {
-    // Guard in edit mode or during Step 2-4 of the wizard
+    // Guard in edit mode or during Step 2-3 of the wizard
     const shouldBlock = isEditMode || uploadWizardStep >= 2;
     if (!shouldBlock || isSubmitting || submitStatus === 'success') return;
 
@@ -582,7 +612,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   // Internal navigation blocker (for navbar links etc.)
   // Only available since we migrated to Data Router (createBrowserRouter)
   const blocker = useBlocker(({ currentLocation, nextLocation }) => {
-    // Guard in edit mode or during Step 2-4 of the wizard
+    // Guard in edit mode or during Step 2-3 of the wizard
     const shouldBlock = isEditMode || uploadWizardStep >= 2;
     if (!shouldBlock || isSubmitting || submitStatus === 'success') return false;
 
@@ -684,6 +714,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setCustomEventType('');
     setPerformanceType('');
     setInstruments([]);
+    setInstrumentPredictions([]);
+    setAiMetadataSuggestions([]);
+    setAiAnalysisError(null);
+    setAiAnalysisLoading(false);
     setDescription('');
     setFieldNotes('');
     setTranscription('');
@@ -775,6 +809,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           createdRecordingId={createdRecordingId}
           newUploadedUrl={newUploadedUrl}
           useAiAnalysis={useAiAnalysis}
+          instrumentPredictions={instrumentPredictions}
+          aiMetadataSuggestions={aiMetadataSuggestions}
+          aiAnalysisLoading={aiAnalysisLoading}
+          aiAnalysisError={aiAnalysisError}
           isUploadingMedia={isUploadingMedia}
           uploadProgress={uploadProgress}
           fileInputRef={fileInputRef}
@@ -829,6 +867,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           setPerformanceType={setPerformanceType}
           instruments={instruments}
           setInstruments={setInstruments}
+          instrumentPredictions={instrumentPredictions}
+          aiMetadataSuggestions={aiMetadataSuggestions}
           vocalStyle={vocalStyle}
           setVocalStyle={setVocalStyle}
           requiresInstruments={requiresInstruments}
@@ -874,6 +914,8 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           getRegionName={getRegionName}
           gpsLoading={gpsLoading}
           gpsError={gpsError}
+          gpsAddressResolved={gpsAddressResolved}
+          gpsReverseLookupCompleted={gpsReverseLookupCompleted}
           capturedGpsLat={capturedGpsLat}
           capturedGpsLon={capturedGpsLon}
           capturedGpsAccuracy={capturedGpsAccuracy}

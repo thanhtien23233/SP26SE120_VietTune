@@ -13,3 +13,4 @@ export * from '@/types/analytics';
 export * from '@/types/graph';
 export * from '@/types/chat';
 export * from '@/types/mutationResult';
+export * from '@/types/instrumentDetection';

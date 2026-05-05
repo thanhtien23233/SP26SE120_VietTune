@@ -41,6 +41,20 @@ export interface ModerationVerificationData {
     culturalValue: boolean;
     authenticity: boolean;
     accuracy: boolean;
+    instrumentsVerified: boolean;
+    instrumentOverrides?: Record<string, 'confirmed' | 'rejected' | 'added'>;
+    metadataSuggestionsVerified?: boolean;
+    crossCaseClassification?:
+      | 'traditional_with_modern_instruments'
+      | 'contemporary_with_traditional_instruments'
+      | 'none';
+    expertMetadataOverrides?: Record<
+      string,
+      {
+        action: 'confirmed' | 'corrected' | 'skipped';
+        value?: string;
+      }
+    >;
     expertNotes?: string;
     completedAt?: string;
   };

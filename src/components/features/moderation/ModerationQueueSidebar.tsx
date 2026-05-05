@@ -1,6 +1,7 @@
 import { Search, MapPin, Music, User as UserIcon } from 'lucide-react';
 
 import SearchableDropdown from '@/components/common/SearchableDropdown';
+import { ModerationStageProgressBar } from '@/components/features/moderation/ModerationStageProgressBar';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
 import type { ModerationQueueStatusMeta } from '@/features/moderation/utils/queueStatusMeta';
 import { ModerationStatus } from '@/types';
@@ -225,6 +226,15 @@ export function ModerationQueueSidebar({
                       {it.culturalContext?.province && ` • ${it.culturalContext?.province}`}
                     </span>
                   </div>
+                  {claimedByMe && (it.moderation?.verificationStep ?? 0) > 0 && (
+                    <div className="mt-2">
+                      <ModerationStageProgressBar
+                        compact
+                        currentStep={it.moderation?.verificationStep ?? 1}
+                        verificationData={it.moderation?.verificationData}
+                      />
+                    </div>
+                  )}
                   {(it.culturalContext?.instruments?.length ?? 0) > 0 && (
                     <div className="flex items-center gap-1.5 text-xs text-neutral-600 mt-0.5">
                       <Music className="h-3.5 w-3.5 shrink-0" />

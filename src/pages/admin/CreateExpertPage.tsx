@@ -1,11 +1,12 @@
 import { UserPlus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import BackButton from '@/components/common/BackButton';
 import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
 import Input from '@/components/common/Input';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { getItem, setItem } from '@/services/storageService';
 import { useAuthStore } from '@/stores/authStore';
 import { UserRole, type User } from '@/types';
@@ -15,6 +16,7 @@ import { validatePassword } from '@/utils/validation';
 export default function CreateExpertPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const isAuthLoading = useAuthStore((s) => s.isLoading);
   const [expertForm, setExpertForm] = useState({
     username: '',
     email: '',
@@ -29,10 +31,30 @@ export default function CreateExpertPage() {
     password?: string;
     confirmPassword?: string;
   }>({});
+  /** One-time on-screen only (not persisted) so admin can copy the initial password. */
+  const [expertPasswordRevealOnce, setExpertPasswordRevealOnce] = useState<{
+    username: string;
+    password: string;
+  } | null>(null);
 
-  // Redirect if not admin
-  if (!user || user.role !== UserRole.ADMIN) {
-    navigate('/');
+  const isAdmin = user?.role === UserRole.ADMIN;
+
+  useEffect(() => {
+    if (isAuthLoading) return;
+    if (!isAdmin) {
+      navigate('/403', { replace: true });
+    }
+  }, [isAdmin, isAuthLoading, navigate]);
+
+  if (isAuthLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-4.5rem)] items-center justify-center px-4">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
     return null;
   }
 
@@ -103,15 +125,10 @@ export default function CreateExpertPage() {
       overrides[newExpertId] = newExpert;
       void setItem('users_overrides', JSON.stringify(overrides));
 
-      // Store password for demo (Chuyên gia đổi mật khẩu sau trong ProfilePage)
-      try {
-        const pRaw = getItem('demo_passwords');
-        const passwords = pRaw ? (JSON.parse(pRaw) as Record<string, string>) : {};
-        passwords[newExpertId] = expertForm.password;
-        void setItem('demo_passwords', JSON.stringify(passwords));
-      } catch (err) {
-        console.warn('Failed to store expert password', err);
-      }
+      setExpertPasswordRevealOnce({
+        username: newExpert.username,
+        password: expertForm.password,
+      });
 
       // Reset form
       setExpertForm({
@@ -126,7 +143,7 @@ export default function CreateExpertPage() {
       uiToast.success(
         notifyLine('Thành công', `Đã tạo tài khoản Chuyên gia "${newExpert.username}" thành công.`),
       );
-    } catch (e) {
+    } catch {
       uiToast.error(notifyLine('Lỗi', 'Không thể tạo tài khoản Chuyên gia.'));
     }
   };
@@ -140,6 +157,25 @@ export default function CreateExpertPage() {
           </h1>
           <BackButton />
         </div>
+
+        {expertPasswordRevealOnce && (
+          <div
+            role="status"
+            className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+          >
+            <p className="mb-2 font-semibold">
+              Mật khẩu khởi tạo (chỉ hiển thị trên màn hình này, không lưu trình duyệt)
+            </p>
+            <p className="mb-1">
+              <span className="text-neutral-600">Người dùng:</span>{' '}
+              <span className="font-medium">{expertPasswordRevealOnce.username}</span>
+            </p>
+            <p className="mb-3 break-all font-mono text-base">{expertPasswordRevealOnce.password}</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => setExpertPasswordRevealOnce(null)}>
+              Ẩn
+            </Button>
+          </div>
+        )}
 
         <Card variant="bordered" className="p-6 sm:p-8">
           <h2 className="text-2xl font-semibold text-neutral-900 mb-4 flex items-center gap-3">

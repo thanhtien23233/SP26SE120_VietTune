@@ -42,7 +42,13 @@ export function useModerationWizard(opts: {
       }
       if (step === 2) {
         const step2 = formData.step2;
-        return !!(step2?.culturalValue && step2?.authenticity && step2?.accuracy);
+        return !!(
+          step2?.culturalValue &&
+          step2?.authenticity &&
+          step2?.accuracy &&
+          step2?.instrumentsVerified &&
+          step2?.metadataSuggestionsVerified
+        );
       }
       if (step === 3) {
         const step3 = formData.step3;
@@ -140,11 +146,13 @@ export function useModerationWizard(opts: {
   );
 
   const updateVerificationForm = useCallback(
-    (id: string | null, step: number, field: string, value: boolean | string) => {
+    (id: string | null, step: number, field: string, value: unknown) => {
       if (!id) return;
       setVerificationForms((prev) => {
         const current = prev[id] || {};
-        const stepData = current[`step${step}` as keyof ModerationVerificationData] || {};
+        const stepData =
+          (current[`step${step}` as keyof ModerationVerificationData] as Record<string, unknown>) ||
+          {};
         return {
           ...prev,
           [id]: {

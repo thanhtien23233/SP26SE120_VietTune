@@ -1,11 +1,10 @@
 import { BookOpen, LogIn, FileText, Upload, CheckCircle, Lightbulb, X, Music } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import BackButton from '@/components/common/BackButton';
 import UploadMusic from '@/components/features/UploadMusic';
 import { useAuthStore } from '@/stores/authStore';
-import { useLoginModalStore } from '@/stores/loginModalStore';
 import { UserRole } from '@/types';
 import { cn } from '@/utils/helpers';
 
@@ -13,8 +12,8 @@ const guideButtonClass =
   'inline-flex items-center justify-center gap-2 h-11 px-6 py-0 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50';
 
 export default function UploadPage() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const openLoginModal = useLoginModalStore((s) => s.openLoginModal);
   const [showGuidePopup, setShowGuidePopup] = useState(false);
 
   const [searchParams] = useSearchParams();
@@ -66,7 +65,7 @@ export default function UploadPage() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-panel mx-auto"
               onClick={() => {
                 window.scrollTo({ top: 0, behavior: 'auto' });
-                openLoginModal({ redirect: '/upload' });
+                navigate(`/login?redirect=${encodeURIComponent('/upload')}`);
               }}
               type="button"
             >

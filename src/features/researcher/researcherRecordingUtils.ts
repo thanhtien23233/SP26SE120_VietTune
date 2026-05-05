@@ -1,4 +1,4 @@
-import type { ChatCitation } from './researcherPortalTypes';
+import type { ChatCitation, ResearcherAnalysisRecord, ResearcherUiRecord } from './researcherPortalTypes';
 
 import { REGION_NAMES } from '@/config/constants';
 import { Recording } from '@/types';
@@ -229,4 +229,20 @@ export function buildCitationCandidates(question: string, recordings: Recording[
         label: `${r.title} — ${ethnicity} — ${region}`,
       };
     });
+}
+
+export function mapRecordingToAnalysisRecord(r: Recording): ResearcherAnalysisRecord {
+  return {
+    ...r,
+    mappedEthnicity: getEthnicityLabel(r),
+    mappedInstruments: (r.instruments ?? []).map((i) => i.nameVietnamese ?? i.name).filter(Boolean) as string[],
+  };
+}
+
+export function mapRecordingToUiRecord(r: Recording): ResearcherUiRecord {
+  return {
+    ...r,
+    uiTitle: r.title || r.titleVietnamese || 'Không có tiêu đề',
+    uiSubtitle: `${getEthnicityLabel(r)} - ${getRegionLabel(r)}`,
+  };
 }

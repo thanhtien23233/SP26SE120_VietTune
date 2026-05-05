@@ -19,7 +19,6 @@ export default function AdminGuard() {
       }),
     [isLoading, location.pathname, user],
   );
-  const isAdmin = decision.status === 'allow';
   const decisionStatus = decision.status;
   const decisionReason = decision.status === 'redirect' ? decision.reason : null;
   const redirectTo = decision.status === 'redirect' ? decision.redirectTo : null;
@@ -95,8 +94,6 @@ export default function AdminGuard() {
       </div>
     );
   }
-
-  if (!isAdmin) return null;
 
   return (
     <ErrorBoundary region="admin">

@@ -1,4 +1,4 @@
-import { apiFetch, apiOk, asApiEnvelope, openApiQueryRecord } from '@/api';
+import { apiFetch, apiFetchLoose, apiOk, asApiEnvelope, openApiQueryRecord } from '@/api';
 import type {
   ApiCreateKBCitationRequest as CreateKBCitationRequest,
   ApiCreateKBEntryRequest as CreateKBEntryRequest,
@@ -254,8 +254,8 @@ export const knowledgeBaseApi = {
   ): Promise<ArticleSearchResultPagedList> {
     return apiOk(
       asApiEnvelope<ArticleSearchResultPagedList>(
-        apiFetch.GET('/api/Search/knowledge-base', {
-          params: { query: { q, category, page, pageSize } },
+        apiFetchLoose.GET('/api/Search/knowledge-base', {
+          params: { query: openApiQueryRecord({ q, category, page, pageSize }) },
         }),
       ),
     );

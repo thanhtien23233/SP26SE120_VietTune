@@ -5,7 +5,11 @@ import type { LocalRecording } from '@/types';
 type Schemas = components['schemas'];
 type ApiPaths = paths;
 
-export type ApiAnnotationDto = Schemas['VietTuneArchive.Application.Mapper.DTOs.AnnotationDto'];
+/** Read/list shape: OpenAPI lists create/update bodies only; runtime API may include id and timestamps. */
+export type ApiAnnotationDto = Schemas['VietTuneArchive.Application.Mapper.DTOs.CreateAnnotationDto'] & {
+  id?: string;
+  createdAt?: string | null;
+};
 export type ApiCreateAnnotationDto = Schemas['VietTuneArchive.Application.Mapper.DTOs.CreateAnnotationDto'];
 export type ApiUpdateAnnotationDto = Schemas['VietTuneArchive.Application.Mapper.DTOs.UpdateAnnotationDto'];
 
@@ -63,7 +67,7 @@ export type ApiAnalyticsContentQuery = NonNullable<
   ApiPaths['/api/Analytics/content']['get']['parameters']['query']
 >;
 export type ApiAuthConfirmEmailQuery = NonNullable<
-  ApiPaths['/api/Auth/confirm-email']['get']['parameters']['query']
+  ApiPaths['/api/Auth/confirm-email']['put']['parameters']['query']
 >;
 export type ApiSubmissionMyQuery = NonNullable<
   ApiPaths['/api/Submission/my']['get']['parameters']['query']
@@ -110,10 +114,12 @@ export type ApiBaseResponse = Schemas['VietTuneArchive.Application.Mapper.DTOs.B
 
 export type ApiAuthLoginModel = Schemas['VietTuneArchive.Domain.Entities.Model.LoginModel'];
 export type ApiAuthRegisterModel = Schemas['VietTuneArchive.Domain.Entities.Model.RegisterModel'];
-export type ApiAuthForgotPasswordModel =
-  Schemas['VietTuneArchive.API.Controllers.AuthController+ForgotPasswordModel'];
-export type ApiAuthResetPasswordModel =
-  Schemas['VietTuneArchive.API.Controllers.AuthController+ResetPasswordModel'];
+export type ApiAuthForgotPasswordModel = NonNullable<
+  NonNullable<ApiPaths['/api/Auth/forgot-password']['put']['requestBody']>['content']['multipart/form-data']
+>;
+export type ApiAuthResetPasswordModel = NonNullable<
+  NonNullable<ApiPaths['/api/Auth/reset-password']['put']['requestBody']>['content']['multipart/form-data']
+>;
 
 export type ApiPagedResponseEmbargoDto =
   Schemas['VietTuneArchive.Application.Responses.PagedResponse`1[[VietTuneArchive.Application.Mapper.DTOs.EmbargoDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'];

@@ -1,15 +1,19 @@
 import { useCallback, useState } from 'react';
 
-import { GENRE_ETHNICITY_MAP } from '@/features/upload/uploadConstants';
+import { useUploadAiAdvisory } from '@/features/upload/hooks/useUploadAiAdvisory';
 import { getAddressFromCoordinates } from '@/services/geocodeService';
 import { suggestMetadata } from '@/services/metadataSuggestService';
+import { buildGpsRegionHintForMetadata } from '@/utils/gpsRegionHint';
 
 /**
- * Metadata fields, GPS, AI suggest, and submit/error UI state for UploadMusic.
- * Media file state stays in `useMediaUpload`; `validateForm` / `isFormComplete` stay in the page
- * because they depend on `file` and `mediaType` from `useMediaUpload`.
+ * Contributor metadata fields, GPS, optional “gợi ý metadata” button, and submit/error UI for UploadMusic.
+ * Media file state stays in `useMediaUpload`.
+ * Upload-time Gemini advisory (instrument bars + suggestion list) lives in `useUploadAiAdvisory` and is
+ * exposed as `aiAdvisory` plus backward-compatible top-level aliases (`instrumentPredictions`, …).
  */
 export function useUploadForm() {
+  const aiAdvisory = useUploadAiAdvisory();
+
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
   const [artistUnknown, setArtistUnknown] = useState(false);
@@ -77,7 +81,11 @@ export function useUploadForm() {
   const [submitMessage, setSubmitMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+  /** Fatal only: no usable coordinates from the device for this attempt (permission, timeout, unsupported). */
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [gpsAddressResolved, setGpsAddressResolved] = useState(false);
+  /** True after reverse-geocode attempt finished following a successful `getCurrentPosition` (this session). */
+  const [gpsReverseLookupCompleted, setGpsReverseLookupCompleted] = useState(false);
   const [capturedGpsLat, setCapturedGpsLat] = useState<number | null>(null);
   const [capturedGpsLon, setCapturedGpsLon] = useState<number | null>(null);
   const [capturedGpsAccuracy, setCapturedGpsAccuracy] = useState<number | null>(null);
@@ -100,6 +108,7 @@ export function useUploadForm() {
       (pos) => {
         void (async () => {
           const { latitude, longitude } = pos.coords;
+          setGpsReverseLookupCompleted(false);
           setCapturedGpsLat(latitude);
           setCapturedGpsLon(longitude);
           setCapturedGpsAccuracy(
@@ -112,25 +121,27 @@ export function useUploadForm() {
             const res = await getAddressFromCoordinates(latitude, longitude);
             const display = res.address?.trim() || `Tọa độ: ${gpsText}`;
             setRecordingLocation((prev) => (prev ? `${prev}; ${display}` : display));
-            if (res.addressFromService === false || display.startsWith('Tọa độ:')) {
-              setGpsError(
-                'Không lấy được tên địa chỉ từ dịch vụ; đã lưu tọa độ. Bạn có thể chỉnh sửa ô địa điểm ở bước Metadata.',
-              );
-            } else {
-              setGpsError(null);
-            }
+            const resolved =
+              res.addressFromService === true &&
+              Boolean(res.address?.trim()) &&
+              !display.startsWith('Tọa độ:');
+            setGpsAddressResolved(resolved);
+            setGpsError(null);
           } catch {
             setRecordingLocation((prev) =>
               prev ? `${prev} (Tọa độ: ${gpsText})` : `Tọa độ: ${gpsText}`,
             );
-            setGpsError(
-              'Không kết nối được dịch vụ địa chỉ; đã lưu tọa độ. Bạn có thể chỉnh sửa ô địa điểm.',
-            );
+            setGpsAddressResolved(false);
+            setGpsError(null);
+          } finally {
+            setGpsReverseLookupCompleted(true);
+            setGpsLoading(false);
           }
-          setGpsLoading(false);
         })();
       },
       (err) => {
+        setGpsAddressResolved(false);
+        setGpsReverseLookupCompleted(false);
         setGpsError(
           err.message === 'User denied Geolocation'
             ? 'Bạn đã từ chối quyền vị trí.'
@@ -147,10 +158,19 @@ export function useUploadForm() {
     setAiSuggestSuccess(null);
     setAiSuggestLoading(true);
     try {
+      const gpsHint =
+        capturedGpsLat != null &&
+        capturedGpsLon != null &&
+        Number.isFinite(capturedGpsLat) &&
+        Number.isFinite(capturedGpsLon)
+          ? buildGpsRegionHintForMetadata(capturedGpsLat, capturedGpsLon)
+          : undefined;
+      const baseDescription = description?.trim() || '';
+      const mergedDescription = [baseDescription, gpsHint].filter(Boolean).join('\n\n') || undefined;
       const res = await suggestMetadata({
         genre: vocalStyle || undefined,
         title: title?.trim() || undefined,
-        description: description?.trim() || undefined,
+        description: mergedDescription,
       });
       const hasSuggestions =
         res.ethnicity || res.region || (res.instruments && res.instruments.length > 0);
@@ -181,15 +201,11 @@ export function useUploadForm() {
         }
       }
     } catch {
-      if (vocalStyle && GENRE_ETHNICITY_MAP[vocalStyle]) {
-        const suggested = GENRE_ETHNICITY_MAP[vocalStyle][0];
-        if (suggested && !ethnicity) setEthnicity(suggested);
-      }
       setAiSuggestError('Không kết nối được dịch vụ gợi ý. Kiểm tra backend và thử lại.');
     } finally {
       setAiSuggestLoading(false);
     }
-  }, [vocalStyle, title, description, ethnicity]);
+  }, [vocalStyle, title, description, capturedGpsLat, capturedGpsLon]);
 
   return {
     title,
@@ -252,6 +268,16 @@ export function useUploadForm() {
     setPerformanceType,
     instruments,
     setInstruments,
+    /** Advisory AI state (upload analyze-*); same refs as top-level aliases below. */
+    aiAdvisory,
+    instrumentPredictions: aiAdvisory.instrumentPredictions,
+    setInstrumentPredictions: aiAdvisory.setInstrumentPredictions,
+    aiMetadataSuggestions: aiAdvisory.aiMetadataSuggestions,
+    setAiMetadataSuggestions: aiAdvisory.setAiMetadataSuggestions,
+    aiAnalysisLoading: aiAdvisory.aiAnalysisLoading,
+    setAiAnalysisLoading: aiAdvisory.setAiAnalysisLoading,
+    aiAnalysisError: aiAdvisory.aiAnalysisError,
+    setAiAnalysisError: aiAdvisory.setAiAnalysisError,
     description,
     setDescription,
     fieldNotes,
@@ -285,6 +311,15 @@ export function useUploadForm() {
     setGpsLoading,
     gpsError,
     setGpsError,
+    gpsAddressResolved,
+    setGpsAddressResolved,
+    gpsReverseLookupCompleted,
+    setGpsReverseLookupCompleted,
+    gpsSuccess:
+      capturedGpsLat != null &&
+      capturedGpsLon != null &&
+      Number.isFinite(capturedGpsLat) &&
+      Number.isFinite(capturedGpsLon),
     capturedGpsLat,
     setCapturedGpsLat,
     capturedGpsLon,

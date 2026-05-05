@@ -3,7 +3,7 @@ import { memo } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import logo from '@/components/image/VietTune logo.png';
+import logo from '@/components/image/viettune_logo_img';
 import type { Recording } from '@/types';
 import { cn, formatDuration } from '@/utils/helpers';
 
