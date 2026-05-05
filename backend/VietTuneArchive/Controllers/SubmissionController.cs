@@ -54,12 +54,7 @@ namespace VietTuneArchive.API.Controllers
             {
                 return Ok(result);
             }
-            return result.ErrorType switch
-            {
-                "NotFound" => NotFound(new { result.Code, result.Message }),
-                "BadRequest" => BadRequest(new { result.Code, result.Message }),
-                _ => BadRequest(new { result.Code, result.Message })
-            };
+            return BadRequest(result);
         }
 
         [HttpPut("edit-request-submission")]
@@ -75,12 +70,7 @@ namespace VietTuneArchive.API.Controllers
             {
                 return Ok(result);
             }
-            return result.ErrorType switch
-            {
-                "NotFound" => NotFound(new { result.Code, result.Message }),
-                "BadRequest" => BadRequest(new { result.Code, result.Message }),
-                _ => BadRequest(new { result.Code, result.Message })
-            };
+            return BadRequest(result);
         }
 
         [HttpPut("confirm-edit-submission")]
@@ -92,12 +82,7 @@ namespace VietTuneArchive.API.Controllers
             {
                 return Ok(result);
             }
-            return result.ErrorType switch
-            {
-                "NotFound" => NotFound(new { result.Code, result.Message }),
-                "BadRequest" => BadRequest(new { result.Code, result.Message }),
-                _ => BadRequest(new { result.Code, result.Message })
-            };
+            return BadRequest(result);
         }
 
         [HttpPut("approve-submission")]
@@ -113,12 +98,7 @@ namespace VietTuneArchive.API.Controllers
             {
                 return Ok(result);
             }
-            return result.ErrorType switch
-            {
-                "NotFound" => NotFound(new { result.Code, result.Message }),
-                "BadRequest" => BadRequest(new { result.Code, result.Message }),
-                _ => BadRequest(new { result.Code, result.Message })
-            };
+            return BadRequest(result);
         }
 
         [HttpPut("reject-submission")]
@@ -134,12 +114,7 @@ namespace VietTuneArchive.API.Controllers
             {
                 return Ok(result);
             }
-            return result.ErrorType switch
-            {
-                "NotFound" => NotFound(new { result.Code, result.Message }),
-                "BadRequest" => BadRequest(new { result.Code, result.Message }),
-                _ => BadRequest(new { result.Code, result.Message })
-            };
+            return BadRequest(result);
         }
 
         [HttpPut("done-stage-one")]
@@ -151,12 +126,7 @@ namespace VietTuneArchive.API.Controllers
             {
                 return Ok(result);
             }
-            return result.ErrorType switch
-            {
-                "NotFound" => NotFound(new { result.Code, result.Message }),
-                "BadRequest" => BadRequest(new { result.Code, result.Message }),
-                _ => BadRequest(new { result.Code, result.Message })
-            };
+            return BadRequest(result);
         }
 
         [HttpPut("done-stage-two")]
@@ -168,35 +138,7 @@ namespace VietTuneArchive.API.Controllers
             {
                 return Ok(result);
             }
-            return result.ErrorType switch
-            {
-                "NotFound" => NotFound(new { result.Code, result.Message }),
-                "BadRequest" => BadRequest(new { result.Code, result.Message }),
-                _ => BadRequest(new { result.Code, result.Message })
-            };
-        }
-
-        public class UpdateStageRequest
-        {
-            public SubmissionStage Stage { get; set; }
-            public string Note { get; set; }
-        }
-
-        [HttpPatch("{id}/stage")]
-        [Authorize(Roles = "Admin,Expert")]
-        public async Task<IActionResult> UpdateStage(Guid id, [FromBody] UpdateStageRequest request)
-        {
-            var result = await _submissionService.UpdateStageAsync(id, request.Stage, request.Note);
-            if (result.IsSuccess)
-            {
-                return Ok(result);
-            }
-            return result.ErrorType switch
-            {
-                "NotFound" => NotFound(new { result.Code, result.Message }),
-                "BadRequest" => BadRequest(new { result.Code, result.Message }),
-                _ => BadRequest(new { result.Code, result.Message })
-            };
+            return BadRequest(result);
         }
         [HttpGet("get-related-submissions")]
         [Authorize(Roles = "Admin,Expert")]
@@ -243,12 +185,7 @@ namespace VietTuneArchive.API.Controllers
             {
                 return Ok(result);
             }
-            return result.ErrorType switch
-            {
-                "NotFound" => NotFound(new { result.Code, result.Message }),
-                "BadRequest" => BadRequest(new { result.Code, result.Message }),
-                _ => BadRequest(new { result.Code, result.Message })
-            };
+            return BadRequest(result);
         }
 
         [HttpPut("assign-reviewer-submission")]
@@ -260,12 +197,7 @@ namespace VietTuneArchive.API.Controllers
             {
                 return Ok(result);
             }
-            return result.ErrorType switch
-            {
-                "Conflict" => Conflict(new { result.Code, result.Message }),
-                "NotFound" => NotFound(new { result.Code, result.Message }),
-                _ => BadRequest(new { result.Code, result.Message })
-            };
+            return BadRequest(result);
         }
 
         [HttpPut("unassign-reviewer-submission")]
