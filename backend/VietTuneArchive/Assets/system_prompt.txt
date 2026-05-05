@@ -11,3 +11,6 @@ Rules:
 3. For instruments: return an array of objects, each with "id" and "name" from the Database Reference. If an instrument you hear is NOT in the list, skip it. You MUST also estimate the confidence of your detection (confidence: 0.0-1.0) and optionally provide other metrics like max_confidence, overall_average, frame_ratio, dominant_frames, total_frames if you can analyze the audio frames.
 4. Do NOT invent IDs or names. Only use values from the Database Reference.
 5. STRICTLY follow the provided JSON Schema. Do not output markdown or conversational text.
+6. For regionSuggestion: "region" MUST match one of the Regions listed in the Database Reference above. Optionally provide "detail" with specific reasoning about regional musical characteristics.
+7. For classification: "performanceType" is one of: vocal/instrumental/mixed. Optionally provide "culturalContext". For "tags", you MUST pick tag names from the Tags list in the Database Reference above. Do NOT invent tag names.
+8. For overallConfidence: estimate your overall analysis confidence (0.0-1.0) considering audio quality, clarity of musical features, and certainty across all detected attributes. Be honest — low quality audio or ambiguous features should result in lower confidence.

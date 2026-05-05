@@ -47,14 +47,6 @@
       },
       "description": "Nhạc cụ — lấy từ DB Reference"
     },
-    "genre": {
-      "type": "string",
-      "enum": [
-        "Hát Ru", "Quan Họ", "Ca Trù", "Hát Văn", "Nhã Nhạc",
-        "Đờn Ca Tài Tử", "Cải Lương", "Chèo", "Ví Giặm", "Hò",
-        "instrumental", "unknown"
-      ]
-    },
     "performanceContext": {
       "type": "string",
       "enum": ["hát ru", "lễ hội", "nghi lễ", "giải trí", "lao động", "unknown"]
@@ -94,13 +86,45 @@
       "type": "string",
       "description": "Vùng miền / địa phương ước đoán"
     },
-    "lyricsOriginal": {
-      "type": "string",
-      "description": "Lời gốc (nếu nghe được)"
+    "regionSuggestion": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "type": "string",
+          "description": "Vùng miền chính — lấy từ Regions trong DB Reference"
+        },
+        "detail": {
+          "type": "string",
+          "description": "Mô tả chi tiết đặc trưng vùng miền nhận diện được từ audio"
+        }
+      },
+      "required": ["region"],
+      "description": "Gợi ý vùng miền dựa trên đặc trưng âm nhạc (thang âm, phong cách, nhạc cụ)"
     },
-    "lyricsVietnamese": {
-      "type": "string",
-      "description": "Bản dịch tiếng Việt (nếu ngôn ngữ gốc khác)"
+    "classification": {
+      "type": "object",
+      "properties": {
+        "performanceType": {
+          "type": "string",
+          "enum": ["vocal", "instrumental", "mixed"],
+          "description": "Loại trình diễn: vocal (giọng hát), instrumental (nhạc cụ), mixed (kết hợp)"
+        },
+        "culturalContext": {
+          "type": "string",
+          "description": "Bối cảnh văn hóa (lễ hội, nghi lễ, sinh hoạt, giải trí...)"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Các nhãn phân loại — lấy name từ Tags trong DB Reference"
+        }
+      },
+      "required": ["performanceType"],
+      "description": "Phân loại tổng hợp bài hát / bản ghi"
+    },
+    "overallConfidence": {
+      "type": "number",
+      "description": "Độ tin cậy tổng thể của toàn bộ phân tích (0.0 - 1.0). Tính dựa trên chất lượng audio, độ rõ ràng của đặc trưng âm nhạc, và mức độ chắc chắn của từng phán đoán."
     }
   },
   "required": [
@@ -109,7 +133,9 @@
     "ethnicGroup",
     "language",
     "instruments",
-    "genre",
-    "performanceContext"
+    "performanceContext",
+    "regionSuggestion",
+    "classification",
+    "overallConfidence"
   ]
 }

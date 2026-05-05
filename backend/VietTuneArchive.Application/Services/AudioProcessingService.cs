@@ -273,8 +273,12 @@ public class AudioProcessingService : IAudioProcessingService
                 EthnicGroup: SafeGetDbRef(root, "ethnicGroup"),
                 Language: SafeGetString(root, "language"),
                 Instruments: SafeGetInstrumentList(root, "instruments"),
-                Genre: SafeGetString(root, "genre"),
                 PerformanceContext: SafeGetString(root, "performanceContext"),
+
+                // --- AI suggestion fields ---
+                RegionSuggestion: SafeGetRegionSuggestion(root, "regionSuggestion"),
+                Classification: SafeGetClassification(root, "classification"),
+                OverallConfidence: SafeGetDouble(root, "overallConfidence"),
 
                 // --- Optional ---
                 Title: SafeGetNullableString(root, "title"),
@@ -282,9 +286,7 @@ public class AudioProcessingService : IAudioProcessingService
                 VocalStyle: SafeGetDbRef(root, "vocalStyle"),
                 MusicalScale: SafeGetDbRef(root, "musicalScale"),
                 Composer: SafeGetNullableString(root, "composer"),
-                RecordingLocation: SafeGetNullableString(root, "recordingLocation"),
-                LyricsOriginal: SafeGetNullableString(root, "lyricsOriginal"),
-                LyricsVietnamese: SafeGetNullableString(root, "lyricsVietnamese")
+                RecordingLocation: SafeGetNullableString(root, "recordingLocation")
             );
         }
         catch (Exception ex)
@@ -441,9 +443,71 @@ public class AudioProcessingService : IAudioProcessingService
             EthnicGroup: null,
             Language: "unknown",
             Instruments: new List<InstrumentRefDto>(),
-            Genre: "unknown",
-            PerformanceContext: "unknown"
+            PerformanceContext: "unknown",
+            RegionSuggestion: new RegionSuggestionDto(Region: "unknown"),
+            Classification: new ClassificationDto(PerformanceType: "unknown"),
+            OverallConfidence: 0.0
         );
+    }
+
+    // =================================================================
+    // 6. NEW FIELD PARSERS
+    // =================================================================
+
+    private static RegionSuggestionDto? SafeGetRegionSuggestion(JsonElement element, string property)
+    {
+        if (!element.TryGetProperty(property, out var prop))
+            return null;
+
+        if (prop.ValueKind == JsonValueKind.Null || prop.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var region = SafeGetString(prop, "region");
+        var detail = SafeGetNullableString(prop, "detail");
+
+        return new RegionSuggestionDto(Region: region, Detail: detail);
+    }
+
+    private static ClassificationDto? SafeGetClassification(JsonElement element, string property)
+    {
+        if (!element.TryGetProperty(property, out var prop))
+            return null;
+
+        if (prop.ValueKind == JsonValueKind.Null || prop.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var performanceType = SafeGetString(prop, "performanceType");
+        var culturalContext = SafeGetNullableString(prop, "culturalContext");
+        var tags = SafeGetStringList(prop, "tags");
+
+        return new ClassificationDto(
+            PerformanceType: performanceType,
+            CulturalContext: culturalContext,
+            Tags: tags.Count > 0 ? tags : null
+        );
+    }
+
+    private static List<string> SafeGetStringList(JsonElement element, string property)
+    {
+        var list = new List<string>();
+
+        if (!element.TryGetProperty(property, out var prop))
+            return list;
+
+        if (prop.ValueKind != JsonValueKind.Array)
+            return list;
+
+        foreach (var item in prop.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                var val = item.GetString();
+                if (!string.IsNullOrWhiteSpace(val))
+                    list.Add(val);
+            }
+        }
+
+        return list;
     }
 
     // =================================================================

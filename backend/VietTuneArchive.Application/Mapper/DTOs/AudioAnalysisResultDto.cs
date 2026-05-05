@@ -20,6 +20,23 @@ namespace VietTuneArchive.Application.Mapper.DTOs
         );
 
         /// <summary>
+        /// Gợi ý vùng miền dựa trên đặc trưng âm nhạc.
+        /// </summary>
+        public record RegionSuggestionDto(
+            string Region,
+            string? Detail = null
+        );
+
+        /// <summary>
+        /// Phân loại tổng hợp bài hát / bản ghi.
+        /// </summary>
+        public record ClassificationDto(
+            string PerformanceType,
+            string? CulturalContext = null,
+            List<string>? Tags = null
+        );
+
+        /// <summary>
         /// Token usage trả về từ Gemini API.
         /// </summary>
         public record TokenUsageDto(
@@ -39,8 +56,12 @@ namespace VietTuneArchive.Application.Mapper.DTOs
             DbRefDto? EthnicGroup,
             string Language,
             List<InstrumentRefDto> Instruments,
-            string Genre,
             string PerformanceContext,
+
+            // --- AI suggestion fields (gợi ý cho FE form) ---
+            RegionSuggestionDto? RegionSuggestion = null,
+            ClassificationDto? Classification = null,
+            double OverallConfidence = 0.0,
 
             // --- Optional fields ---
             string? Title = null,
@@ -49,8 +70,6 @@ namespace VietTuneArchive.Application.Mapper.DTOs
             DbRefDto? MusicalScale = null,
             string? Composer = null,
             string? RecordingLocation = null,
-            string? LyricsOriginal = null,
-            string? LyricsVietnamese = null,
             string? GeminiFileUri = null,
 
             // --- Token usage ---

@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // Services/EnumProviderService.cs
 // ============================================================
 //
@@ -108,6 +108,19 @@ public class EnumProviderService : IEnumProviderService
             .Select(c => new { c.Id, c.Name })
             .ToList();
 
+        // Regions — distinct RegionCode từ bảng Provinces (cho regionSuggestion)
+        var regions = db.Provinces
+            .Select(p => p.RegionCode)
+            .Distinct()
+            .OrderBy(r => r)
+            .ToList();
+
+        // Tags — id + name + category (cho classification.tags)
+        var tags = db.Tags
+            .OrderBy(t => t.Category).ThenBy(t => t.Name)
+            .Select(t => new { t.Id, t.Name, t.Category })
+            .ToList();
+
         var sb = new StringBuilder();
 
         sb.AppendLine("EthnicGroups:");
@@ -130,9 +143,18 @@ public class EnumProviderService : IEnumProviderService
         foreach (var c in ceremonies)
             sb.AppendLine($"  {{ \"id\": \"{c.Id}\", \"name\": \"{c.Name}\" }}");
 
+        sb.AppendLine("Regions (for regionSuggestion.region):");
+        foreach (var r in regions)
+            sb.AppendLine($"  \"{r}\"");
+
+        sb.AppendLine("Tags (for classification.tags):");
+        foreach (var t in tags)
+            sb.AppendLine($"  {{ \"id\": \"{t.Id}\", \"name\": \"{t.Name}\", \"category\": \"{t.Category}\" }}");
+
         _logger.LogInformation(
-            "Built DB context: {Ethnic} ethnic, {Inst} instruments, {Vocal} vocal, {Scale} scales, {Cere} ceremonies",
-            ethnicGroups.Count, instruments.Count, vocalStyles.Count, musicalScales.Count, ceremonies.Count);
+            "Built DB context: {Ethnic} ethnic, {Inst} instruments, {Vocal} vocal, {Scale} scales, {Cere} ceremonies, {Regions} regions, {Tags} tags",
+            ethnicGroups.Count, instruments.Count, vocalStyles.Count, musicalScales.Count, ceremonies.Count,
+            regions.Count, tags.Count);
 
         return sb.ToString();
     }
