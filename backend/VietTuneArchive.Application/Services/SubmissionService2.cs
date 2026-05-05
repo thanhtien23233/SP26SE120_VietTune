@@ -9,6 +9,8 @@ using VietTuneArchive.Application.Responses;
 using VietTuneArchive.Domain.Entities;
 using VietTuneArchive.Domain.Entities.Enum;
 using VietTuneArchive.Domain.IRepositories;
+using VietTuneArchive.Domain.Context;
+using Microsoft.EntityFrameworkCore;
 
 namespace VietTuneArchive.Application.Services
 {
@@ -22,7 +24,8 @@ namespace VietTuneArchive.Application.Services
         private readonly INotificationService _notificationService;
         private readonly IEmbeddingService _localEmbeddingService;
         private readonly ILogger<SubmissionService2> _logger;
-        public SubmissionService2(IGenericRepository<Submission> repository, ISubmissionRepository submissionRepo, IMapper mapper, IUserRepository userRepository, IRecordingRepository recordingRepository, INotificationService notificationService, IEmbeddingService localEmbeddingService, ILogger<SubmissionService2> logger)
+        private readonly DBContext _dbContext;
+        public SubmissionService2(IGenericRepository<Submission> repository, ISubmissionRepository submissionRepo, IMapper mapper, IUserRepository userRepository, IRecordingRepository recordingRepository, INotificationService notificationService, IEmbeddingService localEmbeddingService, ILogger<SubmissionService2> logger, DBContext dbContext)
             : base(repository, mapper)
         {
             _submissionRepository = repository ?? throw new ArgumentNullException(nameof(repository));
@@ -33,6 +36,7 @@ namespace VietTuneArchive.Application.Services
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
             _localEmbeddingService = localEmbeddingService ?? throw new ArgumentNullException(nameof(localEmbeddingService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         }
         public async Task<Result<SubmissionResponseDto>> CreateAsync(SubmissionDto dto)
         {
@@ -95,9 +99,9 @@ namespace VietTuneArchive.Application.Services
 
                 var recording = await _recordingRepository.GetByIdAsync(submission.RecordingId.Value);
                 if (recording == null)
-                    return Result<bool>.Failure("Associated recording not found");
+                    return Result<bool>.Failure("NOT_FOUND", "Associated recording not found", "NotFound");
                 if (recording.Status != SubmissionStatus.Pending)
-                    return Result<bool>.Failure("Recording is not in a state that can be submitted");
+                    return Result<bool>.Failure("INVALID_STATUS", "Recording is not in a state that can be submitted", "BadRequest");
 
                 submission.Status = SubmissionStatus.Pending;
                 submission.UpdatedAt = DateTime.UtcNow;
@@ -106,7 +110,7 @@ namespace VietTuneArchive.Application.Services
             }
             catch (Exception ex)
             {
-                return Result<bool>.Failure($"Failed to confirm submission: {ex.Message}");
+                return Result<bool>.Failure("INTERNAL_ERROR", $"Failed to confirm submission: {ex.Message}");
             }
         }
 
@@ -118,14 +122,14 @@ namespace VietTuneArchive.Application.Services
                     throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
                 var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
                 if (submission == null)
-                    return Result<bool>.Failure("Submission not found");
+                    return Result<bool>.Failure("NOT_FOUND", "Submission not found", "NotFound");
                 if (submission.Status != SubmissionStatus.Pending)
-                    return Result<bool>.Failure("Submission is not in a state that can be marked for edit");
+                    return Result<bool>.Failure("INVALID_STATUS", "Submission is not in a state that can be marked for edit", "BadRequest");
                 var recording = await _recordingRepository.GetByIdAsync(submission.RecordingId.Value);
                 if (recording == null)
-                    return Result<bool>.Failure("Associated recording not found");
+                    return Result<bool>.Failure("NOT_FOUND", "Associated recording not found", "NotFound");
                 if (recording.Status != SubmissionStatus.Pending)
-                    return Result<bool>.Failure("Recording is not in a state that can be marked for edit");
+                    return Result<bool>.Failure("INVALID_STATUS", "Recording is not in a state that can be marked for edit", "BadRequest");
 
                 submission.Status = SubmissionStatus.UpdateRequested;
                 submission.ReviewerId = reviewerId;
@@ -139,7 +143,7 @@ namespace VietTuneArchive.Application.Services
             }
             catch (Exception ex)
             {
-                return Result<bool>.Failure($"Failed to mark submission as requires edit: {ex.Message}");
+                return Result<bool>.Failure("INTERNAL_ERROR", $"Failed to mark submission as requires edit: {ex.Message}");
             }
         }
 
@@ -151,14 +155,14 @@ namespace VietTuneArchive.Application.Services
                     throw new ArgumentException("Submission id cannot be empty", nameof(SubmissionId));
                 var submission = await _submissionRepo.GetSubmissionByIdAsync(SubmissionId);
                 if (submission == null)
-                    return Result<bool>.Failure("Submission not found");
+                    return Result<bool>.Failure("NOT_FOUND", "Submission not found", "NotFound");
                 if (submission.Status != SubmissionStatus.UpdateRequested)
-                    return Result<bool>.Failure("Submission is not in a state that can be confirmed for edit");
+                    return Result<bool>.Failure("INVALID_STATUS", "Submission is not in a state that can be confirmed for edit", "BadRequest");
                 var recording = await _recordingRepository.GetByIdAsync(submission.RecordingId.Value);
                 if (recording == null)
-                    return Result<bool>.Failure("Associated recording not found");
+                    return Result<bool>.Failure("NOT_FOUND", "Associated recording not found", "NotFound");
                 if (recording.Status != SubmissionStatus.UpdateRequested)
-                    return Result<bool>.Failure("Recording is not in a state that can be confirmed for edit");
+                    return Result<bool>.Failure("INVALID_STATUS", "Recording is not in a state that can be confirmed for edit", "BadRequest");
 
                 submission.Status = SubmissionStatus.Pending;
                 submission.UpdatedAt = DateTime.UtcNow;
@@ -171,7 +175,7 @@ namespace VietTuneArchive.Application.Services
             }
             catch (Exception ex)
             {
-                return Result<bool>.Failure($"Failed to confirm submission edit: {ex.Message}");
+                return Result<bool>.Failure("INTERNAL_ERROR", $"Failed to confirm submission edit: {ex.Message}");
             }
         }
         public async Task<Result<bool>> RejectSubmission(Guid submissionId, Guid reviewerId)
@@ -182,14 +186,14 @@ namespace VietTuneArchive.Application.Services
                     throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
                 var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
                 if (submission == null)
-                    return Result<bool>.Failure("Submission not found");
-                if (submission.Status != SubmissionStatus.Pending && submission.Status != SubmissionStatus.UpdateRequested)
-                    return Result<bool>.Failure("Submission is not in a state that can be rejected");
+                    return Result<bool>.Failure("NOT_FOUND", "Submission not found", "NotFound");
+                if (submission.Status != SubmissionStatus.Pending && submission.Status != SubmissionStatus.UpdateRequested && submission.Status != SubmissionStatus.InReview)
+                    return Result<bool>.Failure("INVALID_STATUS", "Submission is not in a state that can be rejected", "BadRequest");
                 var recording = await _recordingRepository.GetByIdAsync(submission.RecordingId.Value);
                 if (recording == null)
-                    return Result<bool>.Failure("Associated recording not found");
+                    return Result<bool>.Failure("NOT_FOUND", "Associated recording not found", "NotFound");
                 if (recording.Status != SubmissionStatus.Pending && recording.Status != SubmissionStatus.UpdateRequested)
-                    return Result<bool>.Failure("Recording is not in a state that can be rejected");
+                    return Result<bool>.Failure("INVALID_STATUS", "Recording is not in a state that can be rejected", "BadRequest");
 
                 submission.Status = SubmissionStatus.Rejected;
                 submission.ReviewerId = reviewerId;
@@ -213,7 +217,7 @@ namespace VietTuneArchive.Application.Services
             }
             catch (Exception ex)
             {
-                return Result<bool>.Failure($"Failed to reject submission: {ex.Message}");
+                return Result<bool>.Failure("INTERNAL_ERROR", $"Failed to reject submission: {ex.Message}");
             }
         }
 
@@ -225,14 +229,14 @@ namespace VietTuneArchive.Application.Services
                     throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
                 var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
                 if (submission == null)
-                    return Result<bool>.Failure("Submission not found");
-                if (submission.Status != SubmissionStatus.Pending)
-                    return Result<bool>.Failure("Submission is not in a state that can be approved");
+                    return Result<bool>.Failure("NOT_FOUND", "Submission not found", "NotFound");
+                if (submission.Status != SubmissionStatus.Pending && submission.Status != SubmissionStatus.InReview)
+                    return Result<bool>.Failure("INVALID_STATUS", "Submission is not in a state that can be approved", "BadRequest");
                 var recording = await _recordingRepository.GetByIdAsync(submission.RecordingId.Value);
                 if (recording == null)
-                    return Result<bool>.Failure("Associated recording not found");
+                    return Result<bool>.Failure("NOT_FOUND", "Associated recording not found", "NotFound");
                 if (recording.Status != SubmissionStatus.Pending)
-                    return Result<bool>.Failure("Recording is not in a state that can be approved");
+                    return Result<bool>.Failure("INVALID_STATUS", "Recording is not in a state that can be approved", "BadRequest");
 
                 submission.Status = SubmissionStatus.Approved;
                 submission.ReviewerId = reviewerId;
@@ -267,7 +271,7 @@ namespace VietTuneArchive.Application.Services
             }
             catch (Exception ex)
             {
-                return Result<bool>.Failure($"Failed to approve submission: {ex.Message}");
+                return Result<bool>.Failure("INTERNAL_ERROR", $"Failed to approve submission: {ex.Message}");
             }
         }
 
@@ -277,31 +281,58 @@ namespace VietTuneArchive.Application.Services
             {
                 if (submissionId == Guid.Empty)
                     throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
-                var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
-                if (submission == null)
-                    return Result<bool>.Failure("Submission not found");
-                if (submission.ReviewerId.HasValue)
-                    return Result<bool>.Failure("Submission already has a reviewer assigned");
-                var reviewer = await _userRepository.GetByIdAsync(reviewerId);
-                if (reviewer == null || !reviewer.Role.Contains("Expert"))
-                    return Result<bool>.Failure("Invalid reviewer ID");
-                submission.ReviewerId = reviewerId;
-                submission.Reviewer = reviewer;
-                submission.UpdatedAt = DateTime.UtcNow;
-                await _submissionRepo.UpdateAsync(submission);
-                await _notificationService.SendNotificationAsync(
-                    reviewerId,
-                    "Bạn được phân công đánh giá bản ghi",
-                    $"Bạn đã được phân công đánh giá bản ghi '{submission.Recording.Title}'. Vui lòng xem xét và đưa ra quyết định.",
-                    "SubmissionAssigned",
-                    "Submission",
-                    submission.Id
-                );
-                return Result<bool>.Success(true, "Reviewer assigned successfully");
+
+                var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
+                return await executionStrategy.ExecuteAsync(async () =>
+                {
+                    await using var tx = await _dbContext.Database.BeginTransactionAsync();
+
+                    var submission = await _dbContext.Submissions
+                        .Include(s => s.Recording)
+                        .FromSqlInterpolated($"SELECT * FROM Submissions WITH (UPDLOCK, ROWLOCK) WHERE Id = {submissionId}")
+                        .FirstOrDefaultAsync();
+
+                    if (submission == null)
+                        return Result<bool>.Failure("NOT_FOUND", "Submission not found", "NotFound");
+
+                    if (submission.ReviewerId.HasValue)
+                    {
+                        if (submission.ReviewerId.Value == reviewerId)
+                            return Result<bool>.Success(true, "ALREADY_ASSIGNED_TO_YOU", "Submission is already assigned to this reviewer.");
+                        
+                        return Result<bool>.Failure("ALREADY_ASSIGNED", "Submission already has a reviewer assigned", "Conflict");
+                    }
+
+                    var reviewer = await _userRepository.GetByIdAsync(reviewerId);
+                    if (reviewer == null || !reviewer.Role.Contains("Expert"))
+                        return Result<bool>.Failure("INVALID_REVIEWER", "Invalid reviewer ID", "BadRequest");
+
+                    submission.ReviewerId = reviewerId;
+                    submission.Reviewer = reviewer;
+                    submission.Status = SubmissionStatus.InReview;
+                    submission.UpdatedAt = DateTime.UtcNow;
+
+                    await _dbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+
+                    if (submission.Recording != null)
+                    {
+                        await _notificationService.SendNotificationAsync(
+                            reviewerId,
+                            "Bạn được phân công đánh giá bản ghi",
+                            $"Bạn đã được phân công đánh giá bản ghi '{submission.Recording.Title}'. Vui lòng xem xét và đưa ra quyết định.",
+                            "SubmissionAssigned",
+                            "Submission",
+                            submission.Id
+                        );
+                    }
+                    
+                    return Result<bool>.Success(true, "Reviewer assigned successfully");
+                });
             }
             catch (Exception ex)
             {
-                return Result<bool>.Failure($"Failed to assign reviewer: {ex.Message}");
+                return Result<bool>.Failure("INTERNAL_ERROR", $"Failed to assign reviewer: {ex.Message}");
             }
         }
 
@@ -313,27 +344,34 @@ namespace VietTuneArchive.Application.Services
                     throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
                 var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
                 if (submission == null)
-                    return Result<bool>.Failure("Submission not found");
+                    return Result<bool>.Failure("NOT_FOUND", "Submission not found", "NotFound");
                 if (!submission.ReviewerId.HasValue)
-                    return Result<bool>.Failure("Submission does not have a reviewer assigned");
+                    return Result<bool>.Failure("INVALID_STATUS", "Submission does not have a reviewer assigned", "BadRequest");
+                
                 var reviewerId = submission.ReviewerId.Value;
                 submission.ReviewerId = null;
                 submission.Reviewer = null;
+                submission.Status = SubmissionStatus.Pending; // Optionally revert to Pending
                 submission.UpdatedAt = DateTime.UtcNow;
                 await _submissionRepo.UpdateAsync(submission);
-                await _notificationService.SendNotificationAsync(
-                    reviewerId,
-                    "Bạn đã được gỡ phân công đánh giá bản ghi",
-                    $"Phân công đánh giá bản ghi '{submission.Recording.Title}' đã được gỡ bỏ. Bạn không còn trách nhiệm đánh giá bản ghi này.",
-                    "SubmissionUnassigned",
-                    "Submission",
-                    submission.Id
-                );
+                
+                if (submission.Recording != null)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        reviewerId,
+                        "Bạn đã được gỡ phân công đánh giá bản ghi",
+                        $"Phân công đánh giá bản ghi '{submission.Recording.Title}' đã được gỡ bỏ. Bạn không còn trách nhiệm đánh giá bản ghi này.",
+                        "SubmissionUnassigned",
+                        "Submission",
+                        submission.Id
+                    );
+                }
+                
                 return Result<bool>.Success(true, "Reviewer unassigned successfully");
             }
             catch (Exception ex)
             {
-                return Result<bool>.Failure($"Failed to unassign reviewer: {ex.Message}");
+                return Result<bool>.Failure("INTERNAL_ERROR", $"Failed to unassign reviewer: {ex.Message}");
             }
         }
 
@@ -581,17 +619,18 @@ namespace VietTuneArchive.Application.Services
                     throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
                 var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
                 if (submission == null)
-                    return Result<bool>.Failure("Submission not found");
-                if (submission.CurrentStage != 1)
-                    return Result<bool>.Failure("Submission is not in the correct stage to move to the next stage");
-                submission.CurrentStage = 2; // Move to stage 2
+                    return Result<bool>.Failure("NOT_FOUND", "Submission not found", "NotFound");
+                if (submission.CurrentStage != 0) // Screening
+                    return Result<bool>.Failure("INVALID_STAGE_TRANSITION", "Invalid stage transition", "BadRequest");
+                
+                submission.CurrentStage = 1; // Move to Verification
                 submission.UpdatedAt = DateTime.UtcNow;
                 await _submissionRepo.UpdateAsync(submission);
                 return Result<bool>.Success(true, "Submission moved to the next stage successfully");
             }
             catch (Exception ex)
             {
-                return Result<bool>.Failure($"Failed to move submission to the next stage: {ex.Message}");
+                return Result<bool>.Failure("INTERNAL_ERROR", $"Failed to move submission to the next stage: {ex.Message}");
             }
         }
         public async Task<Result<bool>> DoneStageTwoAsync(Guid submissionId)
@@ -602,17 +641,48 @@ namespace VietTuneArchive.Application.Services
                     throw new ArgumentException("Submission id cannot be empty", nameof(submissionId));
                 var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
                 if (submission == null)
-                    return Result<bool>.Failure("Submission not found");
-                if (submission.CurrentStage != 2)
-                    return Result<bool>.Failure("Submission is not in the correct stage to move to the next stage");
-                submission.CurrentStage = 3; // Move to stage 3
+                    return Result<bool>.Failure("NOT_FOUND", "Submission not found", "NotFound");
+                if (submission.CurrentStage != 1) // Verification
+                    return Result<bool>.Failure("INVALID_STAGE_TRANSITION", "Invalid stage transition", "BadRequest");
+                
+                submission.CurrentStage = 2; // Move to Published
                 submission.UpdatedAt = DateTime.UtcNow;
                 await _submissionRepo.UpdateAsync(submission);
                 return Result<bool>.Success(true, "Submission moved to the next stage successfully");
             }
             catch (Exception ex)
             {
-                return Result<bool>.Failure($"Failed to move submission to the next stage: {ex.Message}");
+                return Result<bool>.Failure("INTERNAL_ERROR", $"Failed to move submission to the next stage: {ex.Message}");
+            }
+        }
+
+        public async Task<Result<bool>> UpdateStageAsync(Guid submissionId, SubmissionStage newStage, string note)
+        {
+            try
+            {
+                var submission = await _submissionRepo.GetSubmissionByIdAsync(submissionId);
+                if (submission == null)
+                    return Result<bool>.Failure("NOT_FOUND", "Submission not found", "NotFound");
+
+                if (submission.CurrentStage == 0 && (int)newStage != 1)
+                    return Result<bool>.Failure("INVALID_STAGE_TRANSITION", "Invalid stage transition", "BadRequest");
+                
+                if (submission.CurrentStage == 1 && (int)newStage != 2)
+                    return Result<bool>.Failure("INVALID_STAGE_TRANSITION", "Invalid stage transition", "BadRequest");
+
+                submission.CurrentStage = (int)newStage;
+                if (!string.IsNullOrEmpty(note))
+                {
+                    submission.Notes = string.IsNullOrEmpty(submission.Notes) ? note : submission.Notes + "\n" + note;
+                }
+                submission.UpdatedAt = DateTime.UtcNow;
+                await _submissionRepo.UpdateAsync(submission);
+
+                return Result<bool>.Success(true, "Stage updated successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<bool>.Failure("INTERNAL_ERROR", ex.Message);
             }
         }
         public async Task<Result<IEnumerable<GetRelatedSubmissionDto>>> GetRelatedSubmissionsAsync(Guid submissionId)

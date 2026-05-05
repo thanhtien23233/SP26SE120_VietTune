@@ -218,7 +218,15 @@ namespace VietTuneArchive.API.Controllers
 
             var result = await _submissionService.AssignReviewer(id, reviewerId);
             if (!result.IsSuccess)
-                return BadRequest(new BaseResponse { Success = false, Message = result.Message });
+            {
+                return result.ErrorType switch
+                {
+                    "Conflict" => Conflict(new BaseResponse { Success = false, Message = result.Message }),
+                    "NotFound" => NotFound(new BaseResponse { Success = false, Message = result.Message }),
+                    "BadRequest" => BadRequest(new BaseResponse { Success = false, Message = result.Message }),
+                    _ => BadRequest(new BaseResponse { Success = false, Message = result.Message })
+                };
+            }
 
             // Notification đã được gửi bên trong SubmissionService2.AssignReviewer
             return Ok(new BaseResponse { Success = true, Message = "Đã phân công reviewer thành công." });
