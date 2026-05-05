@@ -43,7 +43,8 @@ public class SubmissionServiceTests
             _recordingRepoMock.Object,
             _notificationServiceMock.Object,
             _embeddingServiceMock.Object,
-            _loggerMock.Object
+            _loggerMock.Object,
+            null! // DBContext is not easily mocked, skipping for now
         );
     }
 

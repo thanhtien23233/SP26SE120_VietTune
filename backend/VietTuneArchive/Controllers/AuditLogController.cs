@@ -32,6 +32,13 @@ namespace VietTuneArchive.API.Controllers
             return result.Success ? Ok(result) : NotFound(result);
         }
 
+        [HttpGet("by-submission/{id}")]
+        public async Task<ActionResult<ServiceResponse<List<AuditLogDto>>>> GetBySubmissionId(Guid id)
+        {
+            var result = await _service.GetByEntityIdAsync(id.ToString());
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
         [HttpPost]
         public async Task<ActionResult<ServiceResponse<AuditLogDto>>> Create([FromBody] AuditLogDto dto)
         {

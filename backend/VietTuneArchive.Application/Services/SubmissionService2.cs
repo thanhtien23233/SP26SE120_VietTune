@@ -285,12 +285,11 @@ namespace VietTuneArchive.Application.Services
                 var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
                 return await executionStrategy.ExecuteAsync(async () =>
                 {
-                    await using var tx = await _dbContext.Database.BeginTransactionAsync();
+                    await using var tx = await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
 
                     var submission = await _dbContext.Submissions
                         .Include(s => s.Recording)
-                        .FromSqlInterpolated($"SELECT * FROM Submissions WITH (UPDLOCK, ROWLOCK) WHERE Id = {submissionId}")
-                        .FirstOrDefaultAsync();
+                        .FirstOrDefaultAsync(s => s.Id == submissionId);
 
                     if (submission == null)
                         return Result<bool>.Failure("NOT_FOUND", "Submission not found", "NotFound");
