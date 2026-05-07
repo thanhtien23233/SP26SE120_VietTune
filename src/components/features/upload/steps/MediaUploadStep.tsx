@@ -452,8 +452,8 @@ export default function MediaUploadStep({
                                 <p className="font-semibold text-neutral-800">
                                   {group.field === 'region'
                                     ? 'Suggested Region'
-                                    : group.field === 'genre'
-                                      ? 'Suggested Genre'
+                                    : group.field === 'vocalStyle'
+                                      ? 'Suggested Vocal Style'
                                       : group.field === 'eventType'
                                         ? 'Suggested Event Type'
                                         : 'Suggested Ethnic Group'}

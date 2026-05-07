@@ -137,23 +137,23 @@ describe('groupMetadataSuggestionsForAdvisory', () => {
       { field: 'vocalStyle', value: 'Dân ca', sourceInstrument: 'Đàn tranh', confidence: 0.66 },
       { field: 'vocalStyle', value: 'Chèo', sourceInstrument: 'Sáo trúc', confidence: 0.63 },
     ]);
-    const genre = grouped.find((g) => g.field === 'genre');
-    expect(genre).toBeDefined();
+    const vs = grouped.find((g) => g.field === 'vocalStyle');
+    expect(vs).toBeDefined();
     // gap 0.03 < 5% → not "mixed influence" band, but still requires expert (narrow margin)
-    expect(genre?.conflictDetected).toBe(false);
-    expect(genre?.requiresExpert).toBe(true);
+    expect(vs?.conflictDetected).toBe(false);
+    expect(vs?.requiresExpert).toBe(true);
   });
 
-  it('groups eventType rows separately from vocalStyle (genre)', () => {
+  it('groups eventType rows separately from vocalStyle', () => {
     const grouped = groupMetadataSuggestionsForAdvisory([
       { field: 'vocalStyle', value: 'Dân ca', sourceInstrument: 'A', confidence: 0.9 },
       { field: 'eventType', value: 'Lễ hội', sourceInstrument: 'A', confidence: 0.5 },
     ]);
-    const genre = grouped.find((g) => g.field === 'genre');
+    const vs = grouped.find((g) => g.field === 'vocalStyle');
     const eventType = grouped.find((g) => g.field === 'eventType');
-    expect(genre?.candidates.some((c) => c.value === 'Lễ hội')).toBe(false);
+    expect(vs?.candidates.some((c) => c.value === 'Lễ hội')).toBe(false);
     expect(eventType?.candidates.some((c) => c.value === 'Lễ hội')).toBe(true);
-    expect(genre?.candidates.some((c) => c.value === 'Dân ca')).toBe(true);
+    expect(vs?.candidates.some((c) => c.value === 'Dân ca')).toBe(true);
   });
 
   it('dedupes candidates by value and keeps higher score', () => {
@@ -182,7 +182,7 @@ describe('mapInstrumentsToAdvisoryMetadataSuggestions', () => {
 
     expect(out.some((x) => x.field === 'region')).toBe(true);
     expect(out.some((x) => x.field === 'ethnicGroup')).toBe(true);
-    expect(out.some((x) => x.field === 'genre')).toBe(true);
+    expect(out.some((x) => x.field === 'vocalStyle')).toBe(true);
     expect(out.some((x) => x.field === 'eventType')).toBe(true);
   });
 });

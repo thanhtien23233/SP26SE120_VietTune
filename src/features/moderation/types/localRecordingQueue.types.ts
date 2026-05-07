@@ -1,3 +1,4 @@
+import type { ModerationStage } from '@/features/moderation/constants/moderationStage';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
 import type { ApiSubmissionStatus, ModerationStatus } from '@/types';
 
@@ -55,6 +56,8 @@ export interface LocalRecordingMini {
     reviewerName?: string | null;
     reviewedAt?: string | null;
     verificationStep?: number;
+    /** When BE sends Review 3 stage explicitly; UI otherwise uses `deriveModerationStage(verificationStep, workflowStage)`. */
+    workflowStage?: ModerationStage | string | null;
     verificationData?: ModerationVerificationData;
     rejectionNote?: string;
     notes?: string;

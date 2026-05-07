@@ -70,6 +70,7 @@ type UseUploadSubmissionOptions = {
   setEventType: (value: string) => void;
   setCustomEventType: (value: string) => void;
   setPerformanceType: (value: string) => void;
+  setRegion?: (value: string) => void;
   setTitle: (value: string) => void;
   setComposer: (value: string) => void;
   setComposerUnknown: (value: boolean) => void;
@@ -147,15 +148,19 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
       type AiAnalysisResult = {
         language?: string;
         recordingLocation?: string;
-        lyricsOriginal?: string;
-        lyricsVietnamese?: string;
         instruments?: AiInstrument[];
         ethnicGroup?: { name?: string };
         vocalStyle?: { name?: string };
-        genre?: string;
         musicalScale?: { name?: string };
         ceremony?: { name?: string };
         performanceContext?: string;
+        regionSuggestion?: { region: string; detail?: string };
+        classification?: {
+          performanceType?: 'vocal' | 'instrumental' | 'mixed';
+          culturalContext?: string;
+          tags?: string[];
+        };
+        overallConfidence?: number;
       };
       let aiRes: AiAnalysisResult | null = null;
       let detectedInstruments: DetectedInstrument[] = [];
@@ -364,10 +369,6 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           }
         }
         if (aiRes.recordingLocation) options.setRecordingLocation(aiRes.recordingLocation);
-        if (aiRes.lyricsOriginal) options.setTranscription(aiRes.lyricsOriginal);
-        if (aiRes.lyricsVietnamese && document.getElementById('field-transcription')) {
-          // Intentionally no-op: reserved for future dual-text handling.
-        }
         if (aiRes.instruments && Array.isArray(aiRes.instruments)) {
           const names = aiRes.instruments
             .map((i) => i.name)
@@ -383,8 +384,14 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
             options.setCustomEthnicity(name);
           }
         }
-        if (aiRes.vocalStyle?.name || aiRes.genre) {
-          options.setVocalStyle(aiRes.vocalStyle?.name ?? aiRes.genre ?? '');
+        if (aiRes.vocalStyle?.name) {
+          options.setVocalStyle(aiRes.vocalStyle.name);
+        }
+        if (aiRes.regionSuggestion?.region) {
+          options.setRegion?.(aiRes.regionSuggestion.region);
+        }
+        if (aiRes.classification?.performanceType) {
+          options.setPerformanceType?.(aiRes.classification.performanceType);
         }
         if (aiRes.musicalScale?.name) options.setMusicalScale(aiRes.musicalScale.name);
         if (aiRes.ceremony?.name) {

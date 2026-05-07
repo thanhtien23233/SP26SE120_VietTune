@@ -163,7 +163,7 @@ function mapLegacyFieldToAdvisoryField(
 ): AdvisoryMetadataSuggestionField | null {
   if (field === 'region') return 'region';
   if (field === 'ethnicity') return 'ethnicGroup';
-  if (field === 'vocalStyle') return 'genre';
+  if (field === 'vocalStyle') return 'vocalStyle';
   if (field === 'eventType') return 'eventType';
   return null;
 }
@@ -198,7 +198,7 @@ function rankCandidates(rows: readonly MetadataSuggestion[]): MetadataSuggestion
       'dong bang song hong': 'Đồng bằng sông Hồng',
       'đồng bằng sông hồng': 'Đồng bằng sông Hồng',
     },
-    genre: {},
+    vocalStyle: {},
     eventType: {},
   };
 

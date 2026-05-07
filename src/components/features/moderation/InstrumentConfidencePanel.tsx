@@ -1,10 +1,16 @@
-import { AlertCircle, Music2 } from 'lucide-react';
+import { AlertCircle, Info, Music2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import InstrumentConfidenceBar from '@/components/common/InstrumentConfidenceBar';
+import {
+  AIAnalysisState,
+  AI_STATE_MESSAGES_VI,
+  deriveAIAnalysisState,
+} from '@/features/moderation/constants/aiAnalysisState';
 import { CONFIDENCE_THRESHOLDS } from '@/features/upload/constants/instrumentConfidence';
 import { instrumentDetectionFlags, instrumentDetectionService } from '@/services/instrumentDetectionService';
 import type { InstrumentDetectionResult } from '@/types/instrumentDetection';
+import { getHttpStatus } from '@/utils/httpError';
 
 type InstrumentConfidencePanelProps = {
   recordingId: string;
@@ -17,6 +23,7 @@ export default function InstrumentConfidencePanel({
 }: InstrumentConfidencePanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [httpStatus, setHttpStatus] = useState<number | null>(null);
   const [result, setResult] = useState<InstrumentDetectionResult | null>(null);
 
   useEffect(() => {
@@ -25,15 +32,18 @@ export default function InstrumentConfidencePanel({
     let mounted = true;
     setLoading(true);
     setError(null);
+    setHttpStatus(null);
     void instrumentDetectionService
       .analyzeRecording(recordingId)
       .then((data) => {
         if (!mounted) return;
         setResult(data);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (!mounted) return;
-        setError('Không thể tải confidence nhạc cụ từ AI.');
+        const status = getHttpStatus(err) ?? null;
+        setHttpStatus(status);
+        setError(err instanceof Error ? err.message : 'Unknown error');
       })
       .finally(() => {
         if (!mounted) return;
@@ -44,6 +54,8 @@ export default function InstrumentConfidencePanel({
       mounted = false;
     };
   }, [enabled, recordingId]);
+
+  const aiState = deriveAIAnalysisState({ loading, error, result, httpStatus });
 
   const sortedInstruments = useMemo(
     () =>
@@ -64,24 +76,31 @@ export default function InstrumentConfidencePanel({
         AI Instrument Detection
       </h3>
 
-      {loading && (
+      {aiState === AIAnalysisState.LOADING && (
         <p className="text-sm text-neutral-600" role="status">
-          Đang phân tích nhạc cụ...
+          {AI_STATE_MESSAGES_VI[AIAnalysisState.LOADING].confidence}
         </p>
       )}
 
-      {!loading && error && (
-        <p className="flex items-center gap-1 text-sm text-amber-700" role="status">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-        </p>
+      {aiState === AIAnalysisState.NOT_AVAILABLE && (
+        <div className="flex items-start gap-2 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-3 py-2.5" role="status">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-neutral-500" />
+          <p className="text-sm text-neutral-600">
+            {AI_STATE_MESSAGES_VI[AIAnalysisState.NOT_AVAILABLE].confidence}
+          </p>
+        </div>
       )}
 
-      {!loading && !error && sortedInstruments.length === 0 && (
-        <p className="text-sm text-neutral-600">Không có dữ liệu confidence nhạc cụ.</p>
+      {aiState === AIAnalysisState.FAILED && (
+        <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50/60 px-3 py-2.5" role="alert">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+          <p className="text-sm text-red-700">
+            {AI_STATE_MESSAGES_VI[AIAnalysisState.FAILED].confidence}
+          </p>
+        </div>
       )}
 
-      {!loading && !error && sortedInstruments.length > 0 && (
+      {aiState === AIAnalysisState.READY && sortedInstruments.length > 0 && (
         <div className="space-y-2">
           {sortedInstruments.map((item) => (
             <div key={item.id ?? item.name} className="rounded-xl bg-neutral-50 px-3 py-2">

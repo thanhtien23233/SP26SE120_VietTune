@@ -4,12 +4,14 @@ import { PROVINCE_REGION_CODE_TO_NAME } from '@/config/provinceRegionCodes';
 import { instrumentDetectionFlags, instrumentDetectionService } from '@/services/instrumentDetectionService';
 import { referenceDataService } from '@/services/referenceDataService';
 import type { MetadataSuggestion } from '@/types/instrumentDetection';
+import { getHttpStatus } from '@/utils/httpError';
 import { mapInstrumentsToMetadataSuggestions } from '@/utils/instrumentMetadataMapper';
 
 type UseRecordingMetadataSuggestionsResult = {
   suggestions: MetadataSuggestion[];
   loading: boolean;
   error: string | null;
+  httpStatus: number | null;
 };
 
 const UPLOAD_MACRO_REGION_LABELS = Object.values(PROVINCE_REGION_CODE_TO_NAME).sort();
@@ -24,6 +26,7 @@ export function useRecordingMetadataSuggestions(
   const [suggestions, setSuggestions] = useState<MetadataSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [httpStatus, setHttpStatus] = useState<number | null>(null);
 
   const availableRegions = useMemo(() => UPLOAD_MACRO_REGION_LABELS, []);
 
@@ -32,12 +35,14 @@ export function useRecordingMetadataSuggestions(
       setSuggestions([]);
       setLoading(false);
       setError(null);
+      setHttpStatus(null);
       return;
     }
 
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setHttpStatus(null);
 
     void (async () => {
       try {
@@ -56,9 +61,11 @@ export function useRecordingMetadataSuggestions(
           availableRegions,
         });
         setSuggestions(mapped);
-      } catch {
+      } catch (err: unknown) {
         if (!cancelled) {
-          setError('Không tải được gợi ý metadata.');
+          const status = getHttpStatus(err) ?? null;
+          setHttpStatus(status);
+          setError(err instanceof Error ? err.message : 'Unknown error');
           setSuggestions([]);
         }
       } finally {
@@ -71,5 +78,5 @@ export function useRecordingMetadataSuggestions(
     };
   }, [enabled, recordingId, availableRegions]);
 
-  return { suggestions, loading, error };
+  return { suggestions, loading, error, httpStatus };
 }

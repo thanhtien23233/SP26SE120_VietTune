@@ -86,7 +86,7 @@ builder.Services.AddSwaggerGen(c =>
         });
 
         // ✅ Fix: Handle circular references and duplicate schema IDs
-        c.CustomSchemaIds(type => type.FullName);
+        c.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
         //c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
     }
     catch (Exception ex)

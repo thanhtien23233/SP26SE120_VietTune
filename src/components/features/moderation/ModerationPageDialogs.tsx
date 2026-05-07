@@ -3,6 +3,9 @@ import type { Ref, RefObject } from 'react';
 import { ModerationModals, type ModerationPortalModal } from '@/components/features/moderation/ModerationModals';
 import { ModerationRejectReasonFormPortal } from '@/components/features/moderation/ModerationRejectReasonForm';
 import { ModerationVerificationWizardDialog } from '@/components/features/moderation/ModerationVerificationWizardDialog';
+import StageTransitionConfirmDialog, {
+  type StageTransitionRequest,
+} from '@/components/features/moderation/StageTransitionConfirmDialog';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
 
@@ -20,6 +23,9 @@ export interface ModerationPageDialogsProps {
   getCurrentVerificationStep: (submissionId: string) => number;
   prevVerificationStep: (submissionId: string) => void;
   nextVerificationStep: (submissionId: string) => void;
+  stageTransitionRequest: StageTransitionRequest | null;
+  onCancelStageTransition: () => void;
+  onConfirmStageTransition: () => void;
   validateStep: (submissionId: string, step: number) => boolean;
   allVerificationStepsComplete: (submissionId: string) => boolean;
   updateVerificationForm: (
@@ -68,6 +74,9 @@ export default function ModerationPageDialogs({
   getCurrentVerificationStep,
   prevVerificationStep,
   nextVerificationStep,
+  stageTransitionRequest,
+  onCancelStageTransition,
+  onConfirmStageTransition,
   validateStep,
   allVerificationStepsComplete,
   updateVerificationForm,
@@ -136,6 +145,12 @@ export default function ModerationPageDialogs({
         onRejectNoteChange={onRejectNoteChange}
         onCancel={onRejectCancel}
         onConfirm={onRejectFormConfirm}
+      />
+
+      <StageTransitionConfirmDialog
+        request={stageTransitionRequest}
+        onCancel={onCancelStageTransition}
+        onConfirm={onConfirmStageTransition}
       />
 
       <ModerationModals

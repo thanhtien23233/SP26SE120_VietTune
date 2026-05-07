@@ -4,7 +4,10 @@ import type { ReactNode } from 'react';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { ModerationQueueSidebar } from '@/components/features/moderation/ModerationQueueSidebar';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
-import type { ModerationQueueStatusMeta } from '@/features/moderation/utils/queueStatusMeta';
+import type {
+  ModerationQueueStatusMeta,
+  ModerationStageFilterKey,
+} from '@/features/moderation/utils/queueStatusMeta';
 
 export interface ModerationReviewTabProps {
   queueStatusMeta: ModerationQueueStatusMeta;
@@ -14,6 +17,9 @@ export interface ModerationReviewTabProps {
   onDateSortChange: (v: 'newest' | 'oldest') => void;
   searchQuery: string;
   onSearchQueryChange: (v: string) => void;
+  showStageFilters?: boolean;
+  stageFilter?: ModerationStageFilterKey;
+  onStageFilterChange?: (v: ModerationStageFilterKey) => void;
   items: LocalRecordingMini[];
   selectedId: string | null;
   currentUserId?: string;
@@ -30,6 +36,9 @@ export default function ModerationReviewTab({
   onDateSortChange,
   searchQuery,
   onSearchQueryChange,
+  showStageFilters = false,
+  stageFilter = 'ALL',
+  onStageFilterChange,
   items,
   selectedId,
   currentUserId,
@@ -52,6 +61,9 @@ export default function ModerationReviewTab({
         onDateSortChange={onDateSortChange}
         searchQuery={searchQuery}
         onSearchQueryChange={onSearchQueryChange}
+        showStageFilters={showStageFilters}
+        stageFilter={stageFilter}
+        onStageFilterChange={onStageFilterChange}
         items={items}
         selectedId={selectedId}
         currentUserId={currentUserId}

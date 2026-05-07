@@ -7,6 +7,7 @@ import type {
   InstrumentDetectionResult,
   InstrumentTimeSegment,
 } from '@/types/instrumentDetection';
+import { getHttpStatus } from '@/utils/httpError';
 import { mapInstrumentDetectionRow, peelAiAnalysisEnvelope } from '@/utils/mapInstrumentDetectionRow';
 
 const FEATURE_FLAG_INSTRUMENT_CONFIDENCE = String(
@@ -145,6 +146,13 @@ function unwrapServiceData<T>(raw: unknown): T | null {
 
 /** In-memory cache for `analyzeRecording` (shared with moderation + researcher flows). */
 const recordingAnalyzeCache = new Map<string, InstrumentDetectionResult>();
+/** In-flight dedupe map for concurrent `analyzeRecording` calls per recording id. */
+const recordingAnalyzeInFlight = new Map<string, Promise<InstrumentDetectionResult>>();
+const EMPTY_ANALYZE_RESULT: InstrumentDetectionResult = {
+  instruments: [],
+  timeline: null,
+  audio_info: null,
+};
 
 export function createInstrumentDetectionService(client: InstrumentDetectionApiClient) {
   return {
@@ -181,10 +189,12 @@ export function createInstrumentDetectionService(client: InstrumentDetectionApiC
 
     analyzeRecording: async (recordingId: string): Promise<InstrumentDetectionResult> => {
       if (!FEATURE_FLAG_INSTRUMENT_CONFIDENCE) {
-        return { instruments: [], timeline: null, audio_info: null };
+        return EMPTY_ANALYZE_RESULT;
       }
       const cached = recordingAnalyzeCache.get(recordingId);
       if (cached) return cached;
+      const inFlight = recordingAnalyzeInFlight.get(recordingId);
+      if (inFlight) return inFlight;
 
       if (FEATURE_FLAG_INSTRUMENT_DETECTION_MOCK) {
         const mockInfo = mockAnalyzeResult.audio_info;
@@ -201,16 +211,31 @@ export function createInstrumentDetectionService(client: InstrumentDetectionApiC
         recordingAnalyzeCache.set(recordingId, mockResult);
         return mockResult;
       }
-      const raw = await apiOk(
-        asApiEnvelope<ServiceResponse<ApiAudioAnalyzePayload>>(
-          client.POST('/api/audio-analysis/analyze-recording/{recordingId}', {
-            params: { path: { recordingId } },
-          }),
-        ),
-      );
-      const result = normalizeAnalyzeResult(unwrapServiceData<ApiAudioAnalyzePayload>(raw));
-      recordingAnalyzeCache.set(recordingId, result);
-      return result;
+      const request = (async () => {
+        try {
+          const raw = await apiOk(
+            asApiEnvelope<ServiceResponse<ApiAudioAnalyzePayload>>(
+              client.POST('/api/audio-analysis/analyze-recording/{recordingId}', {
+                params: { path: { recordingId } },
+              }),
+            ),
+          );
+          const result = normalizeAnalyzeResult(unwrapServiceData<ApiAudioAnalyzePayload>(raw));
+          recordingAnalyzeCache.set(recordingId, result);
+          return result;
+        } catch (err: unknown) {
+          // Backend returns 404 when AI analysis was not generated yet.
+          if (getHttpStatus(err) === 404) {
+            recordingAnalyzeCache.set(recordingId, EMPTY_ANALYZE_RESULT);
+            return EMPTY_ANALYZE_RESULT;
+          }
+          throw err;
+        } finally {
+          recordingAnalyzeInFlight.delete(recordingId);
+        }
+      })();
+      recordingAnalyzeInFlight.set(recordingId, request);
+      return request;
     },
 
     getSupportedInstruments: async (): Promise<string[]> => {

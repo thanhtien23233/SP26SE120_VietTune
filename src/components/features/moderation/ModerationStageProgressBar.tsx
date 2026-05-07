@@ -1,3 +1,7 @@
+import {
+  deriveModerationStage,
+  moderationStageLabelVi,
+} from '@/features/moderation/constants/moderationStage';
 import { VERIFICATION_STEPS } from '@/features/moderation/constants/verificationStepDefinitions';
 import { countStepCompletion } from '@/features/moderation/utils/countStepCompletion';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
@@ -19,15 +23,19 @@ export function ModerationStageProgressBar({
   compact?: boolean;
 }) {
   const normalizedStep = toStageStep(currentStep);
+  const stageVi = moderationStageLabelVi(deriveModerationStage(normalizedStep));
   const { done, total } = countStepCompletion(normalizedStep, verificationData);
 
   if (compact) {
     return (
-      <div className="flex items-center gap-1.5" aria-label={`Moderation stage progress: step ${normalizedStep} of 3`}>
+      <div
+        className="flex items-center gap-1.5"
+        aria-label={`Tiến độ kiểm duyệt Review 3: ${stageVi}, bước ${normalizedStep} trên 3`}
+      >
         {[1, 2, 3].map((step) => (
           <span
             key={step}
-            title={VERIFICATION_STEPS[step - 1].name}
+            title={`${moderationStageLabelVi(deriveModerationStage(step))} — ${VERIFICATION_STEPS[step - 1].wizardTitle}`}
             className={`h-2.5 w-2.5 rounded-full ${
               step < normalizedStep
                 ? 'bg-green-500'
@@ -43,10 +51,13 @@ export function ModerationStageProgressBar({
   }
 
   return (
-    <section className="space-y-3" aria-label={`Moderation stage progress: step ${normalizedStep} of 3`}>
+    <section
+      className="space-y-3"
+      aria-label={`Tiến độ kiểm duyệt Review 3: ${stageVi}, bước ${normalizedStep} trên 3`}
+    >
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-neutral-900">
-          Stage {normalizedStep}/3: {VERIFICATION_STEPS[normalizedStep - 1].name}
+          {stageVi} — Bước {normalizedStep}/3 • {VERIFICATION_STEPS[normalizedStep - 1].wizardTitle}
         </p>
         <p className="text-xs text-neutral-600">
           Checklist: {done}/{total}
@@ -64,7 +75,13 @@ export function ModerationStageProgressBar({
                     : 'bg-neutral-200'
               }`}
             />
-            <p className="truncate text-[11px] text-neutral-600">{VERIFICATION_STEPS[step - 1].name}</p>
+            <p className="truncate text-[11px] text-neutral-700" title={VERIFICATION_STEPS[step - 1].wizardTitle}>
+              <span className="font-semibold text-neutral-800">
+                {moderationStageLabelVi(deriveModerationStage(step))}
+              </span>
+              <span className="text-neutral-500"> • </span>
+              <span className="text-neutral-600">{VERIFICATION_STEPS[step - 1].wizardTitle}</span>
+            </p>
           </div>
         ))}
       </div>

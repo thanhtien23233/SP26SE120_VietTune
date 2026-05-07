@@ -4,21 +4,16 @@ import type { CSSProperties, Ref } from 'react';
 import { createPortal } from 'react-dom';
 
 import AudioPlayer from '@/components/features/AudioPlayer';
-import DeclaredDetectedInstrumentPanel from '@/components/features/moderation/DeclaredDetectedInstrumentPanel';
-import InstrumentConfidencePanel from '@/components/features/moderation/InstrumentConfidencePanel';
-import MetadataSuggestionPanel from '@/components/features/upload/MetadataSuggestionPanel';
 import VideoPlayer from '@/components/features/VideoPlayer';
 import { EXPERT_API_PHASE2 } from '@/config/expertWorkflowPhase';
 import { MODERATION_EXPERT_TEXTAREA_MAX_LENGTH } from '@/config/validationConstants';
 import { VERIFICATION_STEPS } from '@/features/moderation/constants/verificationStepDefinitions';
-import { useRecordingMetadataSuggestions } from '@/features/moderation/hooks/useRecordingMetadataSuggestions';
+import { getMissingStep2Fields } from '@/features/moderation/hooks/useModerationWizard';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
 import { buildRecordingForModerationWizard } from '@/features/moderation/utils/buildRecordingForModerationWizard';
 import { resolveCulturalContextForDisplay } from '@/features/moderation/utils/resolveReferenceDisplayStrings';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
-import type { MetadataSuggestion } from '@/types/instrumentDetection';
 import { detectCrossCaseWarning } from '@/utils/crossCaseInstrumentWarning';
-import { metadataSuggestionKey } from '@/utils/instrumentMetadataMapper';
 import { isYouTubeUrl } from '@/utils/youtube';
 
 function culturalContextDepsKey(ctx: LocalRecordingMini['culturalContext']): string {
@@ -199,14 +194,7 @@ export function ModerationVerificationWizardDialog({
     string,
     'confirmed' | 'rejected' | 'added'
   >;
-  const metadataOverrides =
-    (formSlice?.step2?.expertMetadataOverrides ?? {}) as NonNullable<
-      ModerationVerificationData['step2']
-    >['expertMetadataOverrides'];
   const listedInstruments = Array.from(new Set(step1CulturalContext?.instruments ?? []));
-  const { suggestions: metadataSuggestions, loading: metadataSuggestionsLoading } =
-    useRecordingMetadataSuggestions(item.id, Boolean(item.id));
-  const [metadataCorrectionDrafts, setMetadataCorrectionDrafts] = useState<Record<string, string>>({});
   const crossCase = detectCrossCaseWarning({
     instruments: step1CulturalContext?.instruments ?? [],
     songSignals: [
@@ -216,14 +204,10 @@ export function ModerationVerificationWizardDialog({
     ],
   });
   const crossCaseSelection = formSlice?.step2?.crossCaseClassification ?? 'none';
-
-  const upsertMetadataOverride = (suggestion: MetadataSuggestion, action: 'confirmed' | 'corrected' | 'skipped', value?: string) => {
-    const key = metadataSuggestionKey(suggestion);
-    onUpdateVerificationForm(2, 'expertMetadataOverrides', {
-      ...(metadataOverrides ?? {}),
-      [key]: { action, value: value?.trim() || undefined },
-    });
-  };
+  const step2MissingFields =
+    currentStep === 2
+      ? getMissingStep2Fields(formSlice?.step2, step1CulturalContext?.instruments ?? [])
+      : [];
 
   return createPortal(
     <div
@@ -506,9 +490,20 @@ export function ModerationVerificationWizardDialog({
                 </div>
                 {!isCurrentStepValid && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg" role="alert">
-                    <p className="text-sm text-red-600 font-medium">
-                      Vui lòng hoàn thành tất cả các yêu cầu bắt buộc
-                    </p>
+                    {currentStep === 2 && step2MissingFields.length > 0 ? (
+                      <>
+                        <p className="text-sm text-red-600 font-medium">Bạn còn thiếu:</p>
+                        <ul className="mt-1 list-disc pl-5 text-sm text-red-600">
+                          {step2MissingFields.map((field) => (
+                            <li key={field}>{field}</li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <p className="text-sm text-red-600 font-medium">
+                        Vui lòng hoàn thành tất cả các yêu cầu bắt buộc
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -559,14 +554,6 @@ export function ModerationVerificationWizardDialog({
                         {crossCase.warning}
                       </p>
                     </div>
-                  )}
-                  {item.id && <InstrumentConfidencePanel recordingId={item.id} enabled />}
-                  {item.id && (
-                    <DeclaredDetectedInstrumentPanel
-                      recordingId={item.id}
-                      declaredInstruments={step1CulturalContext?.instruments ?? []}
-                      enabled
-                    />
                   )}
                   <h3 className="font-semibold text-neutral-800 mb-3">
                     {VERIFICATION_STEPS[1].sectionTitle}{' '}
@@ -696,76 +683,6 @@ export function ModerationVerificationWizardDialog({
                       </p>
                     )}
                   </div>
-                  <div className="rounded-xl border border-neutral-200 bg-white p-4">
-                    <p className="mb-3 text-sm font-medium text-neutral-800">
-                      Xác minh metadata gợi ý từ AI
-                    </p>
-                    <MetadataSuggestionPanel
-                      suggestions={metadataSuggestions}
-                      loading={metadataSuggestionsLoading}
-                      readOnly
-                    />
-                    {metadataSuggestions.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        {metadataSuggestions.map((s) => {
-                          const key = metadataSuggestionKey(s);
-                          const current = metadataOverrides?.[key];
-                          const draft = metadataCorrectionDrafts[key] ?? '';
-                          return (
-                            <div key={key} className="rounded-lg border border-neutral-200 px-3 py-2">
-                              <p className="text-xs text-neutral-700">
-                                <strong>{s.field}</strong>: {s.value}
-                              </p>
-                              <div className="mt-2 flex flex-wrap items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => upsertMetadataOverride(s, 'confirmed')}
-                                  className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                    current?.action === 'confirmed'
-                                      ? 'bg-emerald-600 text-white'
-                                      : 'bg-neutral-100 text-neutral-700'
-                                  }`}
-                                >
-                                  Xác nhận
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => upsertMetadataOverride(s, 'skipped')}
-                                  className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                    current?.action === 'skipped'
-                                      ? 'bg-amber-600 text-white'
-                                      : 'bg-neutral-100 text-neutral-700'
-                                  }`}
-                                >
-                                  Bỏ qua
-                                </button>
-                                <input
-                                  type="text"
-                                  value={draft}
-                                  onChange={(e) =>
-                                    setMetadataCorrectionDrafts((prev) => ({
-                                      ...prev,
-                                      [key]: e.target.value,
-                                    }))
-                                  }
-                                  placeholder="Giá trị chỉnh sửa..."
-                                  className="min-w-[180px] flex-1 rounded-md border border-neutral-300 px-2 py-1 text-xs"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => upsertMetadataOverride(s, 'corrected', draft)}
-                                  disabled={!draft.trim()}
-                                  className="rounded-full bg-primary-600 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
-                                >
-                                  Sửa
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-neutral-700 mb-2">
                       {VERIFICATION_STEPS[1].notesLabel}{' '}
@@ -875,8 +792,9 @@ export function ModerationVerificationWizardDialog({
               <button
                 type="button"
                 onClick={onNextStep}
+                disabled={!isCurrentStepValid}
                 aria-label={`Chuyển tới bước ${currentStep + 1}`}
-                className="px-6 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2"
+                className="px-6 py-2.5 bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-full font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-primary-600/40 hover:scale-110 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2"
               >
                 Tiếp tục (Bước {currentStep + 1})
               </button>

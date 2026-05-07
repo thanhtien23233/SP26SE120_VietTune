@@ -47,7 +47,7 @@ export type MetadataSuggestionCandidate = {
 };
 
 /** Advisory-only grouped suggestion used by Upload Step 1/2 UI. */
-export type AdvisoryMetadataSuggestionField = 'region' | 'genre' | 'ethnicGroup' | 'eventType';
+export type AdvisoryMetadataSuggestionField = 'region' | 'vocalStyle' | 'ethnicGroup' | 'eventType';
 
 export type AdvisoryMetadataSuggestion = {
   field: AdvisoryMetadataSuggestionField;

@@ -14,6 +14,9 @@ import type { ModerationPortalModal } from '@/components/features/moderation/Mod
 import ModerationPageDialogs from '@/components/features/moderation/ModerationPageDialogs';
 import { ModerationPageHeader } from '@/components/features/moderation/ModerationPageHeader';
 import ModerationReviewTab from '@/components/features/moderation/ModerationReviewTab';
+import type { StageTransitionRequest } from '@/components/features/moderation/StageTransitionConfirmDialog';
+import { MODERATION_STAGE_FILTERS_UI_ENABLED } from '@/config/moderationStageUi';
+import { deriveModerationStage } from '@/features/moderation/constants/moderationStage';
 import { VERIFICATION_STEPS } from '@/features/moderation/constants/verificationStepDefinitions';
 import { useExpertQueue } from '@/features/moderation/hooks/useExpertQueue';
 import { useModerationWizard } from '@/features/moderation/hooks/useModerationWizard';
@@ -25,6 +28,7 @@ import {
   executeModerationReject,
 } from '@/features/moderation/utils/moderationApproveReject';
 import { mergeDisplayItem } from '@/features/moderation/utils/moderationDisplayMerge';
+import type { ModerationStageFilterKey } from '@/features/moderation/utils/queueStatusMeta';
 import { usePollWhileVisible } from '@/hooks/usePollWhileVisible';
 import ForbiddenPage from '@/pages/ForbiddenPage';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
@@ -53,6 +57,7 @@ export default function ModerationPage() {
   const [statusFilter, setStatusFilter] = useState<string>(ModerationStatus.PENDING_REVIEW);
   const [dateSort, setDateSort] = useState<'newest' | 'oldest'>('newest');
   const [queueSearchQuery, setQueueSearchQuery] = useState('');
+  const [stageFilter, setStageFilter] = useState<ModerationStageFilterKey>('ALL');
   const { items, setItems, allItems, setAllItems, load, queueStatusMeta } = useExpertQueue({
     userId: user?.id,
     statusFilter,
@@ -62,6 +67,9 @@ export default function ModerationPage() {
   const [portalModal, setPortalModal] = useState<ModerationPortalModal>(null);
   const [approveExpertNotes, setApproveExpertNotes] = useState('');
   const [rejectConfirmExpertNotes, setRejectConfirmExpertNotes] = useState('');
+  const [stageTransitionRequest, setStageTransitionRequest] = useState<StageTransitionRequest | null>(
+    null,
+  );
   const {
     setVerificationStep,
     verificationForms,
@@ -72,6 +80,7 @@ export default function ModerationPage() {
     getCurrentVerificationStep,
     prevVerificationStep,
     nextVerificationStep,
+    confirmStageTransition,
     updateVerificationForm,
   } = useModerationWizard({
     allItems,
@@ -80,6 +89,9 @@ export default function ModerationPage() {
     onRequireApproveConfirm: (submissionId: string) => {
       setApproveExpertNotes('');
       setPortalModal({ kind: 'approveConfirm', submissionId });
+    },
+    onRequireStageTransitionConfirm: (payload) => {
+      setStageTransitionRequest(payload);
     },
   });
   const [showRejectDialog, setShowRejectDialog] = useState<string | null>(null);
@@ -96,10 +108,19 @@ export default function ModerationPage() {
   const [moderationA11yMessage, setModerationA11yMessage] = useState('');
   const prevItemsLengthRef = useRef<number | null>(null);
   const verificationDialogPanelRef = useRef<HTMLDivElement>(null);
+  const itemsAfterStageFilter = useMemo(() => {
+    if (!MODERATION_STAGE_FILTERS_UI_ENABLED || stageFilter === 'ALL') return items;
+    return items.filter(
+      (it) =>
+        deriveModerationStage(it.moderation?.verificationStep, it.moderation?.workflowStage) ===
+        stageFilter,
+    );
+  }, [items, stageFilter]);
+
   const filteredQueueItems = useMemo(() => {
     const q = queueSearchQuery.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((it) => {
+    if (!q) return itemsAfterStageFilter;
+    return itemsAfterStageFilter.filter((it) => {
       const rowTitle = `${it.basicInfo?.title || it.title || ''}`.toLowerCase();
       const uploader = `${it.uploader?.username || ''}`.toLowerCase();
       const ethnicity = `${it.culturalContext?.ethnicity || ''}`.toLowerCase();
@@ -109,7 +130,7 @@ export default function ModerationPage() {
       const haystack = `${rowTitle} ${uploader} ${ethnicity} ${province} ${eventType} ${instruments}`;
       return haystack.includes(q);
     });
-  }, [items, queueSearchQuery]);
+  }, [itemsAfterStageFilter, queueSearchQuery]);
 
   const selectedStageInfo = useMemo(() => {
     if (!selectedId) return null;
@@ -333,7 +354,8 @@ export default function ModerationPage() {
     const hasOpenDialog = !!(
       showVerificationDialog ||
       showRejectDialog ||
-      portalModal
+      portalModal ||
+      stageTransitionRequest
     );
 
     if (hasOpenDialog) {
@@ -361,14 +383,15 @@ export default function ModerationPage() {
       document.body.style.width = '';
       document.body.style.overflow = '';
     };
-  }, [showVerificationDialog, showRejectDialog, portalModal]);
+  }, [showVerificationDialog, showRejectDialog, portalModal, stageTransitionRequest]);
 
   // Handle ESC key to close dialogs
   useEffect(() => {
     const hasOpenDialog = !!(
       showVerificationDialog ||
       showRejectDialog ||
-      portalModal
+      portalModal ||
+      stageTransitionRequest
     );
 
     if (!hasOpenDialog) return;
@@ -379,6 +402,10 @@ export default function ModerationPage() {
       // Close only the topmost overlay (highest z-index) so nested flows stay predictable.
       if (portalModal) {
         closePortalModal(portalModal);
+        return;
+      }
+      if (stageTransitionRequest) {
+        setStageTransitionRequest(null);
         return;
       }
       if (showRejectDialog) {
@@ -394,7 +421,14 @@ export default function ModerationPage() {
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [showVerificationDialog, showRejectDialog, portalModal, closePortalModal, cancelVerification]);
+  }, [
+    showVerificationDialog,
+    showRejectDialog,
+    portalModal,
+    stageTransitionRequest,
+    closePortalModal,
+    cancelVerification,
+  ]);
 
   /** Phase 1 PLAN-expert-review-redesign: assign only — PUT assign-reviewer-submission, không mở wizard. */
   const assignOnly = useCallback(
@@ -604,6 +638,9 @@ export default function ModerationPage() {
               onDateSortChange={setDateSort}
               searchQuery={queueSearchQuery}
               onSearchQueryChange={setQueueSearchQuery}
+              showStageFilters={MODERATION_STAGE_FILTERS_UI_ENABLED}
+              stageFilter={stageFilter}
+              onStageFilterChange={setStageFilter}
               items={filteredQueueItems}
               selectedId={selectedId}
               currentUserId={user.id}
@@ -669,8 +706,12 @@ export default function ModerationPage() {
               onDateSortChange={setDateSort}
               searchQuery={queueSearchQuery}
               onSearchQueryChange={setQueueSearchQuery}
+              showStageFilters={MODERATION_STAGE_FILTERS_UI_ENABLED}
+              stageFilter={stageFilter}
+              onStageFilterChange={setStageFilter}
               items={filteredQueueItems}
               selectedId={selectedId}
+              currentUserId={user.id}
               onSelect={setSelectedId}
               isDetailLoading={selectedItemLoading}
               detailContent={(() => {
@@ -716,6 +757,16 @@ export default function ModerationPage() {
           getCurrentVerificationStep={getCurrentVerificationStep}
           prevVerificationStep={prevVerificationStep}
           nextVerificationStep={nextVerificationStep}
+          stageTransitionRequest={stageTransitionRequest}
+          onCancelStageTransition={() => setStageTransitionRequest(null)}
+          onConfirmStageTransition={() => {
+            if (!stageTransitionRequest) return;
+            void confirmStageTransition(
+              stageTransitionRequest.submissionId,
+              stageTransitionRequest.fromStep,
+            );
+            setStageTransitionRequest(null);
+          }}
           validateStep={validateStep}
           allVerificationStepsComplete={allVerificationStepsComplete}
           updateVerificationForm={updateVerificationForm}
