@@ -1,9 +1,19 @@
 import { Search, MapPin, Music, User as UserIcon } from 'lucide-react';
 
 import SearchableDropdown from '@/components/common/SearchableDropdown';
+import ModerationStageBadge from '@/components/features/moderation/ModerationStageBadge';
 import { ModerationStageProgressBar } from '@/components/features/moderation/ModerationStageProgressBar';
+import ModerationVirtualizedList from '@/components/features/moderation/ModerationVirtualizedList';
+import {
+  ModerationStage,
+  deriveModerationStage,
+  moderationStageLabelVi,
+} from '@/features/moderation/constants/moderationStage';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
-import type { ModerationQueueStatusMeta } from '@/features/moderation/utils/queueStatusMeta';
+import type {
+  ModerationQueueStatusMeta,
+  ModerationStageFilterKey,
+} from '@/features/moderation/utils/queueStatusMeta';
 import { ModerationStatus } from '@/types';
 import { formatDateTime, getModerationStatusLabel } from '@/utils/helpers';
 
@@ -19,6 +29,9 @@ export function ModerationQueueSidebar({
   selectedId,
   currentUserId,
   onSelect,
+  showStageFilters = false,
+  stageFilter = 'ALL',
+  onStageFilterChange,
 }: {
   queueStatusMeta: ModerationQueueStatusMeta;
   statusFilter: string;
@@ -31,8 +44,43 @@ export function ModerationQueueSidebar({
   selectedId: string | null;
   currentUserId?: string;
   onSelect: (id: string | null) => void;
+  showStageFilters?: boolean;
+  stageFilter?: ModerationStageFilterKey;
+  onStageFilterChange?: (v: ModerationStageFilterKey) => void;
 }) {
   const visibleQueueItems = items.filter((it) => it.id);
+  const queueSearch = searchQuery ?? '';
+  const { stageCounts } = queueStatusMeta;
+  const stagePills: {
+    key: ModerationStageFilterKey;
+    label: string;
+    count: number;
+  }[] = [
+    { key: 'ALL', label: 'Tất cả', count: stageCounts.all },
+    {
+      key: ModerationStage.SCREENING,
+      label: moderationStageLabelVi(ModerationStage.SCREENING),
+      count: stageCounts.screening,
+    },
+    {
+      key: ModerationStage.VERIFICATION,
+      label: moderationStageLabelVi(ModerationStage.VERIFICATION),
+      count: stageCounts.verification,
+    },
+    {
+      key: ModerationStage.PUBLICATION,
+      label: moderationStageLabelVi(ModerationStage.PUBLICATION),
+      count: stageCounts.publication,
+    },
+  ];
+
+  const emptyPrimaryMessage =
+    queueSearch.trim() !== ''
+      ? `Không có kết quả cho "${queueSearch.trim()}".`
+      : stageFilter !== 'ALL'
+        ? `Không có bản thu ở giai đoạn «${moderationStageLabelVi(stageFilter)}».`
+        : 'Không có bản thu nào trong hàng đợi.';
+
   return (
     <div
       /* Keep sticky offsets aligned with MainLayout header like Upload/Contributions pages. */
@@ -104,6 +152,50 @@ export function ModerationQueueSidebar({
             ))}
           </div>
 
+          {showStageFilters ? (
+            <div className="space-y-2">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  Giai đoạn kiểm duyệt
+                </span>
+                <span className="text-[11px] text-neutral-500">
+                  {stageCounts.all} trong lọc hiện tại
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {stagePills.map((pill) => (
+                  <button
+                    key={pill.key === 'ALL' ? 'stage-ALL' : pill.key}
+                    type="button"
+                    onClick={() => onStageFilterChange?.(pill.key)}
+                    aria-pressed={
+                      pill.key === 'ALL' ? stageFilter === 'ALL' : stageFilter === pill.key
+                    }
+                    aria-label={`Lọc theo giai đoạn Review 3: ${pill.label} (${pill.count})`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
+                      (pill.key === 'ALL' && stageFilter === 'ALL') ||
+                      (pill.key !== 'ALL' && stageFilter === pill.key)
+                        ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+                        : 'bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-teal-50 hover:border-teal-200 hover:text-teal-800'
+                    }`}
+                  >
+                    <span>{pill.label}</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
+                        (pill.key === 'ALL' && stageFilter === 'ALL') ||
+                        (pill.key !== 'ALL' && stageFilter === pill.key)
+                          ? 'bg-white/20 text-white'
+                          : 'bg-white text-neutral-600 border border-neutral-200'
+                      }`}
+                    >
+                      {pill.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="space-y-1">
             <p className="block text-xs font-medium text-neutral-600">Sắp xếp theo ngày</p>
             <SearchableDropdown
@@ -118,23 +210,19 @@ export function ModerationQueueSidebar({
         </div>
       </div>
 
-      <div
-        className="flex-1 overflow-y-auto min-h-0"
-        role="region"
-        aria-label="Danh sách bản thu trong hàng đợi kiểm duyệt"
-      >
-        {items.length === 0 ? (
-          <div
-            className="m-4 rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/40 p-6 text-center text-neutral-600 text-sm"
-            role="status"
-          >
-            {searchQuery.trim()
-              ? `Không có kết quả cho "${searchQuery.trim()}".`
-              : 'Không có bản thu nào trong hàng đợi.'}
-          </div>
-        ) : (
-          <div role="list" aria-label="Danh sách bản thu chờ xử lý">
-            {visibleQueueItems.map((it, idx) => {
+      {items.length === 0 ? (
+        <div
+          className="m-4 rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/40 p-6 text-center text-neutral-600 text-sm"
+          role="status"
+        >
+          {emptyPrimaryMessage}
+        </div>
+      ) : (
+        <ModerationVirtualizedList
+          items={visibleQueueItems}
+          ariaLabel="Danh sách bản thu trong hàng đợi kiểm duyệt"
+          getItemKey={(it) => it.id ?? ''}
+          renderItem={(it, idx) => {
               const status = it.moderation?.status;
               const borderColor =
                 status === ModerationStatus.PENDING_REVIEW
@@ -150,6 +238,11 @@ export function ModerationQueueSidebar({
                 status === ModerationStatus.IN_REVIEW &&
                 (it.moderation?.claimedBy === currentUserId ||
                   it.moderation?.reviewerId === currentUserId);
+              const rowStage = deriveModerationStage(
+                it.moderation?.verificationStep,
+                it.moderation?.workflowStage,
+              );
+              const lifecycleLabel = `${getModerationStatusLabel(status)}, giai đoạn ${moderationStageLabelVi(rowStage)}`;
               return (
                 <div
                   key={it.id}
@@ -158,8 +251,8 @@ export function ModerationQueueSidebar({
                   id={`moderation-queue-item-${it.id}`}
                   aria-label={
                     selectedId === it.id
-                      ? `${rowTitle}, trạng thái ${getModerationStatusLabel(status)}, đang chọn`
-                      : `${rowTitle}, trạng thái ${getModerationStatusLabel(status)}`
+                      ? `${rowTitle}, ${lifecycleLabel}, đang chọn`
+                      : `${rowTitle}, ${lifecycleLabel}`
                   }
                   aria-current={selectedId === it.id ? 'true' : undefined}
                   data-selected={selectedId === it.id ? 'true' : undefined}
@@ -194,7 +287,7 @@ export function ModerationQueueSidebar({
                       nextEl?.focus();
                     });
                   }}
-                  className={`m-2 p-4 rounded-xl border border-neutral-200 cursor-pointer transition-all duration-200 border-l-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 focus-visible:ring-offset-0 ${borderColor} ${
+                  className={`p-4 rounded-xl border border-neutral-200 cursor-pointer transition-all duration-200 border-l-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 focus-visible:ring-offset-0 ${borderColor} ${
                     selectedId === it.id
                       ? 'bg-primary-50 shadow-sm border-primary-200'
                       : 'hover:bg-amber-50/40 hover:shadow-sm'
@@ -213,6 +306,7 @@ export function ModerationQueueSidebar({
                           Đã nhận
                         </span>
                       )}
+                      {claimedByMe && <ModerationStageBadge stage={rowStage} />}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-neutral-600">
@@ -249,10 +343,9 @@ export function ModerationQueueSidebar({
                   </div>
                 </div>
               );
-            })}
-          </div>
-        )}
-      </div>
+            }}
+        />
+      )}
     </div>
   );
 }

@@ -39,7 +39,7 @@ export function useExpertQueue(opts: {
     }
   }, [userId, statusFilter, dateSort]);
 
-  const queueStatusMeta = useMemo(() => buildQueueStatusMeta(allItems), [allItems]);
+  const queueStatusMeta = useMemo(() => buildQueueStatusMeta(allItems, items), [allItems, items]);
 
   return {
     items,

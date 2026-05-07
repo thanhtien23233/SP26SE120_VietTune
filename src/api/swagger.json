@@ -1329,6 +1329,46 @@
         }
       }
     },
+    "/api/AuditLog/by-submission/{id}": {
+      "get": {
+        "tags": [
+          "AuditLog"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AuditLogDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AuditLogDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AuditLogDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Auth/login": {
       "post": {
         "tags": [
@@ -3007,6 +3047,36 @@
         }
       }
     },
+    "/api/Geocode/reverse": {
+      "get": {
+        "tags": [
+          "Geocode"
+        ],
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/Instrument": {
       "get": {
         "tags": [
@@ -4217,6 +4287,37 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/MetadataSuggest": {
+      "post": {
+        "tags": [
+          "MetadataSuggest"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VietTuneArchive.Controllers.MetadataSuggestController+MetadataSuggestRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VietTuneArchive.Controllers.MetadataSuggestController+MetadataSuggestRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/VietTuneArchive.Controllers.MetadataSuggestController+MetadataSuggestRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK"
@@ -9189,17 +9290,23 @@
           "instruments": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+DbRefDto"
+              "$ref": "#/components/schemas/VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+InstrumentRefDto"
             },
-            "nullable": true
-          },
-          "genre": {
-            "type": "string",
             "nullable": true
           },
           "performanceContext": {
             "type": "string",
             "nullable": true
+          },
+          "regionSuggestion": {
+            "$ref": "#/components/schemas/VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+RegionSuggestionDto"
+          },
+          "classification": {
+            "$ref": "#/components/schemas/VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+ClassificationDto"
+          },
+          "overallConfidence": {
+            "type": "number",
+            "format": "double"
           },
           "title": {
             "type": "string",
@@ -9222,20 +9329,33 @@
             "type": "string",
             "nullable": true
           },
-          "lyricsOriginal": {
-            "type": "string",
-            "nullable": true
-          },
-          "lyricsVietnamese": {
-            "type": "string",
-            "nullable": true
-          },
           "geminiFileUri": {
             "type": "string",
             "nullable": true
           },
           "tokenUsage": {
             "$ref": "#/components/schemas/VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+TokenUsageDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+ClassificationDto": {
+        "type": "object",
+        "properties": {
+          "performanceType": {
+            "type": "string",
+            "nullable": true
+          },
+          "culturalContext": {
+            "type": "string",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9248,6 +9368,63 @@
             "format": "uuid"
           },
           "name": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+InstrumentRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "maxConfidence": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "overallAverage": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "frameRatio": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "dominantFrames": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "totalFrames": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+RegionSuggestionDto": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "nullable": true
+          },
+          "detail": {
             "type": "string",
             "nullable": true
           }
@@ -11683,6 +11860,33 @@
         },
         "additionalProperties": false
       },
+      "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AuditLogDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VietTuneArchive.Application.Mapper.DTOs.AuditLogDto"
+            },
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.CeremonyDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
         "type": "object",
         "properties": {
@@ -12451,6 +12655,24 @@
             "items": {
               "type": "string"
             },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VietTuneArchive.Controllers.MetadataSuggestController+MetadataSuggestRequest": {
+        "type": "object",
+        "properties": {
+          "genre": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
             "nullable": true
           }
         },

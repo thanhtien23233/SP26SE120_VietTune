@@ -1,8 +1,14 @@
-import { AlertCircle, CheckCircle2, GitCompareArrows, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, GitCompareArrows, Info, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import {
+  AIAnalysisState,
+  AI_STATE_MESSAGES_VI,
+  deriveAIAnalysisState,
+} from '@/features/moderation/constants/aiAnalysisState';
 import { instrumentDetectionFlags, instrumentDetectionService } from '@/services/instrumentDetectionService';
 import type { InstrumentDetectionResult } from '@/types/instrumentDetection';
+import { getHttpStatus } from '@/utils/httpError';
 import { compareDeclaredDetectedInstruments } from '@/utils/instrumentDeclaredDetectedCompare';
 
 type DeclaredDetectedInstrumentPanelProps = {
@@ -18,6 +24,7 @@ export default function DeclaredDetectedInstrumentPanel({
 }: DeclaredDetectedInstrumentPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [httpStatus, setHttpStatus] = useState<number | null>(null);
   const [result, setResult] = useState<InstrumentDetectionResult | null>(null);
 
   useEffect(() => {
@@ -26,15 +33,18 @@ export default function DeclaredDetectedInstrumentPanel({
     let mounted = true;
     setLoading(true);
     setError(null);
+    setHttpStatus(null);
     void instrumentDetectionService
       .analyzeRecording(recordingId)
       .then((data) => {
         if (!mounted) return;
         setResult(data);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (!mounted) return;
-        setError('Không thể tải dữ liệu đối chiếu nhạc cụ từ AI.');
+        const status = getHttpStatus(err) ?? null;
+        setHttpStatus(status);
+        setError(err instanceof Error ? err.message : 'Unknown error');
       })
       .finally(() => {
         if (!mounted) return;
@@ -45,6 +55,8 @@ export default function DeclaredDetectedInstrumentPanel({
       mounted = false;
     };
   }, [enabled, recordingId]);
+
+  const aiState = deriveAIAnalysisState({ loading, error, result, httpStatus });
 
   const comparison = useMemo(
     () => compareDeclaredDetectedInstruments(declaredInstruments, result?.instruments ?? []),
@@ -60,24 +72,35 @@ export default function DeclaredDetectedInstrumentPanel({
         Đối chiếu nhạc cụ: Khai báo vs AI phát hiện
       </h3>
 
-      {loading && (
+      {aiState === AIAnalysisState.LOADING && (
         <p className="text-sm text-neutral-600" role="status">
-          Đang đối chiếu nhạc cụ...
+          {AI_STATE_MESSAGES_VI[AIAnalysisState.LOADING].comparison}
         </p>
       )}
 
-      {!loading && error && (
-        <p className="flex items-center gap-1 text-sm text-amber-700" role="status">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-        </p>
+      {aiState === AIAnalysisState.NOT_AVAILABLE && (
+        <div className="flex items-start gap-2 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-3 py-2.5" role="status">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-neutral-500" />
+          <p className="text-sm text-neutral-600">
+            {AI_STATE_MESSAGES_VI[AIAnalysisState.NOT_AVAILABLE].comparison}
+          </p>
+        </div>
       )}
 
-      {!loading && !error && comparison.rows.length === 0 && (
+      {aiState === AIAnalysisState.FAILED && (
+        <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50/60 px-3 py-2.5" role="alert">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+          <p className="text-sm text-red-700">
+            {AI_STATE_MESSAGES_VI[AIAnalysisState.FAILED].comparison}
+          </p>
+        </div>
+      )}
+
+      {aiState === AIAnalysisState.READY && comparison.rows.length === 0 && (
         <p className="text-sm text-neutral-600">Không có nhạc cụ khai báo để đối chiếu.</p>
       )}
 
-      {!loading && !error && comparison.rows.length > 0 && (
+      {aiState === AIAnalysisState.READY && comparison.rows.length > 0 && (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-neutral-500">
             <span>Contributor khai báo</span>

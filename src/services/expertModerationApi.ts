@@ -253,6 +253,25 @@ export async function fetchSubmissionsByReviewer(
   }
 }
 
+/** GET /Submission/get-related-submissions?submissionId=... */
+export async function fetchRelatedSubmissions(submissionId: string): Promise<LocalRecording[]> {
+  const lookups = await buildSubmissionLookupMaps();
+  try {
+    const res = await apiOk(
+      asApiEnvelope<SubmissionApiListResponse>(
+        apiFetch.GET('/api/Submission/get-related-submissions', {
+          params: { query: openApiQueryRecord({ submissionId }) },
+        }),
+      ),
+    );
+    return extractSubmissionRows(res).map((row) => mapSubmissionToLocalRecording(row, lookups));
+  } catch (err: unknown) {
+    const status = getHttpStatus(err);
+    if (status === 400 || status === 404) return [];
+    throw err;
+  }
+}
+
 /** PUT /Submission/assign-reviewer-submission */
 export async function assignReviewerSubmission(
   submissionId: string,
@@ -336,7 +355,11 @@ export async function rejectSubmissionOnServer(submissionId: string): Promise<Mu
 export type ExpertModerationAuditPayload = {
   userId: string;
   submissionId: string;
-  action: 'expert_approve' | 'expert_reject';
+  action:
+    | 'expert_approve'
+    | 'expert_reject'
+    | 'expert_complete_stage_one'
+    | 'expert_complete_stage_two';
   /** Serialized into newValuesJson */
   notesSummary: string;
 };
@@ -369,5 +392,51 @@ export async function postExpertModerationAuditLog(
   } catch (err) {
     logServiceWarn('[expertModerationApi] Audit log POST failed', err);
     return false;
+  }
+}
+
+/** PUT /Submission/done-stage-one */
+export async function completeStageOneOnServer(submissionId: string): Promise<MutationResult> {
+  try {
+    const params: ApiSubmissionActionQuery = { submissionId };
+    await apiOk(
+      asApiEnvelope<unknown>(
+        apiFetch.PUT('/api/Submission/done-stage-one', {
+          params: { query: openApiQueryRecord(params) },
+        }),
+      ),
+    );
+    return mutationOk();
+  } catch (err: unknown) {
+    const httpStatus = getHttpStatus(err);
+    // BE can respond 400/409 when stage transition was already applied previously.
+    // Treat as idempotent success so FE does not block the moderation flow.
+    if (httpStatus === 400 || httpStatus === 409) {
+      return mutationOk();
+    }
+    return mutationFail(err, httpStatus);
+  }
+}
+
+/** PUT /Submission/done-stage-two */
+export async function completeStageTwoOnServer(submissionId: string): Promise<MutationResult> {
+  try {
+    const params: ApiSubmissionActionQuery = { submissionId };
+    await apiOk(
+      asApiEnvelope<unknown>(
+        apiFetch.PUT('/api/Submission/done-stage-two', {
+          params: { query: openApiQueryRecord(params) },
+        }),
+      ),
+    );
+    return mutationOk();
+  } catch (err: unknown) {
+    const httpStatus = getHttpStatus(err);
+    // BE can respond 400/409 when stage transition was already applied previously.
+    // Treat as idempotent success so FE does not block the moderation flow.
+    if (httpStatus === 400 || httpStatus === 409) {
+      return mutationOk();
+    }
+    return mutationFail(err, httpStatus);
   }
 }

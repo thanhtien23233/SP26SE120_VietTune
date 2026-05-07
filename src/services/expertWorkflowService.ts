@@ -5,9 +5,12 @@
  */
 
 import { EXPERT_API_PHASE2, EXPERT_QUEUE_SOURCE } from '@/config/expertWorkflowPhase';
+import type { ModerationStage } from '@/features/moderation/constants/moderationStage';
 import {
   approveSubmissionOnServer,
   assignReviewerSubmission,
+  completeStageOneOnServer,
+  completeStageTwoOnServer,
   fetchExpertQueueBase,
   fetchSubmissionsByReviewer,
   postExpertModerationAuditLog,
@@ -77,6 +80,8 @@ export interface LocalModerationState {
   reviewerId?: string | null;
   reviewerName?: string | null;
   reviewedAt?: string | null;
+  /** Optional explicit Review 3 stage from BE / future overlay sync. */
+  workflowStage?: ModerationStage | string | null;
   verificationStep?: number;
   /** `null` clears persisted verification (JSON survives round-trip; `undefined` omits key). */
   verificationData?: ModerationVerificationData | null;
@@ -279,7 +284,11 @@ export const expertWorkflowService = {
   async logExpertModerationDecision(params: {
     submissionId: string;
     userId: string;
-    action: 'expert_approve' | 'expert_reject';
+    action:
+      | 'expert_approve'
+      | 'expert_reject'
+      | 'expert_complete_stage_one'
+      | 'expert_complete_stage_two';
     combinedNotes: string;
   }): Promise<boolean> {
     if (!EXPERT_API_PHASE2) return true;
@@ -476,6 +485,18 @@ export const expertWorkflowService = {
   async syncRejectToServer(submissionId: string): Promise<MutationResult> {
     if (!EXPERT_API_PHASE2) return mutationOk();
     return rejectSubmissionOnServer(submissionId);
+  },
+
+  /** Phase 2: PUT done-stage-one; Phase 1: no-op success. */
+  async completeStageOne(submissionId: string): Promise<MutationResult> {
+    if (!EXPERT_API_PHASE2) return mutationOk();
+    return completeStageOneOnServer(submissionId);
+  },
+
+  /** Phase 2: PUT done-stage-two; Phase 1: no-op success. */
+  async completeStageTwo(submissionId: string): Promise<MutationResult> {
+    if (!EXPERT_API_PHASE2) return mutationOk();
+    return completeStageTwoOnServer(submissionId);
   },
 
   /** Sequential: server (Phase 2) then local map — for non-optimistic callers. */

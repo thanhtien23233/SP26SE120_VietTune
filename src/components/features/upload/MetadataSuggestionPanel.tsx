@@ -1,7 +1,11 @@
-import { Check } from 'lucide-react';
+import { AlertCircle, Check, Info } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
 import InstrumentConfidenceBar from '@/components/common/InstrumentConfidenceBar';
+import {
+  AIAnalysisState,
+  AI_STATE_MESSAGES_VI,
+} from '@/features/moderation/constants/aiAnalysisState';
 import { instrumentDetectionFlags } from '@/services/instrumentDetectionService';
 import type { MetadataSuggestion, MetadataSuggestionField } from '@/types/instrumentDetection';
 import { groupMetadataSuggestionsForAdvisory, normalizeInstrumentMatchKey } from '@/utils/instrumentMetadataMapper';
@@ -11,6 +15,7 @@ type MetadataSuggestionPanelProps = {
   readOnly?: boolean;
   loading?: boolean;
   error?: string | null;
+  httpStatus?: number | null;
   disabledFields?: Partial<Record<MetadataSuggestionField, boolean>>;
   onApply?: (field: MetadataSuggestionField, value: string) => void;
 };
@@ -67,10 +72,24 @@ export default function MetadataSuggestionPanel({
   readOnly = false,
   loading = false,
   error = null,
+  httpStatus = null,
   disabledFields,
   onApply,
 }: MetadataSuggestionPanelProps) {
   if (!instrumentDetectionFlags.confidenceEnabled) return null;
+
+  const isNotAvailable =
+    !loading && !!error && (httpStatus === 404 || httpStatus === 400);
+  const isFailed = !loading && !!error && !isNotAvailable;
+  const metadataAiState: AIAnalysisState = loading
+    ? AIAnalysisState.LOADING
+    : isNotAvailable
+      ? AIAnalysisState.NOT_AVAILABLE
+      : isFailed
+        ? AIAnalysisState.FAILED
+        : suggestions.length === 0
+          ? AIAnalysisState.NOT_AVAILABLE
+          : AIAnalysisState.READY;
 
   const grouped = suggestions.reduce<Record<MetadataSuggestionField, MetadataSuggestion[]>>(
     (acc, row) => {
@@ -85,7 +104,7 @@ export default function MetadataSuggestionPanel({
   for (const group of advisoryGroups) {
     if (group.field === 'region') advisoryByLegacyField.set('region', group);
     if (group.field === 'ethnicGroup') advisoryByLegacyField.set('ethnicity', group);
-    if (group.field === 'genre') advisoryByLegacyField.set('vocalStyle', group);
+    if (group.field === 'vocalStyle') advisoryByLegacyField.set('vocalStyle', group);
     if (group.field === 'eventType') advisoryByLegacyField.set('eventType', group);
   }
 
@@ -122,12 +141,30 @@ export default function MetadataSuggestionPanel({
   return (
     <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
       <p className="mb-2 text-xs font-semibold text-neutral-700">Gợi ý metadata từ AI nhạc cụ</p>
-      {loading && <p className="text-xs text-neutral-600">Đang tải gợi ý metadata...</p>}
-      {!loading && error && <p className="text-xs text-amber-700">{error}</p>}
-      {!loading && !error && suggestions.length === 0 && (
-        <p className="text-xs text-neutral-600">Chưa có gợi ý metadata từ nhạc cụ đã phát hiện.</p>
+
+      {metadataAiState === AIAnalysisState.LOADING && (
+        <p className="text-xs text-neutral-600">{AI_STATE_MESSAGES_VI[AIAnalysisState.LOADING].metadata}</p>
       )}
-      {!loading && !error && suggestions.length > 0 && (
+
+      {metadataAiState === AIAnalysisState.NOT_AVAILABLE && (
+        <div className="flex items-start gap-2 rounded-lg border border-dashed border-neutral-300 bg-neutral-50/80 px-2.5 py-2">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neutral-500" />
+          <p className="text-xs text-neutral-600">
+            {AI_STATE_MESSAGES_VI[AIAnalysisState.NOT_AVAILABLE].metadata}
+          </p>
+        </div>
+      )}
+
+      {metadataAiState === AIAnalysisState.FAILED && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50/60 px-2.5 py-2">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
+          <p className="text-xs text-red-700">
+            {AI_STATE_MESSAGES_VI[AIAnalysisState.FAILED].metadata}
+          </p>
+        </div>
+      )}
+
+      {metadataAiState === AIAnalysisState.READY && (
         <div className="space-y-3">
           {(Object.keys(FIELD_LABELS) as MetadataSuggestionField[]).map((field) => {
             const rows = grouped[field];

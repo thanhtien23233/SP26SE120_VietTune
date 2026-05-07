@@ -45,13 +45,27 @@ describe('InstrumentConfidencePanel', () => {
     expect(screen.queryByText('Phân tích: 118s / 256 frames / 44100 Hz')).not.toBeNull();
   });
 
-  it('shows error state when analyze request fails', async () => {
+  it('shows FAILED state when analyze request fails with server error', async () => {
     analyzeRecordingMock.mockRejectedValueOnce(new Error('network error'));
 
     render(<InstrumentConfidencePanel recordingId="rec-2" />);
 
     await waitFor(() => {
-      expect(screen.queryByText('Không thể tải confidence nhạc cụ từ AI.')).not.toBeNull();
+      expect(screen.queryByText('Lỗi khi tải phân tích AI. Vui lòng thử lại sau.')).not.toBeNull();
+    });
+    expect(screen.getByRole('alert')).toBeTruthy();
+  });
+
+  it('shows NOT_AVAILABLE state when API returns 404', async () => {
+    const err404 = Object.assign(new Error('Not Found'), { response: { status: 404 } });
+    analyzeRecordingMock.mockRejectedValueOnce(err404);
+
+    render(<InstrumentConfidencePanel recordingId="rec-4" />);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/Chưa có dữ liệu AI — bản thu chưa được phân tích/),
+      ).not.toBeNull();
     });
   });
 

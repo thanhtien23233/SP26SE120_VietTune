@@ -49,12 +49,7 @@ export const VERIFICATION_STEPS = [
       {
         key: 'instrumentsVerified',
         label:
-          'Nhạc cụ đã xác minh: Đã kiểm tra danh sách nhạc cụ AI phát hiện, xác nhận hoặc bác bỏ từng nhạc cụ',
-      },
-      {
-        key: 'metadataSuggestionsVerified',
-        label:
-          'Metadata AI đã xác minh: Đã duyệt các gợi ý dân tộc, khu vực, lối hát và loại sự kiện từ AI',
+          'Nhạc cụ đã xác minh: Đã kiểm tra danh sách nhạc cụ khai báo, xác nhận tính chính xác',
       },
     ],
   },

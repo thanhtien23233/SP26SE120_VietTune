@@ -1,42 +1,14 @@
 import { CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { VERIFICATION_STEPS } from '@/features/moderation/constants/verificationStepDefinitions';
+import { buildModerationChecklistConfig } from '@/features/moderation/utils/moderationChecklistConfig';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
 
 type StageStep = 1 | 2 | 3;
 
-type StageField = {
-  key: string;
-  label: string;
-  checked: boolean;
-};
-
-type StageChecklistConfig = {
-  step: StageStep;
-  title: string;
-  fields: StageField[];
-};
-
 function toStageStep(step: number): StageStep {
   if (step === 2 || step === 3) return step;
   return 1;
-}
-
-function buildChecklistConfig(data?: ModerationVerificationData): StageChecklistConfig[] {
-  return VERIFICATION_STEPS.map((stepDef) => {
-    const stepData =
-      stepDef.step === 1 ? data?.step1 : stepDef.step === 2 ? data?.step2 : data?.step3;
-    return {
-      step: stepDef.step,
-      title: stepDef.name,
-      fields: stepDef.fields.map((field) => ({
-        key: field.key,
-        label: field.label,
-        checked: !!(stepData as Record<string, unknown> | undefined)?.[field.key],
-      })),
-    };
-  });
 }
 
 export function ModerationStageChecklist({
@@ -49,7 +21,7 @@ export function ModerationStageChecklist({
   defaultExpanded?: boolean;
 }) {
   const normalizedStep = toStageStep(currentStep);
-  const checklist = useMemo(() => buildChecklistConfig(verificationData), [verificationData]);
+  const checklist = useMemo(() => buildModerationChecklistConfig(verificationData), [verificationData]);
 
   const [expanded, setExpanded] = useState<Record<StageStep, boolean>>({
     1: defaultExpanded === false ? false : normalizedStep === 1,

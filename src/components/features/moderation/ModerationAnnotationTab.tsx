@@ -4,7 +4,10 @@ import type { ReactNode } from 'react';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { ModerationQueueSidebar } from '@/components/features/moderation/ModerationQueueSidebar';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
-import type { ModerationQueueStatusMeta } from '@/features/moderation/utils/queueStatusMeta';
+import type {
+  ModerationQueueStatusMeta,
+  ModerationStageFilterKey,
+} from '@/features/moderation/utils/queueStatusMeta';
 
 export interface ModerationAnnotationTabProps {
   queueStatusMeta: ModerationQueueStatusMeta;
@@ -14,8 +17,12 @@ export interface ModerationAnnotationTabProps {
   onDateSortChange: (v: 'newest' | 'oldest') => void;
   searchQuery: string;
   onSearchQueryChange: (v: string) => void;
+  showStageFilters?: boolean;
+  stageFilter?: ModerationStageFilterKey;
+  onStageFilterChange?: (v: ModerationStageFilterKey) => void;
   items: LocalRecordingMini[];
   selectedId: string | null;
+  currentUserId?: string;
   onSelect: (id: string | null) => void;
   isDetailLoading?: boolean;
   detailContent: ReactNode;
@@ -29,8 +36,12 @@ export default function ModerationAnnotationTab({
   onDateSortChange,
   searchQuery,
   onSearchQueryChange,
+  showStageFilters = false,
+  stageFilter = 'ALL',
+  onStageFilterChange,
   items,
   selectedId,
+  currentUserId,
   onSelect,
   isDetailLoading = false,
   detailContent,
@@ -50,8 +61,12 @@ export default function ModerationAnnotationTab({
         onDateSortChange={onDateSortChange}
         searchQuery={searchQuery}
         onSearchQueryChange={onSearchQueryChange}
+        showStageFilters={showStageFilters}
+        stageFilter={stageFilter}
+        onStageFilterChange={onStageFilterChange}
         items={items}
         selectedId={selectedId}
+        currentUserId={currentUserId}
         onSelect={onSelect}
       />
 

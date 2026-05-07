@@ -20,7 +20,7 @@ describe('countStepCompletion', () => {
         instrumentsVerified: false,
       },
     };
-    expect(countStepCompletion(2, data)).toEqual({ done: 1, total: 5 });
+    expect(countStepCompletion(2, data)).toEqual({ done: 1, total: 4 });
   });
 
   it('returns 3/3 for step 3 when all required fields are true', () => {
