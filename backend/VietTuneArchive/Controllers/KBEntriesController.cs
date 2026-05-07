@@ -28,7 +28,7 @@ namespace VietTuneArchive.API.Controllers
         public async Task<IActionResult> GetEntries([FromQuery] KBEntryQueryParams queryParams)
         {
             var role = User.FindFirstValue(ClaimTypes.Role);
-            if (!User.Identity.IsAuthenticated || role == "Researcher" || role == "User")
+            if (!User.Identity.IsAuthenticated || role == "Researcher")
             {
                 queryParams.Status = 1; // Published only
             }
