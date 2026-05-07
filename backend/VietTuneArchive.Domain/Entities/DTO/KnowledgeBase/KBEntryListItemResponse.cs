@@ -7,6 +7,7 @@ namespace VietTuneArchive.Domain.Entities.DTO.KnowledgeBase
         public string Slug { get; set; }
         public string Category { get; set; }
         public int Status { get; set; }
+        public string Content { get; set; }
         public KBAuthorResponse Author { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }

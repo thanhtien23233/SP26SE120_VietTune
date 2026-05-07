@@ -273,6 +273,7 @@ namespace VietTuneArchive.Application.Services
             Slug = entry.Slug,
             Category = entry.Category,
             Status = entry.Status,
+            Content = entry.Content,
             Author = MapToAuthorResponse(entry.Author),
             CreatedAt = entry.CreatedAt,
             UpdatedAt = entry.UpdatedAt
