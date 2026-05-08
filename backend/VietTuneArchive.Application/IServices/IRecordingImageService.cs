@@ -27,5 +27,8 @@ namespace VietTuneArchive.Application.IServices
 
         /// <summary>Đổi thứ tự hiển thị ảnh của một recording.</summary>
         Task<ServiceResponse<bool>> ReorderImagesAsync(Guid recordingId, List<Guid> imageIds);
+
+        /// <summary>Xóa trực tiếp một file trên cloud bằng public URL (không đụng tới DB).</summary>
+        Task<ServiceResponse<bool>> DeleteCloudFileByUrlAsync(string publicUrl);
     }
 }

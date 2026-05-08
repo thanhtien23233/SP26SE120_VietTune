@@ -72,10 +72,9 @@ namespace VietTuneArchive.API.Controllers
         [Consumes("multipart/form-data")]
         public async Task<ActionResult<ServiceResponse<RecordingImageDto>>> UploadImage(
             Guid recordingId,
-            [FromForm] IFormFile file,
-            [FromForm] string? caption = null)
+            [FromForm] UploadImageRequest request)
         {
-            var result = await _service.UploadImageAsync(recordingId, file, caption);
+            var result = await _service.UploadImageAsync(recordingId, request.File, request.Caption);
             return result.Success
                 ? CreatedAtAction(nameof(GetById), new { id = result.Data?.Id }, result)
                 : BadRequest(result);
@@ -110,6 +109,20 @@ namespace VietTuneArchive.API.Controllers
             [FromBody] List<Guid> imageIds)
         {
             var result = await _service.ReorderImagesAsync(recordingId, imageIds);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        /// <summary>
+        /// Xóa file trên cloud (Supabase) bằng public URL. 
+        /// Không xoá dữ liệu trong DB (dùng cho mục đích dọn dẹp file rác).
+        /// </summary>
+        [HttpDelete("cloud-file")]
+        public async Task<ActionResult<ServiceResponse<bool>>> DeleteCloudFile([FromQuery] string url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                return BadRequest(new ServiceResponse<bool> { Success = false, Message = "URL is required" });
+
+            var result = await _service.DeleteCloudFileByUrlAsync(url);
             return result.Success ? Ok(result) : BadRequest(result);
         }
     }

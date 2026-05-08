@@ -12,15 +12,18 @@ namespace VietTuneArchive.Application.Services
     {
         private readonly IRecordingImageRepository _recordingImageRepository;
         private readonly ISupabaseStorageService _storageService;
+        private readonly IRecordingRepository _recordingRepository;
 
         public RecordingImageService(
             IRecordingImageRepository repository,
             IMapper mapper,
-            ISupabaseStorageService storageService)
+            ISupabaseStorageService storageService,
+            IRecordingRepository recordingRepository)
             : base(repository, mapper)
         {
             _recordingImageRepository = repository ?? throw new ArgumentNullException(nameof(repository));
             _storageService           = storageService ?? throw new ArgumentNullException(nameof(storageService));
+            _recordingRepository      = recordingRepository ?? throw new ArgumentNullException(nameof(recordingRepository));
         }
 
         // =================================================================
@@ -40,6 +43,16 @@ namespace VietTuneArchive.Application.Services
             {
                 if (recordingId == Guid.Empty)
                     throw new ArgumentException("Recording id cannot be empty.", nameof(recordingId));
+
+                // Validate recording tồn tại TRƯỚC khi upload lên cloud
+                // → tránh file orphan trên Supabase khi DB insert fail do FK violation
+                var recordingExists = await _recordingRepository.ExistsAsync(recordingId);
+                if (!recordingExists)
+                    return new ServiceResponse<RecordingImageDto>
+                    {
+                        Success = false,
+                        Message = $"Recording '{recordingId}' not found. Cannot upload image for a non-existent recording."
+                    };
 
                 // Upload lên Supabase — folder = "recordings/{recordingId}"
                 var folder    = $"recordings/{recordingId}";
@@ -80,6 +93,36 @@ namespace VietTuneArchive.Application.Services
 
                 // Xoá DB record
                 return await base.DeleteAsync(id);
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse<bool>
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Errors  = new List<string> { ex.Message }
+                };
+            }
+        }
+
+        /// <summary>
+        /// Xóa trực tiếp file trên cloud thông qua public URL.
+        /// Thường dùng cho mục đích cleanup (ví dụ: xoá các ảnh rác không gắn với DB record).
+        /// </summary>
+        public async Task<ServiceResponse<bool>> DeleteCloudFileByUrlAsync(string publicUrl)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(publicUrl))
+                    throw new ArgumentException("URL cannot be empty.", nameof(publicUrl));
+
+                await _storageService.DeleteByUrlAsync(publicUrl);
+
+                return new ServiceResponse<bool>
+                {
+                    Success = true,
+                    Message = "Cloud file deleted successfully (or skipped if invalid URL)."
+                };
             }
             catch (Exception ex)
             {
