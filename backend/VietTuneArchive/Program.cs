@@ -209,6 +209,10 @@ builder.Services.Configure<GeminiOptions>(
 
 builder.Services.AddHttpClient<IOpenAIEmbeddingService, GeminiEmbeddingService>();
 builder.Services.AddHttpClient("GeminiApi");
+
+// ✅ Supabase Storage HttpClient
+builder.Services.AddHttpClient("SupabaseStorage");
+builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<IEmbeddingTextBuilder, EmbeddingTextBuilder>();
 builder.Services.AddScoped<IVectorEmbeddingService, VectorEmbeddingService>();
 builder.Services.AddScoped<ISemanticSearchService, SemanticSearchService>();

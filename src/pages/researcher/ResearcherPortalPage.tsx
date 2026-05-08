@@ -20,7 +20,11 @@ import { useKnowledgeGraphData } from '@/features/knowledge-graph/hooks/useKnowl
 import { useResearcherData } from '@/features/researcher/hooks/useResearcherData';
 import type { ResearcherPortalChatMessage } from '@/features/researcher/researcherPortalTypes';
 import { buildCitationCandidates } from '@/features/researcher/researcherRecordingUtils';
-import { createQAConversation, fetchUserConversations } from '@/services/qaConversationService';
+import { useChatbotSession } from '@/hooks/useChatbotSession';
+import {
+  createQAConversation,
+  type QAConversationRequest,
+} from '@/services/qaConversationService';
 import {
   createQAMessage,
   fetchConversationMessages,
@@ -75,9 +79,34 @@ export default function ResearcherPortalPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [conversationId, setConversationId] = useState<string>(() => crypto.randomUUID());
   const [isFirstQaMessage, setIsFirstQaMessage] = useState(true);
+  const [isQaHistoryOpen, setIsQaHistoryOpen] = useState(true);
+  const [optimisticQaConv, setOptimisticQaConv] = useState<QAConversationRequest | null>(null);
   const [compareLeftId, setCompareLeftId] = useState('');
   const [compareRightId, setCompareRightId] = useState('');
   const chatListRef = useRef<HTMLDivElement>(null);
+  const qaAutoLoadedRef = useRef(false);
+  const qaUserId = user?.id || QA_DEFAULT_USER_ID;
+  const {
+    history: qaHistory,
+    isLoadingHistory: isLoadingQaHistory,
+    loadHistory: loadQaHistory,
+  } = useChatbotSession(qaUserId);
+
+  /** Merge backend history with the freshly-created conversation so the sidebar
+   * reflects new threads immediately, without waiting for the backend roundtrip. */
+  const mergedQaHistory = useMemo(() => {
+    if (!optimisticQaConv) return qaHistory;
+    if (qaHistory.some((c) => c.id === optimisticQaConv.id)) return qaHistory;
+    return [optimisticQaConv, ...qaHistory].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }, [optimisticQaConv, qaHistory]);
+
+  useEffect(() => {
+    if (optimisticQaConv && qaHistory.some((c) => c.id === optimisticQaConv.id)) {
+      setOptimisticQaConv(null);
+    }
+  }, [optimisticQaConv, qaHistory]);
 
   /** Client-side KG fallback when API overview is unavailable. */
   const fallbackGraphData = useKnowledgeGraphData(
@@ -126,29 +155,52 @@ export default function ResearcherPortalPage() {
   }, [chatMessages, isTyping]);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const userId = user?.id || QA_DEFAULT_USER_ID;
-      const conversations = await fetchUserConversations(userId);
-      if (cancelled || conversations.length === 0) return;
-      const latest = [...conversations].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )[0];
-      if (!latest?.id) return;
-      const remoteMsgs = await fetchConversationMessages(latest.id);
-      if (cancelled || remoteMsgs.length === 0) return;
-      const mapped: ResearcherPortalChatMessage[] = remoteMsgs.map((m) => ({
+    qaAutoLoadedRef.current = false;
+  }, [qaUserId]);
+
+  const mapRemoteMessagesToChat = useCallback(
+    (remoteMsgs: Awaited<ReturnType<typeof fetchConversationMessages>>): ResearcherPortalChatMessage[] =>
+      remoteMsgs.map((m) => ({
         role: m.role === 0 ? 'user' : 'assistant',
         content: m.content,
-      }));
-      setConversationId(latest.id);
+      })),
+    [],
+  );
+
+  const handleSelectQaConversation = useCallback(
+    async (conv: QAConversationRequest) => {
+      if (!conv.id || conv.id === conversationId) return;
+      setConversationId(conv.id);
       setIsFirstQaMessage(false);
-      setChatMessages(mapped);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
+      setIsTyping(true);
+      try {
+        const remoteMsgs = await fetchConversationMessages(conv.id);
+        setChatMessages(
+          remoteMsgs.length > 0 ? mapRemoteMessagesToChat(remoteMsgs) : [{ role: 'assistant', content: WELCOME_CHAT }],
+        );
+        setChatInput('');
+      } finally {
+        setIsTyping(false);
+      }
+    },
+    [conversationId, mapRemoteMessagesToChat],
+  );
+
+  const handleNewQaChat = useCallback(() => {
+    setConversationId(crypto.randomUUID());
+    setIsFirstQaMessage(true);
+    setChatInput('');
+    setIsTyping(false);
+    setChatMessages([{ role: 'assistant', content: WELCOME_CHAT }]);
+  }, []);
+
+  useEffect(() => {
+    if (qaAutoLoadedRef.current || qaHistory.length === 0) return;
+    const latest = qaHistory[0];
+    if (!latest?.id) return;
+    qaAutoLoadedRef.current = true;
+    void handleSelectQaConversation(latest);
+  }, [handleSelectQaConversation, qaHistory]);
 
   const sendQaQuestion = useCallback(
     async (text: string) => {
@@ -161,13 +213,16 @@ export default function ResearcherPortalPage() {
         const userId = user?.id || QA_DEFAULT_USER_ID;
         const currentConversationId = conversationId;
         if (isFirstQaMessage) {
-          await createQAConversation({
+          const newConv: QAConversationRequest = {
             id: currentConversationId,
             userId,
             title: text,
             createdAt: now.toISOString(),
-          });
+          };
+          setOptimisticQaConv(newConv);
+          await createQAConversation(newConv);
           setIsFirstQaMessage(false);
+          void loadQaHistory();
         }
         await createQAMessage({
           id: crypto.randomUUID(),
@@ -200,7 +255,7 @@ export default function ResearcherPortalPage() {
           conversationId: currentConversationId,
           role: 1,
           content,
-          sourceRecordingIdsJson: JSON.stringify(citations.map(c => c.recordingId)),
+          sourceRecordingIdsJson: JSON.stringify(citations.map((c) => c.recordingId)),
           sourceKBEntryIdsJson: '[]',
           confidenceScore: 0,
           flaggedByExpert: false,
@@ -214,7 +269,7 @@ export default function ResearcherPortalPage() {
         setIsTyping(false);
       }
     },
-    [approvedRecordings, user?.id, conversationId, isFirstQaMessage],
+    [approvedRecordings, user?.id, conversationId, isFirstQaMessage, loadQaHistory],
   );
 
   const handleSendMessage = useCallback(async () => {
@@ -492,6 +547,13 @@ export default function ResearcherPortalPage() {
               onQuickQuestion={askQuestion}
               onCitationClick={handleDetail}
               approvedRecordings={approvedRecordings}
+              history={mergedQaHistory}
+              isLoadingHistory={isLoadingQaHistory}
+              conversationId={conversationId}
+              onSelectConversation={handleSelectQaConversation}
+              onNewChat={handleNewQaChat}
+              isSidebarOpen={isQaHistoryOpen}
+              setIsSidebarOpen={setIsQaHistoryOpen}
             />
           )}
 

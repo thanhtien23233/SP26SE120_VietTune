@@ -141,7 +141,7 @@ function FilterSidebar({ options, selected, onChange, onApply, onReset }: Filter
   const ethnicityCount = selected.ethnicityIds.length;
   const recordingTypeCount = selected.recordingTypes.length;
   const genreCount = selected.genreTags.length;
-  const instrumentCount = selected.instrumentTags.length;
+  const instrumentCount = selected.instrumentIds.length;
   const contextCount = selected.culturalTags.length;
   const regionActive = selected.region ? 1 : 0;
 
@@ -208,9 +208,9 @@ function FilterSidebar({ options, selected, onChange, onApply, onReset }: Filter
             emptyMessage="Không có nhạc cụ khớp bộ lọc."
             labelRowClassName="py-0.5"
             labelTextClassName="leading-snug"
-            isChecked={(i) => selected.instrumentTags.includes(i.label)}
+            isChecked={(i) => selected.instrumentIds.includes(i.id)}
             onToggle={(i) =>
-              set({ instrumentTags: toggleString(selected.instrumentTags, i.label) })
+              set({ instrumentIds: toggleString(selected.instrumentIds, i.id) })
             }
           />
         </AccordionSection>

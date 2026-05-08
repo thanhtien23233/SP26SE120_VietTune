@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import SearchableDropdown from '@/components/common/SearchableDropdown';
 import DualAudioComparePlayer from '@/components/researcher/DualAudioComparePlayer';
 import { REGION_NAMES } from '@/config/constants';
+import CompareWorkstation from '@/features/compare-engine/components/CompareWorkstation';
 import {
   buildExpertComparativeNotes,
   getTranscriptText,
@@ -142,6 +143,7 @@ export default function ResearcherPortalCompareTab({
   setCompareLeftId,
   setCompareRightId,
 }: ResearcherPortalCompareTabProps) {
+  const spectrogramCompareEnabled = import.meta.env.VITE_ENABLE_SPECTROGRAM_COMPARE === 'true';
   const [leftAi, setLeftAi] = useState<InstrumentDetectionResult | null>(null);
   const [rightAi, setRightAi] = useState<InstrumentDetectionResult | null>(null);
   const [leftAiLoading, setLeftAiLoading] = useState(false);
@@ -150,10 +152,17 @@ export default function ResearcherPortalCompareTab({
   const leftRequestRef = useRef(0);
   const rightRequestRef = useRef(0);
   const fetchedAiIds = useRef(new Set<string>());
-  const compareOptions = useMemo(
-    () => approvedRecordings.map((r) => r.title ?? ''),
-    [approvedRecordings],
-  );
+  const compareOptionMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of approvedRecordings) {
+      const performer = getPerformerLabel(r);
+      const title = r.title?.trim() || 'Không có tiêu đề';
+      const label = performer !== '—' ? `${title} — ${performer}` : title;
+      map.set(r.id, label);
+    }
+    return map;
+  }, [approvedRecordings]);
+  const compareOptionIds = useMemo(() => approvedRecordings.map((r) => r.id), [approvedRecordings]);
   const leftRecording = approvedRecordings.find((r) => r.id === compareLeftId);
   const rightRecording = approvedRecordings.find((r) => r.id === compareRightId);
   const leftTranscript = getTranscriptText(leftRecording);
@@ -263,13 +272,13 @@ export default function ResearcherPortalCompareTab({
   const renderCompareCard = (rec: Recording | undefined, side: 'left' | 'right') => (
     <div className="rounded-xl border-2 border-secondary-200/80 bg-gradient-to-br from-surface-panel to-[#FFF1F3] p-4">
       <SearchableDropdown
-        value={rec?.title ?? ''}
-        onChange={(title) => {
-          const r = approvedRecordings.find((x) => x.title === title);
-          if (side === 'left') setCompareLeftId(r?.id ?? '');
-          else setCompareRightId(r?.id ?? '');
+        value={side === 'left' ? compareLeftId : compareRightId}
+        onChange={(id) => {
+          if (side === 'left') setCompareLeftId(id);
+          else setCompareRightId(id);
         }}
-        options={compareOptions}
+        options={compareOptionIds}
+        labelMap={compareOptionMap}
         placeholder="Chọn bản ghi âm..."
         searchable
       />
@@ -377,12 +386,28 @@ export default function ResearcherPortalCompareTab({
                 </p>
               </div>
             ) : (
-              <DualAudioComparePlayer
-                leftRecording={leftRecording}
-                rightRecording={rightRecording}
-                leftSource={leftMediaSrc}
-                rightSource={rightMediaSrc}
-              />
+              <>
+                {spectrogramCompareEnabled ? (
+                  <CompareWorkstation
+                    leftRecording={leftRecording}
+                    rightRecording={rightRecording}
+                    leftSource={leftMediaSrc}
+                    rightSource={rightMediaSrc}
+                    metadataPanel={
+                      <p className="text-xs text-neutral-600">
+                        Use shortcut: Space (play/pause), 1/2/3/4 (focus/modes), A/D or arrows (nudge).
+                      </p>
+                    }
+                  />
+                ) : (
+                  <DualAudioComparePlayer
+                    leftRecording={leftRecording}
+                    rightRecording={rightRecording}
+                    leftSource={leftMediaSrc}
+                    rightSource={rightMediaSrc}
+                  />
+                )}
+              </>
             )
           ) : (
             <div className="rounded-xl border border-secondary-200 bg-white p-4">

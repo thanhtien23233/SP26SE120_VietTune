@@ -32,7 +32,8 @@ describe('useKnowledgeGraphOverview', () => {
     expect(knowledgeGraphService.getOverview).toHaveBeenCalledWith(
       expect.objectContaining({ maxNodes: 40, signal: expect.any(AbortSignal) }),
     );
-    expect(result.current.data?.graph.nodes[0]?.id).toBe('r1');
+    expect(result.current.data?.graph.nodes[0]?.id).toBe('Recording:r1');
+    expect(result.current.data?.graph.nodes[0]?.entityId).toBe('r1');
     expect(result.current.data?.raw.totalNodes).toBe(1);
   });
 });
@@ -63,9 +64,9 @@ describe('useKnowledgeGraphExplore', () => {
       { initialProps: { id: '1' } },
     );
 
-    await waitFor(() => expect(result.current.data?.graph.nodes[0]?.id).toBe('1'));
+    await waitFor(() => expect(result.current.data?.graph.nodes[0]?.id).toBe('Recording:1'));
     rerender({ id: '2' });
-    await waitFor(() => expect(result.current.data?.graph.nodes[0]?.id).toBe('2'));
+    await waitFor(() => expect(result.current.data?.graph.nodes[0]?.id).toBe('Recording:2'));
     expect(knowledgeGraphService.exploreNode).toHaveBeenCalledWith(
       expect.objectContaining({ nodeId: '2', nodeType: 'Recording' }),
       expect.any(AbortSignal),

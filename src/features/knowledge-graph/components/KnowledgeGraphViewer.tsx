@@ -2,18 +2,23 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import ForceGraph2D, { ForceGraphMethods } from 'react-force-graph-2d';
 
 import {
+  adaptiveForceParams,
   buildGraphDataSafe,
   buildNeighborMap,
   CANVAS_LABEL_MAX_LEN,
   CANVAS_LABEL_MAX_LEN_ACTIVE,
   clampedVisualRadius,
-  isRelatedToActive,
+  colorMap,
+  computeTopHubIds,
+  getNodeFocusTier,
   nodeColor,
   nodeIdOf,
   nodeSize,
-  showHighImportanceLabel,
+  shouldRenderNodeLabel,
+  tierAlpha,
   truncateLabel,
   TYPE_LABELS,
+  type FocusTier,
 } from '@/features/knowledge-graph/utils/graphViewerHelpers';
 import {
   tabMatchesViewerType,
@@ -23,10 +28,6 @@ import type { GraphLink, GraphNode, KnowledgeGraphData } from '@/types/graph';
 
 const ZOOM_PADDING = 60;
 const ZOOM_DURATION_MS = 500;
-const CHARGE_COMPACT = -72;
-const CHARGE_EXPANDED = -100;
-/** Unrelated nodes when another node is selected / hovered */
-const DIM_NODE_ALPHA = 0.15;
 const FOCUS_ZOOM = 2.35;
 
 function useContainerDimensions(myRef: React.RefObject<HTMLElement>) {
@@ -89,18 +90,26 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
   const fgRef = useRef<ForceGraphMethods<GraphNode, GraphLinkEdge>>();
 
   const [hoverNode, setHoverNode] = useState<GraphNode | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [clickPulseId, setClickPulseId] = useState<string | null>(null);
   const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // RAF-throttled tooltip position via DOM mutation; avoids React re-render storm during hover.
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [tooltipSize, setTooltipSize] = useState({ w: 200, h: 100 });
+  const mousePosRef = useRef({ x: 0, y: 0 });
+  const tooltipRafRef = useRef<number | null>(null);
 
   const cleanData = useMemo(() => buildGraphDataSafe(data, maxNodes), [data, maxNodes]);
   const neighbors = useMemo(() => buildNeighborMap(cleanData), [cleanData]);
+  const topHubIds = useMemo(() => computeTopHubIds(cleanData, neighbors), [cleanData, neighbors]);
 
   const layoutKey = useMemo(() => graphLayoutKey(cleanData), [cleanData]);
   const pendingZoomRef = useRef(true);
-  useEffect(() => { pendingZoomRef.current = true; }, [layoutKey, width, height]);
+  /** When true the user has manually panned/zoomed → suppress automatic zoomToFit. */
+  const userInteractedRef = useRef(false);
+  useEffect(() => {
+    pendingZoomRef.current = true;
+    userInteractedRef.current = false;
+  }, [layoutKey, width, height]);
 
   /** Selection from parent (e.g. auto-pick) does not fire `onNodeClick` — refocus after sim assigns x/y on same node refs as `cleanData`. */
   useEffect(() => {
@@ -124,15 +133,20 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
     const fg = fgRef.current;
     if (!fg || cleanData.nodes.length === 0) return;
 
-    const linkDist = compactLayout ? 22 : 36;
+    const force = adaptiveForceParams(cleanData.nodes.length, compactLayout);
+
     const linkForce = fg.d3Force('link') as unknown as {
       distance?: (d: number | ((link: GraphLinkEdge) => number)) => unknown;
     } | undefined;
-    if (linkForce?.distance) linkForce.distance(linkDist);
+    if (linkForce?.distance) linkForce.distance(force.linkDistance);
 
     /* Avoid importing `d3-force` (optional dep — missing install breaks Vite). */
     const charge = fg.d3Force('charge') as unknown as { strength?: (v: number) => unknown } | undefined;
-    if (charge?.strength) charge.strength(compactLayout ? CHARGE_COMPACT : CHARGE_EXPANDED);
+    if (charge?.strength) charge.strength(force.charge);
+
+    /* Try to register collide force if d3-force expose is available; ignore otherwise. */
+    const existingCollide = fg.d3Force('collide') as unknown as { radius?: (v: number) => unknown } | undefined;
+    if (existingCollide?.radius) existingCollide.radius(force.collideRadius);
 
     fg.d3ReheatSimulation();
   }, [layoutKey, cleanData.nodes.length, compactLayout, width, height]);
@@ -140,6 +154,7 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
   const runZoomToFit = useCallback(() => {
     const fg = fgRef.current;
     if (!fg || cleanData.nodes.length === 0) return;
+    if (userInteractedRef.current) return; // user took control → don't fight them
     try { fg.zoomToFit(ZOOM_DURATION_MS, ZOOM_PADDING); } catch { /* ignore */ }
   }, [cleanData.nodes.length]);
 
@@ -148,6 +163,11 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
     pendingZoomRef.current = false;
     requestAnimationFrame(runZoomToFit);
   }, [runZoomToFit]);
+
+  /** Mark user interaction so subsequent `zoomToFit` is suppressed. */
+  const markUserInteracted = useCallback(() => {
+    userInteractedRef.current = true;
+  }, []);
 
   const handleNodeClick = useCallback(
     (graphNode: GraphNode) => {
@@ -167,15 +187,21 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
 
   /* ── link styling: lighter, thinner ─────────────────────────────── */
 
+  /** Phase 1: edge color follows tier of farther endpoint to focus; LOD hides Tier 3 at low zoom. */
   const getLinkColor = useCallback(
     (link: GraphLinkEdge) => {
-      if (!hoverNode && !selectedNodeId) return link.color || '#e2e8f0';
       const activeId = hoverNode?.id ?? selectedNodeId;
+      if (!activeId) return link.color || 'rgba(148, 163, 184, 0.35)';
       const s = nodeIdOf(link.source);
       const t = nodeIdOf(link.target);
-      return s === activeId || t === activeId ? '#94a3b8' : '#f1f5f9';
+      const incident = s === activeId || t === activeId;
+      if (incident) return 'rgba(71, 85, 105, 0.78)';
+      // 2-hop edges: subtle
+      const oneHop = neighbors.get(activeId);
+      if (oneHop && (oneHop.has(s) || oneHop.has(t))) return 'rgba(148, 163, 184, 0.28)';
+      return 'rgba(203, 213, 225, 0.16)';
     },
-    [hoverNode, selectedNodeId],
+    [hoverNode, selectedNodeId, neighbors],
   );
 
   const getLinkWidth = useCallback(
@@ -186,17 +212,20 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
       if (!activeId) return strength;
       const s = nodeIdOf(edge.source);
       const t = nodeIdOf(edge.target);
-      if (s === activeId || t === activeId) return Math.max(strength, 1.5);
-      return Math.max(0.35, strength * 0.45);
+      if (s === activeId || t === activeId) return Math.max(strength, 1.6);
+      const oneHop = neighbors.get(activeId);
+      if (oneHop && (oneHop.has(s) || oneHop.has(t))) return Math.max(0.6, strength * 0.6);
+      return 0.35;
     },
-    [hoverNode, selectedNodeId],
+    [hoverNode, selectedNodeId, neighbors],
   );
 
   /* ── node painting ──────────────────────────────────────────────── */
 
   const paintNode = useCallback(
     (node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      const r = clampedVisualRadius(node);
+      const degree = neighbors.get(node.id)?.size ?? 0;
+      const r = clampedVisualRadius(node, degree);
       const nx = node.x ?? 0;
       const ny = node.y ?? 0;
 
@@ -204,16 +233,17 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
       const isSelected = selectedNodeId === node.id;
       const isPulse = clickPulseId === node.id;
       const activeId = hoverNode?.id ?? selectedNodeId;
-      const relatedToFocus = isRelatedToActive(node.id, activeId, neighbors);
-      const hasActive = Boolean(hoverNode || selectedNodeId);
       const matchesTab =
         tabFilter == null || tabFilter === 'overview' || tabMatchesViewerType(tabFilter, node.type);
-      const dimForTab = !matchesTab && !isHovered && !isSelected;
-      const dimForFocus =
-        matchesTab && hasActive && !isHovered && !isSelected && !relatedToFocus;
-      const shouldDim = dimForTab || dimForFocus;
 
-      ctx.globalAlpha = shouldDim ? DIM_NODE_ALPHA : 1;
+      // 4-tier alpha: focus(0)=1, neighbor(1)=0.85, 2-hop(2)=0.35, unrelated(3)=0.08.
+      let tier: FocusTier = activeId ? getNodeFocusTier(node.id, activeId, neighbors) : 0;
+      if (!matchesTab && !isHovered && !isSelected) {
+        // Off-tab nodes always render heavily dimmed (cap at tier 3) but stay on canvas.
+        tier = 3;
+      }
+      const alpha = isHovered || isSelected ? 1 : tierAlpha(tier);
+      ctx.globalAlpha = alpha;
 
       if (isSelected) {
         ctx.beginPath();
@@ -241,18 +271,21 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
       ctx.lineWidth = (isSelected || isPulse ? 2 : 1) / globalScale;
       ctx.stroke();
 
-      /* Labels: selected, hovered, or high importance (val / degree) only */
-      const degree = neighbors.get(node.id)?.size ?? 0;
-      const highImportance = showHighImportanceLabel(node, degree);
-      const showLabel = isHovered || isSelected || highImportance;
-      const labelDimmed = shouldDim && highImportance && !isHovered && !isSelected;
-      if (showLabel && globalScale > 0.55 && (!shouldDim || isHovered || isSelected || highImportance)) {
+      // Adaptive label: focus / hover / top-K hubs only (no static degree threshold).
+      const showLabel = shouldRenderNodeLabel({
+        nodeId: node.id,
+        focusId: selectedNodeId ?? null,
+        hoverId: hoverNode?.id ?? null,
+        topHubIds,
+        scale: globalScale,
+      });
+      if (showLabel) {
         const maxLen = isHovered || isSelected ? CANVAS_LABEL_MAX_LEN_ACTIVE : CANVAS_LABEL_MAX_LEN;
         const fontSize = 11 / globalScale;
         ctx.font = `${isHovered || isSelected ? '600 ' : ''}${fontSize}px Inter, system-ui, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillStyle = labelDimmed ? '#64748b' : isHovered || isSelected ? '#0f172a' : '#475569';
+        ctx.fillStyle = isHovered || isSelected ? '#0f172a' : tier >= 2 ? '#94a3b8' : '#475569';
         ctx.shadowColor = 'rgba(255,255,255,0.9)';
         ctx.shadowBlur = 3;
         ctx.fillText(truncateLabel(node.name, maxLen), nx, ny + r + 2);
@@ -261,59 +294,127 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
 
       ctx.globalAlpha = 1;
     },
-    [hoverNode, selectedNodeId, clickPulseId, neighbors, tabFilter],
+    [hoverNode, selectedNodeId, clickPulseId, neighbors, tabFilter, topHubIds],
   );
 
   /* ── pointer area: larger than visual node for easier clicking ──── */
 
+  /**
+   * Phase 5: low-zoom cluster overlays — when zoomed out, draw a translucent disc per
+   * entity-type cluster so researchers can read graph macrostructure at a glance.
+   */
+  const renderClusterHullsPre = useCallback(
+    (ctx: CanvasRenderingContext2D, globalScale: number) => {
+      if (globalScale > 0.45) return;
+      const nodes = cleanData.nodes;
+      if (nodes.length < 8) return;
+      type Bucket = { sx: number; sy: number; n: number; nodes: typeof nodes };
+      const groups = new Map<string, Bucket>();
+      for (const n of nodes) {
+        if (typeof n.x !== 'number' || typeof n.y !== 'number') continue;
+        const key = n.type;
+        const g = groups.get(key) ?? { sx: 0, sy: 0, n: 0, nodes: [] as typeof nodes };
+        g.sx += n.x;
+        g.sy += n.y;
+        g.n += 1;
+        g.nodes.push(n);
+        groups.set(key, g);
+      }
+      for (const [type, g] of groups) {
+        if (g.n < 3) continue;
+        const cx = g.sx / g.n;
+        const cy = g.sy / g.n;
+        let maxR = 0;
+        for (const n of g.nodes) {
+          const dx = (n.x ?? cx) - cx;
+          const dy = (n.y ?? cy) - cy;
+          const r = Math.hypot(dx, dy);
+          if (r > maxR) maxR = r;
+        }
+        const padding = 18 / globalScale;
+        const baseColor =
+          colorMap[type as keyof typeof colorMap] || '#94a3b8';
+        ctx.beginPath();
+        ctx.arc(cx, cy, maxR + padding, 0, Math.PI * 2);
+        ctx.fillStyle = `${baseColor}22`;
+        ctx.strokeStyle = `${baseColor}66`;
+        ctx.lineWidth = 1.5 / globalScale;
+        ctx.fill();
+        ctx.stroke();
+
+        const labelFontSize = 11 / globalScale;
+        ctx.font = `600 ${labelFontSize}px Inter, system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#0f172a';
+        ctx.shadowColor = 'rgba(255,255,255,0.85)';
+        ctx.shadowBlur = 4;
+        const label = TYPE_LABELS[type] ?? type;
+        ctx.fillText(`${label} · ${g.n}`, cx, cy - (maxR + padding) - 4 / globalScale);
+        ctx.shadowBlur = 0;
+      }
+    },
+    [cleanData.nodes],
+  );
+
   const paintPointerArea = useCallback(
     (node: GraphNode, paintColor: string, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      const r = clampedVisualRadius(node);
+      const degree = neighbors.get(node.id)?.size ?? 0;
+      const r = clampedVisualRadius(node, degree);
       const hitR = Math.max(r + 6 / globalScale, 10 / globalScale);
       ctx.fillStyle = paintColor;
       ctx.beginPath();
       ctx.arc(node.x ?? 0, node.y ?? 0, hitR, 0, 2 * Math.PI);
       ctx.fill();
     },
-    [],
+    [neighbors],
   );
+
+  /** Apply the latest pointer position to the tooltip via direct DOM mutation. */
+  const applyTooltipPos = useCallback(() => {
+    tooltipRafRef.current = null;
+    const el = tooltipRef.current;
+    const cont = containerRef.current;
+    if (!el || !cont) return;
+    const tw = el.offsetWidth || 200;
+    const th = el.offsetHeight || 100;
+    const cw = cont.offsetWidth || 1;
+    const ch = cont.offsetHeight || 1;
+    const pad = 8;
+    const offset = 12;
+    const left = Math.min(mousePosRef.current.x + offset, Math.max(pad, cw - tw - pad));
+    const top = Math.min(mousePosRef.current.y + offset, Math.max(pad, ch - th - pad));
+    el.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const bounds = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setMousePos({ x: e.clientX - bounds.left, y: e.clientY - bounds.top });
-  }, []);
+    mousePosRef.current = { x: e.clientX - bounds.left, y: e.clientY - bounds.top };
+    if (tooltipRafRef.current != null) return;
+    tooltipRafRef.current = requestAnimationFrame(applyTooltipPos);
+  }, [applyTooltipPos]);
 
+  /** Position the tooltip immediately when hover starts (mount). */
   useLayoutEffect(() => {
     if (!hoverNode) return;
-    const el = tooltipRef.current;
-    if (!el) return;
-    const read = () => {
-      setTooltipSize({ w: el.offsetWidth, h: el.offsetHeight });
-    };
-    read();
-    const ro = new ResizeObserver(read);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [hoverNode]);
+    applyTooltipPos();
+  }, [hoverNode, applyTooltipPos]);
 
-  useEffect(() => () => { if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current); }, []);
-
-  const tooltipPad = 8;
-  const tooltipOffset = 12;
-  const tooltipTop =
-    height > 0
-      ? Math.min(mousePos.y + tooltipOffset, Math.max(tooltipPad, height - tooltipSize.h - tooltipPad))
-      : 0;
-  const tooltipLeft =
-    width > 0
-      ? Math.min(mousePos.x + tooltipOffset, Math.max(tooltipPad, width - tooltipSize.w - tooltipPad))
-      : 0;
+  useEffect(
+    () => () => {
+      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+      if (tooltipRafRef.current != null) cancelAnimationFrame(tooltipRafRef.current);
+    },
+    [],
+  );
 
   return (
     <div
       ref={containerRef}
       className="w-full h-full min-h-0 bg-slate-50 relative rounded-xl border border-slate-200 overflow-hidden"
       onMouseMove={handleMouseMove}
+      onWheel={markUserInteracted}
+      onPointerDown={markUserInteracted}
     >
       {width > 0 && height > 0 && cleanData.nodes.length > 0 && (
         <ForceGraph2D
@@ -336,6 +437,7 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
           warmupTicks={50}
           cooldownTicks={90}
           onEngineStop={onEngineStop}
+          onRenderFramePre={renderClusterHullsPre}
           enableNodeDrag
           minZoom={0.3}
           maxZoom={10}
@@ -345,11 +447,8 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
       {hoverNode && (
         <div
           ref={tooltipRef}
-          className="absolute z-10 pointer-events-none bg-white/95 shadow-md rounded-lg px-3 py-2.5 border border-slate-100 flex flex-col min-w-[180px] max-w-[260px]"
-          style={{
-            top: tooltipTop,
-            left: tooltipLeft,
-          }}
+          className="absolute top-0 left-0 z-10 pointer-events-none bg-white/95 shadow-md rounded-lg px-3 py-2.5 border border-slate-100 flex flex-col min-w-[180px] max-w-[260px] will-change-transform"
+          style={{ transform: 'translate3d(0,0,0)' }}
           role="tooltip"
         >
           <div className="flex items-start gap-2">
@@ -358,10 +457,7 @@ const KnowledgeGraphViewer: React.FC<KnowledgeGraphViewerProps> = ({
                 src={hoverNode.imgUrl}
                 alt=""
                 className="w-9 h-9 rounded object-cover border border-slate-100 shrink-0"
-                onLoad={() => {
-                  const el = tooltipRef.current;
-                  if (el) setTooltipSize({ w: el.offsetWidth, h: el.offsetHeight });
-                }}
+                onLoad={applyTooltipPos}
               />
             )}
             <div className="flex-1 min-w-0">

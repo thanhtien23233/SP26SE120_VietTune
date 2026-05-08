@@ -1,5 +1,6 @@
 import { Send, History } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import BackButton from '@/components/common/BackButton';
 import ChatMessageItem from '@/components/features/chatbot/ChatMessageItem';
@@ -17,6 +18,7 @@ import {
 } from '@/services/qaMessageService';
 import { sendResearcherChatMessage } from '@/services/researcherChatService';
 import { Message } from '@/types/chat';
+import { getHttpStatus } from '@/utils/httpError';
 
 /** Tin chào — đồng bộ với tab Hỏi Đáp AI (ResearcherPortalPage). */
 const WELCOME_MESSAGE =
@@ -26,8 +28,11 @@ const WELCOME_MESSAGE =
 const FALLBACK_REPLY =
   'Xin lỗi, tôi chưa thể trả lời. Vui lòng kiểm tra kết nối backend (VietTune API + Gemini) và thử lại.';
 
+/** Hiển thị khi guest chưa đăng nhập hoặc token hết hạn (HTTP 401). */
+const LOGIN_REQUIRED_REPLY = 'Bạn vui lòng đăng nhập để hiển thị kết quả.';
+
 export default function ChatbotPage() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { history, isLoadingHistory, loadHistory } = useChatbotSession(user?.id);
   const [conversationId, setConversationId] = useState<string>(() => crypto.randomUUID());
   const [isFirstMessage, setIsFirstMessage] = useState<boolean>(true);
@@ -46,6 +51,21 @@ export default function ChatbotPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const didPrefillRef = useRef(false);
+
+  useEffect(() => {
+    if (didPrefillRef.current) return;
+    const q = searchParams.get('q');
+    if (q && q.trim()) {
+      didPrefillRef.current = true;
+      setInput(q);
+      const next = new URLSearchParams(searchParams);
+      next.delete('q');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleToggleFlag = async (msgId: string, currentFlagged: boolean) => {
     try {
@@ -127,6 +147,22 @@ export default function ChatbotPage() {
 
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
+
+    // Proactive guard: guest chưa login → không gọi API (tránh 3 request 401 rác),
+    // hiển thị ngay yêu cầu đăng nhập.
+    if (!isAuthenticated) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: LOGIN_REQUIRED_REPLY,
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+
     setIsTyping(true);
 
     try {
@@ -188,13 +224,14 @@ export default function ChatbotPage() {
         expertCorrection: null,
         createdAt: botTimestamp.toISOString(),
       });
-    } catch {
+    } catch (err) {
+      const content = getHttpStatus(err) === 401 ? LOGIN_REQUIRED_REPLY : FALLBACK_REPLY;
       setMessages((prev) => [
         ...prev,
         {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: FALLBACK_REPLY,
+          content,
           timestamp: new Date(),
         },
       ]);

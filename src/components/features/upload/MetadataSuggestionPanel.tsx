@@ -25,6 +25,7 @@ const FIELD_LABELS: Record<MetadataSuggestionField, string> = {
   region: 'Khu vực',
   vocalStyle: 'Lối hát / Thể loại',
   eventType: 'Loại sự kiện',
+  musicalScale: 'Âm giai',
 };
 
 function ApplyButton({
@@ -96,7 +97,7 @@ export default function MetadataSuggestionPanel({
       acc[row.field].push(row);
       return acc;
     },
-    { ethnicity: [], region: [], vocalStyle: [], eventType: [] },
+    { ethnicity: [], region: [], vocalStyle: [], eventType: [], musicalScale: [] },
   );
   const advisoryGroups = groupMetadataSuggestionsForAdvisory(suggestions);
 
@@ -106,6 +107,7 @@ export default function MetadataSuggestionPanel({
     if (group.field === 'ethnicGroup') advisoryByLegacyField.set('ethnicity', group);
     if (group.field === 'vocalStyle') advisoryByLegacyField.set('vocalStyle', group);
     if (group.field === 'eventType') advisoryByLegacyField.set('eventType', group);
+    if (group.field === 'musicalScale') advisoryByLegacyField.set('musicalScale', group);
   }
 
   function pickBestRowForValue(

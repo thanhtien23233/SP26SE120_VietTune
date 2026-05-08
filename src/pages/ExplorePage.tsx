@@ -9,11 +9,12 @@ import ExploreSearchHeader, {
   type ExploreSearchMode,
 } from '@/components/features/ExploreSearchHeader';
 import FilterSidebar from '@/components/features/FilterSidebar';
-import { EXPLORE_FILTER_OPTIONS } from '@/constants/exploreFilterOptions';
 import { useAuth } from '@/contexts/AuthContext';
+import { useExploreFilterOptions } from '@/features/explore/hooks/useExploreFilterOptions';
 import {
   createEmptyExploreFacetDraft,
   exploreDraftToSearchFilters,
+  mapSearchFiltersNamesToUuids,
   searchFiltersToExploreDraft,
   type ExploreFacetDraft,
 } from '@/features/explore/utils/exploreFacetDraft';
@@ -35,6 +36,7 @@ function filtersFromSearchParams(searchParams: URLSearchParams): SearchFilters {
   const to = searchParams.get('to');
   const tagsParam = searchParams.get('tags');
   const ethnicityParam = searchParams.get('ethnicity');
+  const instrumentParam = searchParams.get('instrument');
   const filters: SearchFilters = {};
   if (q) filters.query = q;
   if (region && Object.values(Region).includes(region as Region))
@@ -64,6 +66,12 @@ function filtersFromSearchParams(searchParams: URLSearchParams): SearchFilters {
       .map((t) => t.trim())
       .filter(Boolean);
   }
+  if (instrumentParam) {
+    filters.instrumentIds = instrumentParam
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }
   return filters;
 }
 
@@ -77,6 +85,7 @@ function searchParamsFromFilters(filters: SearchFilters): Record<string, string>
   if (filters.dateTo) params.to = filters.dateTo;
   if (filters.tags?.length) params.tags = filters.tags.join(',');
   if (filters.ethnicityIds?.length) params.ethnicity = filters.ethnicityIds.join(',');
+  if (filters.instrumentIds?.length) params.instrument = filters.instrumentIds.join(',');
   return params;
 }
 
@@ -108,6 +117,7 @@ export default function ExplorePage() {
   const { isAuthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const returnTo = location.pathname + location.search;
+  const exploreFilterOptions = useExploreFilterOptions();
 
   const initialFiltersFromUrl = useMemo(
     () => filtersFromSearchParams(searchParams),
@@ -118,7 +128,7 @@ export default function ExplorePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [facetDraft, setFacetDraft] = useState<ExploreFacetDraft>(() =>
-    searchFiltersToExploreDraft(initialFiltersFromUrl, EXPLORE_FILTER_OPTIONS),
+    searchFiltersToExploreDraft(initialFiltersFromUrl, exploreFilterOptions),
   );
   const sqFromUrl = searchParams.get('sq') ?? '';
   const [semanticInput, setSemanticInput] = useState(sqFromUrl);
@@ -251,13 +261,34 @@ export default function ExplorePage() {
   }, [searchParams]);
 
   useEffect(() => {
+    if (exploreFilterOptions.ethnicities.length === 0 && exploreFilterOptions.instruments.length === 0) {
+      return;
+    }
+    const mapped = mapSearchFiltersNamesToUuids(filters, exploreFilterOptions);
+    const same =
+      JSON.stringify(mapped.ethnicityIds ?? []) === JSON.stringify(filters.ethnicityIds ?? []) &&
+      JSON.stringify(mapped.instrumentIds ?? []) === JSON.stringify(filters.instrumentIds ?? []);
+    if (same) return;
+    setFilters(mapped);
+    setCurrentPage(1);
+    setSearchParams(buildExploreSearchParams(mapped, exploreMode, semanticInput), { replace: true });
+  }, [
+    exploreFilterOptions.ethnicities,
+    exploreFilterOptions.instruments,
+    filters,
+    exploreMode,
+    semanticInput,
+    setSearchParams,
+  ]);
+
+  useEffect(() => {
     if (currentPage <= 1) return;
     resultsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [currentPage]);
 
   useEffect(() => {
-    setFacetDraft(searchFiltersToExploreDraft(filters, EXPLORE_FILTER_OPTIONS));
-  }, [filters]);
+    setFacetDraft(searchFiltersToExploreDraft(filters, exploreFilterOptions));
+  }, [filters, exploreFilterOptions]);
 
   const hasFilters = Object.keys(filters).length > 0;
   const hasSemanticQuery = sqFromUrl.trim().length > 0;
@@ -377,7 +408,7 @@ export default function ExplorePage() {
             </p>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <FilterSidebar
-                options={EXPLORE_FILTER_OPTIONS}
+                options={exploreFilterOptions}
                 selected={facetDraft}
                 onChange={setFacetDraft}
                 onApply={handleFacetApply}

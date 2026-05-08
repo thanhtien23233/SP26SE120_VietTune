@@ -31,9 +31,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
                     };
                 };
             };
@@ -70,9 +70,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserDetailAdminDto"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserDetailAdminDto"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserDetailAdminDto"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserDetailAdminDto"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserDetailAdminDto"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserDetailAdminDto"];
                     };
                 };
             };
@@ -104,9 +104,9 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+UpdateRoleRequest"];
-                    "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+UpdateRoleRequest"];
-                    "application/*+json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+UpdateRoleRequest"];
+                    "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.UpdateRoleRequest"];
+                    "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.UpdateRoleRequest"];
+                    "application/*+json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.UpdateRoleRequest"];
                 };
             };
             responses: {
@@ -149,9 +149,9 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+UpdateStatusRequest"];
-                    "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+UpdateStatusRequest"];
-                    "application/*+json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+UpdateStatusRequest"];
+                    "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.UpdateStatusRequest"];
+                    "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.UpdateStatusRequest"];
+                    "application/*+json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.UpdateStatusRequest"];
                 };
             };
             responses: {
@@ -202,9 +202,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto+SubmissionAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto+SubmissionAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto+SubmissionAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto.SubmissionAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto.SubmissionAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto.SubmissionAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
                     };
                 };
             };
@@ -237,9 +237,9 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+AssignReviewerRequest"];
-                    "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+AssignReviewerRequest"];
-                    "application/*+json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+AssignReviewerRequest"];
+                    "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.AssignReviewerRequest"];
+                    "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.AssignReviewerRequest"];
+                    "application/*+json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.AssignReviewerRequest"];
                 };
             };
             responses: {
@@ -326,9 +326,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto+SystemHealthDto"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto+SystemHealthDto"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto+SystemHealthDto"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto.SystemHealthDto"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto.SystemHealthDto"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto.SystemHealthDto"];
                     };
                 };
             };
@@ -372,9 +372,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+AIAnalysisResultDto"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+AIAnalysisResultDto"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+AIAnalysisResultDto"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.AIAnalysisResultDto"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.AIAnalysisResultDto"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.AIAnalysisResultDto"];
                     };
                 };
             };
@@ -415,9 +415,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+AIAnalysisResultDto"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+AIAnalysisResultDto"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+AIAnalysisResultDto"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.AIAnalysisResultDto"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.AIAnalysisResultDto"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.AIAnalysisResultDto"];
                     };
                 };
             };
@@ -571,9 +571,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+OverviewMetricsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+OverviewMetricsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+OverviewMetricsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.OverviewMetricsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.OverviewMetricsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.OverviewMetricsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
                     };
                 };
             };
@@ -608,9 +608,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+SubmissionAnalyticsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+SubmissionAnalyticsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+SubmissionAnalyticsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.SubmissionAnalyticsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.SubmissionAnalyticsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.SubmissionAnalyticsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
                     };
                 };
             };
@@ -645,9 +645,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+CoverageChartDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+CoverageChartDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+CoverageChartDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.CoverageChartDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.CoverageChartDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.CoverageChartDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
                     };
                 };
             };
@@ -684,9 +684,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContentAnalyticsResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContentAnalyticsResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContentAnalyticsResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContentAnalyticsResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContentAnalyticsResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContentAnalyticsResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
                     };
                 };
             };
@@ -723,9 +723,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ExpertPerformanceResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ExpertPerformanceResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ExpertPerformanceResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ExpertPerformanceResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ExpertPerformanceResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ExpertPerformanceResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
                     };
                 };
             };
@@ -760,9 +760,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContributorLeaderboardDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContributorLeaderboardDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContributorLeaderboardDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContributorLeaderboardDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContributorLeaderboardDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContributorLeaderboardDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
                     };
                 };
             };
@@ -1238,6 +1238,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/AuditLog/by-submission/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AuditLogDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AuditLogDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AuditLogDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Auth/login": {
         parameters: {
             query?: never;
@@ -1685,9 +1724,9 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": components["schemas"]["VietTuneArchive.API.Controllers.ChatController+ChatRequest"];
-                    "text/json": components["schemas"]["VietTuneArchive.API.Controllers.ChatController+ChatRequest"];
-                    "application/*+json": components["schemas"]["VietTuneArchive.API.Controllers.ChatController+ChatRequest"];
+                    "application/json": components["schemas"]["VietTuneArchive.API.Controllers.ChatController.ChatRequest"];
+                    "text/json": components["schemas"]["VietTuneArchive.API.Controllers.ChatController.ChatRequest"];
+                    "application/*+json": components["schemas"]["VietTuneArchive.API.Controllers.ChatController.ChatRequest"];
                 };
             };
             responses: {
@@ -2627,6 +2666,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Geocode/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    lat?: number;
+                    lon?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Instrument": {
         parameters: {
             query?: never;
@@ -3553,9 +3628,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+MediaFileDto"][];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+MediaFileDto"][];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+MediaFileDto"][];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto.MediaFileDto"][];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto.MediaFileDto"][];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto.MediaFileDto"][];
                     };
                 };
             };
@@ -3585,9 +3660,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+MediaFileDto"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+MediaFileDto"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+MediaFileDto"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto.MediaFileDto"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto.MediaFileDto"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto.MediaFileDto"];
                     };
                 };
             };
@@ -3622,9 +3697,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.MediaDto+MediaFileDetailDto"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.MediaDto+MediaFileDetailDto"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.MediaDto+MediaFileDetailDto"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.MediaDto.MediaFileDetailDto"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.MediaDto.MediaFileDetailDto"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.MediaDto.MediaFileDetailDto"];
                     };
                 };
             };
@@ -3798,6 +3873,45 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/MetadataSuggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["VietTuneArchive.Controllers.MetadataSuggestController.MetadataSuggestRequest"];
+                    "text/json": components["schemas"]["VietTuneArchive.Controllers.MetadataSuggestController.MetadataSuggestRequest"];
+                    "application/*+json": components["schemas"]["VietTuneArchive.Controllers.MetadataSuggestController.MetadataSuggestRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -4025,9 +4139,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.NotificationDto+UnreadCountDto"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.NotificationDto+UnreadCountDto"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.NotificationDto+UnreadCountDto"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.NotificationDto.UnreadCountDto"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.NotificationDto.UnreadCountDto"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.NotificationDto.UnreadCountDto"];
                     };
                 };
             };
@@ -7427,9 +7541,9 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest+UpdateTranscriptionRequest"];
-                    "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest+UpdateTranscriptionRequest"];
-                    "application/*+json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest+UpdateTranscriptionRequest"];
+                    "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest.UpdateTranscriptionRequest"];
+                    "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest.UpdateTranscriptionRequest"];
+                    "application/*+json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest.UpdateTranscriptionRequest"];
                 };
             };
             responses: {
@@ -7479,9 +7593,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+TranscriptionJobDto"];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+TranscriptionJobDto"];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto+TranscriptionJobDto"];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto.TranscriptionJobDto"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto.TranscriptionJobDto"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.CommonDto.TranscriptionJobDto"];
                     };
                 };
             };
@@ -7512,9 +7626,9 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest+VerifyTranscriptionRequest"];
-                    "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest+VerifyTranscriptionRequest"];
-                    "application/*+json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest+VerifyTranscriptionRequest"];
+                    "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest.VerifyTranscriptionRequest"];
+                    "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest.VerifyTranscriptionRequest"];
+                    "application/*+json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest.VerifyTranscriptionRequest"];
                 };
             };
             responses: {
@@ -7561,9 +7675,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.TranscriptionDto+TranscriptionVersionDto"][];
-                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.TranscriptionDto+TranscriptionVersionDto"][];
-                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.TranscriptionDto+TranscriptionVersionDto"][];
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.TranscriptionDto.TranscriptionVersionDto"][];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.TranscriptionDto.TranscriptionVersionDto"][];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.TranscriptionDto.TranscriptionVersionDto"][];
                     };
                 };
             };
@@ -7991,17 +8105,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        "VietTuneArchive.API.Controllers.ChatController+ChatRequest": {
+        "VietTuneArchive.API.Controllers.ChatController.ChatRequest": {
             message?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AdminDto+SubmissionAdminDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AdminDto.SubmissionAdminDto": {
             id?: string | null;
             title?: string | null;
             status?: string | null;
             reviewerId?: string | null;
             submittedBy?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AdminDto+SystemHealthDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AdminDto.SystemHealthDto": {
             status?: string | null;
             uptime?: string | null;
             /** Format: int32 */
@@ -8012,7 +8126,7 @@ export interface components {
                 [key: string]: string;
             } | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserAdminDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserAdminDto": {
             id?: string | null;
             email?: string | null;
             fullName?: string | null;
@@ -8021,7 +8135,7 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserDetailAdminDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserDetailAdminDto": {
             id?: string | null;
             email?: string | null;
             fullName?: string | null;
@@ -8036,7 +8150,7 @@ export interface components {
             /** Format: date-time */
             lastLogin?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContentAnalyticsResponseDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContentAnalyticsResponseDto": {
             /** Format: int32 */
             totalSongs?: number;
             byEthnicity?: {
@@ -8046,7 +8160,7 @@ export interface components {
                 [key: string]: number;
             } | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContributorLeaderboardDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContributorLeaderboardDto": {
             /** Format: uuid */
             userId?: string;
             username?: string | null;
@@ -8058,7 +8172,7 @@ export interface components {
             /** Format: int32 */
             rejectedCount?: number;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+CoverageChartDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.CoverageChartDto": {
             name?: string | null;
             label?: string | null;
             ethnicity?: string | null;
@@ -8068,7 +8182,7 @@ export interface components {
             /** Format: int32 */
             value?: number;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ExpertPerformanceResponseDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ExpertPerformanceResponseDto": {
             /** Format: uuid */
             expertId?: string;
             name?: string | null;
@@ -8078,7 +8192,7 @@ export interface components {
             accuracy?: number;
             avgTime?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+OverviewMetricsDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.OverviewMetricsDto": {
             /** Format: int32 */
             totalSongs?: number;
             /** Format: int32 */
@@ -8090,7 +8204,7 @@ export interface components {
             /** Format: double */
             growthRate?: number;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+SubmissionAnalyticsDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.SubmissionAnalyticsDto": {
             /** Format: int32 */
             total?: number;
             byStatus?: {
@@ -8100,7 +8214,7 @@ export interface components {
             topEthnicGroups?: string[] | null;
         };
         "VietTuneArchive.Application.Mapper.DTOs.AnalyzeAndTranscribeResultDto": {
-            analysis?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+AIAnalysisResultDto"];
+            analysis?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.AIAnalysisResultDto"];
             transcription?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.LocalTranscriptionResultDto"];
             errors?: {
                 [key: string]: string;
@@ -8121,32 +8235,59 @@ export interface components {
             /** Format: int32 */
             sample_rate?: number;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+AIAnalysisResultDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.AIAnalysisResultDto": {
             /** Format: double */
             tempo?: number;
             keySignature?: string | null;
-            ethnicGroup?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+DbRefDto"];
+            ethnicGroup?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.DbRefDto"];
             language?: string | null;
-            instruments?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+DbRefDto"][] | null;
-            genre?: string | null;
+            instruments?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.InstrumentRefDto"][] | null;
             performanceContext?: string | null;
+            regionSuggestion?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.RegionSuggestionDto"];
+            classification?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.ClassificationDto"];
+            /** Format: double */
+            overallConfidence?: number;
             title?: string | null;
-            ceremony?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+DbRefDto"];
-            vocalStyle?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+DbRefDto"];
-            musicalScale?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+DbRefDto"];
+            ceremony?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.DbRefDto"];
+            vocalStyle?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.DbRefDto"];
+            musicalScale?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.DbRefDto"];
             composer?: string | null;
             recordingLocation?: string | null;
-            lyricsOriginal?: string | null;
-            lyricsVietnamese?: string | null;
             geminiFileUri?: string | null;
-            tokenUsage?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+TokenUsageDto"];
+            tokenUsage?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.TokenUsageDto"];
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+DbRefDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.ClassificationDto": {
+            performanceType?: string | null;
+            culturalContext?: string | null;
+            tags?: string[] | null;
+        };
+        "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.DbRefDto": {
             /** Format: uuid */
             id?: string;
             name?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto+TokenUsageDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.InstrumentRefDto": {
+            /** Format: uuid */
+            id?: string;
+            name?: string | null;
+            /** Format: double */
+            confidence?: number;
+            /** Format: double */
+            maxConfidence?: number | null;
+            /** Format: double */
+            overallAverage?: number | null;
+            /** Format: double */
+            frameRatio?: number | null;
+            /** Format: int32 */
+            dominantFrames?: number | null;
+            /** Format: int32 */
+            totalFrames?: number | null;
+        };
+        "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.RegionSuggestionDto": {
+            region?: string | null;
+            detail?: string | null;
+        };
+        "VietTuneArchive.Application.Mapper.DTOs.AudioAnalysisResultDto.TokenUsageDto": {
             /** Format: int32 */
             promptTokenCount?: number;
             /** Format: int32 */
@@ -8180,13 +8321,13 @@ export interface components {
             description?: string | null;
             season?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.CommonDto+MediaFileDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.CommonDto.MediaFileDto": {
             id?: string | null;
             fileName?: string | null;
             url?: string | null;
             isPrimary?: boolean;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.CommonDto+TranscriptionJobDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.CommonDto.TranscriptionJobDto": {
             id?: string | null;
             status?: string | null;
             /** Format: int32 */
@@ -8379,7 +8520,7 @@ export interface components {
             processingTime?: number;
             modelUsed?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.MediaDto+MediaFileDetailDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.MediaDto.MediaFileDetailDto": {
             id?: string | null;
             fileName?: string | null;
             url?: string | null;
@@ -8414,14 +8555,14 @@ export interface components {
             relatedId?: string | null;
             icon?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.NotificationDto+UnreadCountDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.NotificationDto.UnreadCountDto": {
             /** Format: int32 */
             unread?: number;
             /** Format: int32 */
             total?: number;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto+SubmissionAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
-            items?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto+SubmissionAdminDto"][] | null;
+        "VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto.SubmissionAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            items?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto.SubmissionAdminDto"][] | null;
             /** Format: int32 */
             page?: number;
             /** Format: int32 */
@@ -8429,8 +8570,8 @@ export interface components {
             /** Format: int32 */
             total?: number;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
-            items?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserAdminDto"][] | null;
+        "VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            items?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserAdminDto"][] | null;
             /** Format: int32 */
             page?: number;
             /** Format: int32 */
@@ -8556,13 +8697,13 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+AssignReviewerRequest": {
+        "VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.AssignReviewerRequest": {
             reviewerId?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+UpdateRoleRequest": {
+        "VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.UpdateRoleRequest": {
             role?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+UpdateStatusRequest": {
+        "VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.UpdateStatusRequest": {
             status?: string | null;
         };
         "VietTuneArchive.Application.Mapper.DTOs.Request.AssignReviewerRequest": {
@@ -8591,11 +8732,11 @@ export interface components {
         "VietTuneArchive.Application.Mapper.DTOs.Request.SendMessageRequest": {
             content?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest+UpdateTranscriptionRequest": {
+        "VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest.UpdateTranscriptionRequest": {
             content?: string | null;
             language?: string | null;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest+VerifyTranscriptionRequest": {
+        "VietTuneArchive.Application.Mapper.DTOs.Request.TranscriptionRequest.VerifyTranscriptionRequest": {
             isApproved?: boolean;
             feedback?: string | null;
         };
@@ -8630,7 +8771,7 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
-        "VietTuneArchive.Application.Mapper.DTOs.TranscriptionDto+TranscriptionVersionDto": {
+        "VietTuneArchive.Application.Mapper.DTOs.TranscriptionDto.TranscriptionVersionDto": {
             version?: string | null;
             content?: string | null;
             /** Format: date-time */
@@ -8918,22 +9059,28 @@ export interface components {
             data?: string[] | null;
             errors?: string[] | null;
         };
-        "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContributorLeaderboardDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
+        "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContributorLeaderboardDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
             success?: boolean;
             message?: string | null;
-            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContributorLeaderboardDto"][] | null;
+            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContributorLeaderboardDto"][] | null;
             errors?: string[] | null;
         };
-        "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+CoverageChartDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
+        "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.CoverageChartDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
             success?: boolean;
             message?: string | null;
-            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+CoverageChartDto"][] | null;
+            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.CoverageChartDto"][] | null;
             errors?: string[] | null;
         };
-        "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ExpertPerformanceResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
+        "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ExpertPerformanceResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
             success?: boolean;
             message?: string | null;
-            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ExpertPerformanceResponseDto"][] | null;
+            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ExpertPerformanceResponseDto"][] | null;
+            errors?: string[] | null;
+        };
+        "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.AuditLogDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
+            success?: boolean;
+            message?: string | null;
+            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AuditLogDto"][] | null;
             errors?: string[] | null;
         };
         "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.CeremonyDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
@@ -8996,22 +9143,22 @@ export interface components {
             data?: string[] | null;
             errors?: string[] | null;
         };
-        "VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContentAnalyticsResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContentAnalyticsResponseDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
             success?: boolean;
             message?: string | null;
-            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+ContentAnalyticsResponseDto"];
+            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.ContentAnalyticsResponseDto"];
             errors?: string[] | null;
         };
-        "VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+OverviewMetricsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.OverviewMetricsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
             success?: boolean;
             message?: string | null;
-            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+OverviewMetricsDto"];
+            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.OverviewMetricsDto"];
             errors?: string[] | null;
         };
-        "VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+SubmissionAnalyticsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.SubmissionAnalyticsDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
             success?: boolean;
             message?: string | null;
-            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto+SubmissionAnalyticsDto"];
+            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.AnalyticsDto.SubmissionAnalyticsDto"];
             errors?: string[] | null;
         };
         "VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.AuditLogDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
@@ -9127,6 +9274,11 @@ export interface components {
             message?: string | null;
             data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.VocalStyleDto"];
             errors?: string[] | null;
+        };
+        "VietTuneArchive.Controllers.MetadataSuggestController.MetadataSuggestRequest": {
+            genre?: string | null;
+            title?: string | null;
+            description?: string | null;
         };
         "VietTuneArchive.Domain.Entities.DTO.KnowledgeBase.CreateKBCitationRequest": {
             citation: string;

@@ -1,3 +1,4 @@
+import { macroRegionDisplayNameFromProvinceRegionCode } from '@/config/provinceRegionCodes';
 import { INSTRUMENT_METADATA_FALLBACK } from '@/features/upload/constants/instrumentMetadataFallback';
 import type { EthnicGroupItem, InstrumentItem, VocalStyleItem } from '@/services/referenceDataService';
 import type {
@@ -7,6 +8,10 @@ import type {
   MetadataSuggestion,
   MetadataSuggestionCandidate,
 } from '@/types/instrumentDetection';
+
+/** Source label for suggestions derived directly from the Gemini AI analysis JSON
+ *  (as opposed to instrument-name → fallback table heuristics). */
+export const AI_ANALYSIS_SOURCE_LABEL = 'AI Analysis';
 
 /** Normalize for case- and accent-insensitive instrument name matching. */
 export function normalizeInstrumentMatchKey(input: string): string {
@@ -87,6 +92,63 @@ export function dedupeAndSortMetadataSuggestions(rows: MetadataSuggestion[]): Me
   });
 }
 
+/** Subset of `/AIAnalysis/analyze-only` payload consumed by `buildAiDirectSuggestions`.
+ *  Kept structural so the hook can pass its inline `AiAnalysisResult` without a runtime cast. */
+export type AiDirectSuggestionInput = {
+  ethnicGroup?: { name?: string | null } | null;
+  vocalStyle?: { name?: string | null } | null;
+  musicalScale?: { name?: string | null } | null;
+  ceremony?: { name?: string | null } | null;
+  regionSuggestion?: { region?: string | null; detail?: string | null } | null;
+  /** AI-reported confidence in [0..1]. Falls back to `0.95` if missing/invalid. */
+  overallConfidence?: number | null;
+};
+
+/**
+ * Convert direct AI fields (Gemini JSON) into the legacy `MetadataSuggestion` shape.
+ *
+ * These rows carry `sourceInstrument = 'AI Analysis'` and the AI's `overallConfidence`
+ * so they outrank instrument-fallback rows during dedupe/sort and are presented as
+ * the **primary** advisory candidate by `groupMetadataSuggestionsForAdvisory`.
+ */
+export function buildAiDirectSuggestions(
+  ai: AiDirectSuggestionInput | null | undefined,
+  availableRegions: readonly string[] = [],
+): MetadataSuggestion[] {
+  if (!ai) return [];
+  const rawConf =
+    typeof ai.overallConfidence === 'number' && Number.isFinite(ai.overallConfidence)
+      ? ai.overallConfidence
+      : 0.95;
+  const conf = Math.max(0, Math.min(1, rawConf > 1 ? rawConf / 100 : rawConf));
+
+  const out: MetadataSuggestion[] = [];
+
+  const ethnic = ai.ethnicGroup?.name?.trim();
+  if (ethnic) pushSuggestion(out, 'ethnicity', ethnic, AI_ANALYSIS_SOURCE_LABEL, conf);
+
+  const vocal = ai.vocalStyle?.name?.trim();
+  if (vocal) pushSuggestion(out, 'vocalStyle', vocal, AI_ANALYSIS_SOURCE_LABEL, conf);
+
+  const scale = ai.musicalScale?.name?.trim();
+  if (scale) pushSuggestion(out, 'musicalScale', scale, AI_ANALYSIS_SOURCE_LABEL, conf);
+
+  const ceremony = ai.ceremony?.name?.trim();
+  if (ceremony) pushSuggestion(out, 'eventType', ceremony, AI_ANALYSIS_SOURCE_LABEL, conf);
+
+  // `regionSuggestion.region` may be either a province region code (e.g. "DBSH") or a
+  // human label already (e.g. "Đồng bằng sông Hồng"); resolve in that order.
+  const regionRaw = ai.regionSuggestion?.region?.trim();
+  if (regionRaw) {
+    const fromCode = macroRegionDisplayNameFromProvinceRegionCode(regionRaw);
+    const candidate = fromCode || regionRaw;
+    const aligned = pickBestRegionLabel(candidate, availableRegions) ?? candidate;
+    pushSuggestion(out, 'region', aligned, AI_ANALYSIS_SOURCE_LABEL, conf);
+  }
+
+  return out;
+}
+
 export type MapInstrumentsToMetadataSuggestionsParams = {
   detected: readonly DetectedInstrument[];
   instrumentsData: readonly InstrumentItem[];
@@ -165,6 +227,7 @@ function mapLegacyFieldToAdvisoryField(
   if (field === 'ethnicity') return 'ethnicGroup';
   if (field === 'vocalStyle') return 'vocalStyle';
   if (field === 'eventType') return 'eventType';
+  if (field === 'musicalScale') return 'musicalScale';
   return null;
 }
 
@@ -200,6 +263,7 @@ function rankCandidates(rows: readonly MetadataSuggestion[]): MetadataSuggestion
     },
     vocalStyle: {},
     eventType: {},
+    musicalScale: {},
   };
 
   const canonicalize = (value: string): { key: string; label: string } => {
@@ -235,7 +299,12 @@ function rankCandidates(rows: readonly MetadataSuggestion[]): MetadataSuggestion
   }
   return [...bestByValue.entries()]
     .map(([key, candidate]) => {
-      const sourceInstruments = [...(sourceByValue.get(key) ?? new Set<string>())];
+      // Hoist AI Analysis to the front of source list so it surfaces in the UI's
+      // "from {sources}" hint. Order otherwise preserved.
+      const sources = [...(sourceByValue.get(key) ?? new Set<string>())];
+      const sourceInstruments = sources.includes(AI_ANALYSIS_SOURCE_LABEL)
+        ? [AI_ANALYSIS_SOURCE_LABEL, ...sources.filter((s) => s !== AI_ANALYSIS_SOURCE_LABEL)]
+        : sources;
       return {
         ...candidate,
         sourceInstruments,

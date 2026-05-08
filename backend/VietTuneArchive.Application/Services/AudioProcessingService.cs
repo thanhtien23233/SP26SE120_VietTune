@@ -215,7 +215,7 @@ public class AudioProcessingService : IAudioProcessingService
 
     private async Task<string> UploadToGeminiAsync(byte[] fileBytes, string mimeType)
     {
-        var apiKey = _config["GoogleAI:ApiKey"];
+        var apiKey = _config["GoogleAI:ApiKey"] ?? _config["Gemini:ApiKey"];
         var uploadUrl = $"https://generativelanguage.googleapis.com/upload/v1beta/files?key={apiKey}";
 
         _httpClient.DefaultRequestHeaders.Clear();
@@ -235,7 +235,7 @@ public class AudioProcessingService : IAudioProcessingService
 
     private async Task WaitForFileActiveAsync(string fileUri)
     {
-        var apiKey = _config["GoogleAI:ApiKey"];
+        var apiKey = _config["GoogleAI:ApiKey"] ?? _config["Gemini:ApiKey"];
         var name = fileUri.Substring(fileUri.IndexOf("files/"));
         var getUrl = $"https://generativelanguage.googleapis.com/v1beta/{name}?key={apiKey}";
 

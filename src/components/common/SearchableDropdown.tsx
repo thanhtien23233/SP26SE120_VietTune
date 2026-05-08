@@ -27,6 +27,7 @@ export default function SearchableDropdown({
   value,
   onChange,
   options,
+  labelMap,
   placeholder = 'Tất cả',
   searchable = true,
   disabled = false,
@@ -38,6 +39,7 @@ export default function SearchableDropdown({
   value: string;
   onChange: (v: string) => void;
   options: string[];
+  labelMap?: Map<string, string>;
   placeholder?: string;
   searchable?: boolean;
   disabled?: boolean;
@@ -71,18 +73,25 @@ export default function SearchableDropdown({
   const [menuRect, setMenuRect] = useState<DOMRect | null>(null);
 
   const normalizedQuery = normalizeSearchText(debouncedSearch);
+  const getOptionLabel = useCallback(
+    (option: string) => {
+      const mapped = labelMap?.get(option);
+      return typeof mapped === 'string' && mapped.trim() ? mapped : option;
+    },
+    [labelMap],
+  );
   const filteredOptions = useMemo(() => {
     const sanitized = Array.from(new Set(options.map((x) => x.trim()).filter(Boolean)));
     if (!normalizedQuery) return sanitized;
     return sanitized
-      .map((option) => ({ option, score: scoreSearchOption(option, normalizedQuery) }))
+      .map((option) => ({ option, score: scoreSearchOption(getOptionLabel(option), normalizedQuery) }))
       .filter((x) => x.score >= 0)
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
-        return a.option.localeCompare(b.option, 'vi');
+        return getOptionLabel(a.option).localeCompare(getOptionLabel(b.option), 'vi');
       })
       .map((x) => x.option);
-  }, [options, normalizedQuery]);
+  }, [options, normalizedQuery, getOptionLabel]);
 
   const optionsToRender = useMemo(() => {
     if (isUpload || !value) return filteredOptions;
@@ -191,7 +200,7 @@ export default function SearchableDropdown({
     };
   }, [menuOpen]);
 
-  const displayLabel = value || placeholder;
+  const displayLabel = value ? getOptionLabel(value) : placeholder;
 
   const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (!optionsToRender.length) return;
@@ -373,7 +382,7 @@ export default function SearchableDropdown({
                       }
                       onMouseEnter={() => setActiveOptionIndex(idx)}
                     >
-                      {getLabelWithHighlight(option)}
+                      {getLabelWithHighlight(getOptionLabel(option))}
                     </button>
                   ))}
                 </>
