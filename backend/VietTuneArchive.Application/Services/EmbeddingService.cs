@@ -114,10 +114,11 @@ namespace VietTuneArchive.Application.Services
 
             if (entry == null) return;
 
+            var content = entry.Content ?? string.Empty;
             var textParts = new List<string>
             {
                 $"Tiêu đề: {entry.Title}",
-                $"Nội dung: {entry.Content.Substring(0, Math.Min(1500, entry.Content.Length))}"
+                $"Nội dung: {content.Substring(0, Math.Min(1500, content.Length))}"
             };
 
             var citations = entry.KBCitations?.Select(c => c.Citation).Where(c => !string.IsNullOrEmpty(c));
@@ -204,8 +205,16 @@ namespace VietTuneArchive.Application.Services
             {
                 if (!embeddedRecIds.Contains(rec.Id))
                 {
-                    await GenerateEmbeddingForRecordingAsync(rec.Id);
-                    count++;
+                    try
+                    {
+                        await GenerateEmbeddingForRecordingAsync(rec.Id);
+                        count++;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Ghi log lỗi và tiếp tục tiến trình cho các bản ghi khác
+                        Console.WriteLine($"[Backfill Error] Failed to generate embedding for Recording {rec.Id}: {ex.Message}");
+                    }
                 }
             }
 
@@ -223,8 +232,16 @@ namespace VietTuneArchive.Application.Services
             {
                 if (!embeddedKbIds.Contains(kb.Id))
                 {
-                    await GenerateEmbeddingForKBEntryAsync(kb.Id);
-                    count++;
+                    try
+                    {
+                        await GenerateEmbeddingForKBEntryAsync(kb.Id);
+                        count++;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Ghi log lỗi và tiếp tục tiến trình cho các bản ghi khác
+                        Console.WriteLine($"[Backfill Error] Failed to generate embedding for KBEntry {kb.Id}: {ex.Message}");
+                    }
                 }
             }
 
