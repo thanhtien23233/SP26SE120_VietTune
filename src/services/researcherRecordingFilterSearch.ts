@@ -1,9 +1,12 @@
 import { apiFetch, apiOk, asApiEnvelope, openApiQueryRecord } from '@/api';
 import type { ApiRecordingSearchByFilterQuery } from '@/api';
 import { buildSubmissionLookupMaps } from '@/services/expertModerationApi';
+import { recordingService } from '@/services/recordingService';
 import { mapSubmissionToLocalRecording } from '@/services/submissionApiMapper';
 import type { SubmissionLookupMaps } from '@/services/submissionApiMapper';
 import type { LocalRecording, Recording } from '@/types';
+import type { Region } from '@/types/reference';
+import { normalizeSearchText } from '@/utils/searchText';
 import { convertLocalToRecording } from '@/utils/localRecordingToRecording';
 
 /** Query for GET /Recording/search-by-filter (see BE Swagger). */
@@ -102,16 +105,63 @@ function filterRowToLocal(
   return mapSubmissionToLocalRecording(syntheticSubmission, lookups);
 }
 
+function matchesResearcherMetadataFilters(
+  recording: Recording,
+  query: RecordingSearchByFilterQuery,
+): boolean {
+  if (query.ethnicGroupId) {
+    const wanted = query.ethnicGroupId;
+    const ok =
+      recording.ethnicity?.id === wanted ||
+      recording.ethnicity?.name === wanted ||
+      recording.ethnicity?.nameVietnamese === wanted;
+    if (!ok) return false;
+  }
+  if (query.instrumentId) {
+    const wanted = query.instrumentId;
+    const ok = (recording.instruments ?? []).some(
+      (inst) => inst.id === wanted || inst.name === wanted || inst.nameVietnamese === wanted,
+    );
+    if (!ok) return false;
+  }
+  if (query.regionCode && recording.region !== query.regionCode) return false;
+  if (query.q?.trim()) {
+    const q = normalizeSearchText(query.q);
+    const hay = normalizeSearchText(
+      `${recording.title ?? ''} ${recording.titleVietnamese ?? ''} ${recording.description ?? ''}`,
+    );
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+
 /**
  * Server-side search for researcher catalog (metadata filters + optional `q`).
  */
 export async function fetchRecordingsSearchByFilter(
   query: RecordingSearchByFilterQuery,
 ): Promise<Recording[]> {
+  const q = query.q?.trim();
+  if (q) {
+    const titleRes = await recordingService.searchRecordingsByTitle(
+      q,
+      query.page ?? 1,
+      query.pageSize ?? 500,
+    );
+    const needsMetadata = Boolean(
+      query.ethnicGroupId ||
+        query.instrumentId ||
+        query.ceremonyId ||
+        query.regionCode ||
+        query.communeId,
+    );
+    if (!needsMetadata) return titleRes.items;
+    return titleRes.items.filter((item) => matchesResearcherMetadataFilters(item, query));
+  }
+
   const apiQuery: ApiRecordingSearchByFilterQuery & { q?: string } = {
     page: query.page ?? 1,
     pageSize: query.pageSize ?? 500,
-    ...(query.q?.trim() ? { q: query.q.trim() } : {}),
     ...(query.ethnicGroupId ? { ethnicGroupId: query.ethnicGroupId } : {}),
     ...(query.instrumentId ? { instrumentId: query.instrumentId } : {}),
     ...(query.ceremonyId ? { ceremonyId: query.ceremonyId } : {}),
@@ -145,4 +195,39 @@ export async function fetchRecordingsSearchByFilter(
     byId.set(l.id ?? `row-${byId.size}`, l);
   }
   return Promise.all([...byId.values()].map((l) => convertLocalToRecording(l)));
+}
+
+/** Guest-safe variant using `/api/RecordingGuest/search-by-filter` (no Authorization required). */
+export async function fetchGuestRecordingsSearchByFilter(
+  query: RecordingSearchByFilterQuery,
+): Promise<Recording[]> {
+  const q = query.q?.trim();
+  if (q) {
+    const titleRes = await recordingService.searchGuestRecordingsByTitle(
+      q,
+      query.page ?? 1,
+      query.pageSize ?? 500,
+    );
+    const needsMetadata = Boolean(
+      query.ethnicGroupId ||
+        query.instrumentId ||
+        query.ceremonyId ||
+        query.regionCode ||
+        query.communeId,
+    );
+    if (!needsMetadata) return titleRes.items;
+    return titleRes.items.filter((item) => matchesResearcherMetadataFilters(item, query));
+  }
+
+  const filters = {
+    query: undefined,
+    ethnicityIds: query.ethnicGroupId ? [query.ethnicGroupId] : [],
+    instrumentIds: query.instrumentId ? [query.instrumentId] : [],
+    regions: query.regionCode ? ([query.regionCode] as Region[]) : [],
+    tags: [],
+  };
+  const page = query.page ?? 1;
+  const pageSize = query.pageSize ?? 500;
+  const result = await recordingService.getGuestRecordingsByFilter(filters, page, pageSize);
+  return Array.isArray(result?.items) ? result.items : [];
 }

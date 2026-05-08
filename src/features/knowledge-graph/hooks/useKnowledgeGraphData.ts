@@ -1,11 +1,33 @@
 import { useMemo } from 'react';
 
 import { REGION_NAMES } from '@/config/constants';
+import { buildViewerNodeId } from '@/features/knowledge-graph/utils/knowledgeGraphApiAdapter';
 import type { ResearcherAnalysisRecord } from '@/features/researcher/researcherPortalTypes';
 import { CeremonyItem, EthnicGroupItem, InstrumentItem } from '@/services/referenceDataService';
 import { Recording } from '@/types';
-import { GraphLink, GraphNode, KnowledgeGraphData } from '@/types/graph';
+import { ApiEntityType, GraphLink, GraphNode, KnowledgeGraphData } from '@/types/graph';
 import { normalizeSearchText } from '@/utils/searchText';
+
+/** Build composite viewer id + entity flags consistently with the API adapter. */
+function makeLocalNode(
+  entityType: ApiEntityType,
+  entityId: string | null | undefined,
+  fallbackSlug: string,
+  partial: Omit<GraphNode, 'id' | 'viewerNodeId' | 'entityId' | 'entityType' | 'explorable' | 'backendId' | 'apiEntityType'>,
+): GraphNode {
+  const trimmedId = entityId?.trim() || null;
+  const id = buildViewerNodeId(entityType, trimmedId, fallbackSlug);
+  return {
+    ...partial,
+    id,
+    viewerNodeId: id,
+    entityId: trimmedId,
+    entityType,
+    explorable: !!trimmedId,
+    backendId: trimmedId ?? undefined,
+    apiEntityType: entityType,
+  };
+}
 
 function asRow(r: Recording): Record<string, unknown> {
   return r as unknown as Record<string, unknown>;
@@ -40,8 +62,7 @@ function getRegionLabel(r: Recording): string {
   );
 }
 
-function normalizeId(id: string | undefined, name: string): string {
-  if (id && id.trim()) return id.trim();
+function makeSlug(name: string): string {
   return normalizeSearchText(name) || 'unknown';
 }
 
@@ -67,6 +88,9 @@ export function buildKnowledgeGraphData(
     } else {
       const ext = nodesMap.get(node.id)!;
       ext.val = Math.max(ext.val ?? 0, node.val ?? 0);
+      if (!ext.entityId && node.entityId) ext.entityId = node.entityId;
+      if (!ext.entityType && node.entityType) ext.entityType = node.entityType;
+      if (!ext.explorable && node.explorable) ext.explorable = node.explorable;
       if (!ext.backendId && node.backendId) ext.backendId = node.backendId;
       if (!ext.apiEntityType && node.apiEntityType) ext.apiEntityType = node.apiEntityType;
     }
@@ -96,88 +120,68 @@ export function buildKnowledgeGraphData(
 
   recordings.forEach((r) => {
     if (!r || !r.id) return;
-    const recId = `rec_${r.id}`;
-    addNode({
-      id: recId,
-      backendId: r.id,
+    const recNode = makeLocalNode('Recording', r.id, makeSlug(r.title || r.id), {
       name: r.title || 'Unknown',
       type: 'recording',
-      apiEntityType: 'Recording',
       val: 1,
       desc: r.description || '',
     });
+    addNode(recNode);
+    const recId = recNode.id;
 
     const ethName = r.mappedEthnicity || r.ethnicity?.nameVietnamese || r.ethnicity?.name;
     const rawEthId = r.ethnicity?.id;
     let ethGraphId = '';
     if (ethName) {
-      ethGraphId = `eth_${normalizeId(rawEthId, ethName)}`;
-      addNode({
-        id: ethGraphId,
-        backendId: rawEthId?.trim() || undefined,
+      const ethNode = makeLocalNode('EthnicGroup', rawEthId, makeSlug(ethName), {
         name: ethName,
         type: 'ethnic_group',
-        apiEntityType: 'EthnicGroup',
         val: 0.5,
         imgUrl: rawEthId ? ethImageMap[rawEthId] : undefined,
       });
+      addNode(ethNode);
+      ethGraphId = ethNode.id;
       addLink(recId, ethGraphId, 'belongs_to');
     }
 
     const regionName = getRegionLabel(r);
     if (regionName) {
-      const regGraphId = `reg_${normalizeId(r.region, regionName)}`;
-      addNode({
-        id: regGraphId,
+      const regNode = makeLocalNode('Province', undefined, makeSlug(r.region || regionName), {
         name: regionName,
         type: 'region',
-        apiEntityType: 'Province',
         val: 0.8,
       });
-      if (ethGraphId) {
-        addLink(ethGraphId, regGraphId, 'located_in');
-      } else {
-        addLink(recId, regGraphId, 'located_in');
-      }
+      addNode(regNode);
+      if (ethGraphId) addLink(ethGraphId, regNode.id, 'located_in');
+      else addLink(recId, regNode.id, 'located_in');
     }
 
     const cerName = getCeremonyLabel(r, eventTypes);
     if (cerName) {
       const rawCerId = ceremonyRefData.find((c) => c.name === cerName)?.id;
-      const cerGraphId = `cer_${normalizeId(rawCerId, cerName)}`;
-      addNode({
-        id: cerGraphId,
-        backendId: rawCerId?.trim() || undefined,
+      const cerNode = makeLocalNode('Ceremony', rawCerId, makeSlug(cerName), {
         name: cerName,
         type: 'ceremony',
-        apiEntityType: 'Ceremony',
         val: 0.3,
       });
-      addLink(recId, cerGraphId, 'played_in');
-      if (ethGraphId) {
-        addLink(ethGraphId, cerGraphId, 'performs');
-      }
+      addNode(cerNode);
+      addLink(recId, cerNode.id, 'played_in');
+      if (ethGraphId) addLink(ethGraphId, cerNode.id, 'performs');
     }
 
     if (r.instruments) {
       r.instruments.forEach((inst) => {
         const iname = inst.nameVietnamese ?? inst.name;
-        if (iname) {
-          const instGraphId = `inst_${normalizeId(inst.id, iname)}`;
-          addNode({
-            id: instGraphId,
-            backendId: inst.id?.trim() || undefined,
-            name: iname,
-            type: 'instrument',
-            apiEntityType: 'Instrument',
-            val: 0.4,
-            imgUrl: inst.id ? instImageMap[inst.id] : undefined,
-          });
-          addLink(recId, instGraphId, 'uses_instrument');
-          if (ethGraphId) {
-            addLink(instGraphId, ethGraphId, 'instrument_of');
-          }
-        }
+        if (!iname) return;
+        const instNode = makeLocalNode('Instrument', inst.id, makeSlug(iname), {
+          name: iname,
+          type: 'instrument',
+          val: 0.4,
+          imgUrl: inst.id ? instImageMap[inst.id] : undefined,
+        });
+        addNode(instNode);
+        addLink(recId, instNode.id, 'uses_instrument');
+        if (ethGraphId) addLink(instNode.id, ethGraphId, 'instrument_of');
       });
     }
   });

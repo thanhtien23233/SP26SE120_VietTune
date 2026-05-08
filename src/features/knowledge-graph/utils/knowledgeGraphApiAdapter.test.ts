@@ -7,7 +7,7 @@ import {
 } from '@/features/knowledge-graph/utils/knowledgeGraphApiAdapter';
 
 describe('knowledgeGraphApiAdapter', () => {
-  it('maps API node types and preserves apiEntityType', () => {
+  it('maps API node types and emits Phase 2 entity fields', () => {
     const n = mapKnowledgeGraphApiNodeToGraphNode({
       id: 'g1',
       type: 'EthnicGroup',
@@ -15,12 +15,17 @@ describe('knowledgeGraphApiAdapter', () => {
       properties: { imageUrl: 'https://x/img.png' },
     });
     expect(n.type).toBe('ethnic_group');
-    expect(n.apiEntityType).toBe('EthnicGroup');
-    expect(n.backendId).toBe('g1');
+    expect(n.entityType).toBe('EthnicGroup');
+    expect(n.entityId).toBe('g1');
+    expect(n.explorable).toBe(true);
+    expect(n.id).toBe('EthnicGroup:g1');
+    expect(n.viewerNodeId).toBe('EthnicGroup:g1');
+    expect(n.apiEntityType).toBe('EthnicGroup'); // legacy alias still populated
+    expect(n.backendId).toBe('g1'); // legacy alias still populated
     expect(n.imgUrl).toBe('https://x/img.png');
   });
 
-  it('converts graph response to viewer links with string endpoints', () => {
+  it('converts graph response to viewer links remapped to composite ids', () => {
     const data = knowledgeGraphApiToViewerData({
       nodes: [
         { id: 'a', type: 'Recording', label: 'R1' },
@@ -31,8 +36,8 @@ describe('knowledgeGraphApiAdapter', () => {
     });
     expect(data.links).toHaveLength(1);
     expect(data.links[0]).toEqual({
-      source: 'a',
-      target: 'b',
+      source: 'Recording:a',
+      target: 'Instrument:b',
       type: 'USES_INSTRUMENT',
       value: 1,
     });

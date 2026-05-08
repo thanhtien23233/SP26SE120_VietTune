@@ -21,6 +21,7 @@ const ResearcherPortalPage = lazy(() => import('./pages/researcher/ResearcherPor
 const SearchPage = lazy(() => import('./pages/SearchPage'));
 const SemanticSearchPage = lazy(() => import('./pages/SemanticSearchPage'));
 const ChatbotPage = lazy(() => import('./pages/ChatbotPage'));
+const KnowledgeExplorePage = lazy(() => import('./pages/KnowledgeExplorePage'));
 const KbEntryPublicViewPage = lazy(() => import('./pages/KbEntryPublicViewPage'));
 const InstrumentsPage = lazy(() => import('./pages/InstrumentsPage'));
 const EthnicitiesPage = lazy(() => import('./pages/EthnicitiesPage'));
@@ -134,6 +135,14 @@ const router = createBrowserRouter(
           element={
             <RouteSuspense>
               <ChatbotPage />
+            </RouteSuspense>
+          }
+        />
+        <Route
+          path="knowledge-base"
+          element={
+            <RouteSuspense>
+              <KnowledgeExplorePage />
             </RouteSuspense>
           }
         />

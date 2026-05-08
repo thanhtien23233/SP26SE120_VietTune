@@ -11,13 +11,107 @@ export const LABEL_IMPORTANCE_VAL_MIN = 5.5;
 
 /** Min / max visual pixel radius on canvas (readable but not oversized). */
 export const MIN_VISUAL_RADIUS = 4;
-export const MAX_VISUAL_RADIUS = 12;
+export const MAX_VISUAL_RADIUS = 14;
 
-/** Sqrt scaling on force value so large hubs do not explode on screen; clamped to [min,max]. */
-export function clampedVisualRadius(node: GraphNode): number {
+/**
+ * Phase 1 radius: hybrid of degree (cognitive importance) + node.val (data weight).
+ * `log10(degree+1)` chống "exploding hub" cho recordings có degree 50+.
+ */
+export function clampedVisualRadius(node: GraphNode, degree = 0): number {
   const v = Math.max(0, nodeSize(node));
-  const raw = MIN_VISUAL_RADIUS + Math.sqrt(v) * 2.05;
+  const importance = Math.log10(Math.max(degree, 0) + 1) * 4 + v;
+  const raw = MIN_VISUAL_RADIUS + Math.sqrt(Math.max(importance, 0)) * 1.85;
   return Math.min(MAX_VISUAL_RADIUS, Math.max(MIN_VISUAL_RADIUS, raw));
+}
+
+/** 4-tier focus distance from active node (selected or hovered). */
+export type FocusTier = 0 | 1 | 2 | 3;
+
+const TIER_ALPHA: Record<FocusTier, number> = {
+  0: 1,
+  1: 0.85,
+  2: 0.35,
+  3: 0.08,
+};
+
+export function tierAlpha(tier: FocusTier): number {
+  return TIER_ALPHA[tier];
+}
+
+/**
+ * Returns hop distance bucket from `activeId` (0=focus, 1=neighbor, 2=2-hop, 3=unrelated).
+ * If no active node, every node is tier 0 (no dimming).
+ */
+export function getNodeFocusTier(
+  nodeId: string,
+  activeId: string | null | undefined,
+  neighborMap: Map<string, Set<string>>,
+): FocusTier {
+  if (!activeId) return 0;
+  if (nodeId === activeId) return 0;
+  const oneHop = neighborMap.get(activeId);
+  if (oneHop?.has(nodeId)) return 1;
+  if (oneHop) {
+    for (const nb of oneHop) {
+      const nbNeighbors = neighborMap.get(nb);
+      if (nbNeighbors?.has(nodeId)) return 2;
+    }
+  }
+  return 3;
+}
+
+/** Adaptive force-graph parameters scaled to graph size. */
+export function adaptiveForceParams(nodeCount: number, compactLayout: boolean) {
+  const N = Math.max(nodeCount, 4);
+  // linkDistance shrinks slowly as graph grows; compact layout subtracts a fixed offset.
+  const linkBase = 28 - Math.log2(N) * 1.6;
+  const linkDistance = Math.min(30, Math.max(14, linkBase - (compactLayout ? 4 : 0)));
+  // chargeStrength grows (more negative) for larger graphs to spread hubs.
+  const chargeRaw = -55 - 220 / Math.sqrt(N);
+  const charge = Math.min(-55, Math.max(-240, chargeRaw - (compactLayout ? 18 : 0)));
+  const collideRadius = Math.min(16, Math.max(8, 8 + Math.log2(N) * 0.6));
+  return { linkDistance, charge, collideRadius };
+}
+
+/**
+ * Top-K hub ids (by degree) used for adaptive label gating.
+ * K = clamp(N/15, 3, 12).
+ */
+export function computeTopHubIds(
+  data: KnowledgeGraphData,
+  neighborMap: Map<string, Set<string>>,
+): Set<string> {
+  if (!data.nodes.length) return new Set();
+  const k = Math.min(12, Math.max(3, Math.round(data.nodes.length / 15)));
+  const ranked = data.nodes
+    .map((n) => ({ id: n.id, degree: neighborMap.get(n.id)?.size ?? 0, val: n.val ?? 0 }))
+    .sort((a, b) => {
+      if (b.degree !== a.degree) return b.degree - a.degree;
+      return (b.val ?? 0) - (a.val ?? 0);
+    })
+    .slice(0, k);
+  return new Set(ranked.map((r) => r.id));
+}
+
+/**
+ * Adaptive label visibility: focus, hover, search hits and top-K hubs only.
+ * Replaces the static degree/val threshold.
+ */
+export function shouldRenderNodeLabel(params: {
+  nodeId: string;
+  focusId: string | null | undefined;
+  hoverId: string | null | undefined;
+  searchHitIds?: ReadonlySet<string>;
+  topHubIds: ReadonlySet<string>;
+  scale: number;
+}): boolean {
+  const { nodeId, focusId, hoverId, searchHitIds, topHubIds, scale } = params;
+  if (focusId === nodeId) return true;
+  if (hoverId === nodeId) return true;
+  if (scale < 0.55) return false;
+  if (searchHitIds?.has(nodeId)) return true;
+  if (scale >= 0.65 && topHubIds.has(nodeId)) return true;
+  return false;
 }
 
 /** True if `nodeId` is the active focus or one hop away (full opacity in focus mode). */

@@ -1,4 +1,15 @@
-import { AlertCircle, Check, FileAudio, Music, Plus, Sparkles, Upload, Video } from 'lucide-react';
+import {
+  AlertCircle,
+  Check,
+  FileAudio,
+  ImagePlus,
+  Music,
+  Plus,
+  Sparkles,
+  Upload,
+  Video,
+  X,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import React from 'react';
 
@@ -54,6 +65,10 @@ type MediaUploadStepProps = {
   onUseAiAnalysisChange: (value: boolean) => void;
   onMediaTypeChange: (value: 'audio' | 'video') => void;
   onResetSelectedFile: () => void;
+  recordingImagePreviews: string[];
+  existingRecordingImageUrls: string[];
+  onRecordingImagesChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemoveRecordingImage: (index: number) => void;
   formatFileSize: (bytes: number) => string;
   formatDuration: (seconds: number) => string;
 };
@@ -115,6 +130,10 @@ export default function MediaUploadStep({
   onUseAiAnalysisChange,
   onMediaTypeChange,
   onResetSelectedFile,
+  recordingImagePreviews,
+  existingRecordingImageUrls,
+  onRecordingImagesChange,
+  onRemoveRecordingImage,
   formatFileSize,
   formatDuration,
 }: MediaUploadStepProps) {
@@ -456,7 +475,9 @@ export default function MediaUploadStep({
                                       ? 'Suggested Vocal Style'
                                       : group.field === 'eventType'
                                         ? 'Suggested Event Type'
-                                        : 'Suggested Ethnic Group'}
+                                        : group.field === 'musicalScale'
+                                          ? 'Suggested Musical Scale'
+                                          : 'Suggested Ethnic Group'}
                                 </p>
                                 {group.conflictDetected && (
                                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
@@ -568,6 +589,59 @@ export default function MediaUploadStep({
             {errors.file}
           </p>
         )}
+      </div>
+
+      <div className="mt-8">
+        <SectionHeaderComponent
+          icon={ImagePlus}
+          title="Thêm ảnh minh họa"
+          subtitle="Bạn có thể thêm nhiều ảnh minh họa cho bản thu (không bắt buộc)"
+        />
+        <div className="mt-4 rounded-xl border border-secondary-200/70 bg-white/80 p-4">
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={onRecordingImagesChange}
+            disabled={isFormDisabled || isUploadingMedia}
+            className="block w-full text-sm text-neutral-700 file:mr-4 file:rounded-lg file:border-0 file:bg-primary-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary-700"
+          />
+          {existingRecordingImageUrls.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-semibold text-neutral-700">Ảnh hiện có</p>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {existingRecordingImageUrls.map((url) => (
+                  <div key={url} className="overflow-hidden rounded-lg border border-secondary-200">
+                    <img src={url} alt="Ảnh bản thu hiện có" className="h-24 w-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {recordingImagePreviews.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-semibold text-neutral-700">Ảnh sẽ tải lên</p>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {recordingImagePreviews.map((src, index) => (
+                  <div
+                    key={`${src}-${index}`}
+                    className="relative overflow-hidden rounded-lg border border-secondary-200"
+                  >
+                    <img src={src} alt={`Ảnh minh họa ${index + 1}`} className="h-24 w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => onRemoveRecordingImage(index)}
+                      className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white transition hover:bg-black/80"
+                      aria-label="Xóa ảnh"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

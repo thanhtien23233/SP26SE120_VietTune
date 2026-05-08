@@ -48,19 +48,47 @@ export function apiEntityTypeToViewerType(api: string): GraphNodeType {
   }
 }
 
-/** Local graph ids built in `buildKnowledgeGraphData` — not valid explore API node ids. */
-const SYNTHETIC_NODE_ID_PREFIX = /^(rec_|eth_|reg_|cer_|inst_)/;
+/**
+ * @deprecated Phase 2 introduces explicit `entityId` + `explorable` flags on `GraphNode`.
+ * Kept as a fallback for one release while old callers migrate. Will be removed in Phase 5.
+ */
+const LEGACY_SYNTHETIC_NODE_ID_PREFIX = /^(rec_|eth_|reg_|cer_|inst_)/;
 
 /**
- * Returns the node id to send to `KnowledgeGraph/explore`, or `null` if the node cannot be resolved on the server.
+ * Composite viewer node id format: `${EntityType}:${entityId | "local:slug"}`.
+ * Local-only nodes (no backend GUID) cannot be explored on the server.
+ */
+const LOCAL_VIEWER_ID_MARKER = ':local:';
+
+/**
+ * Returns the GUID to send to `GET /api/KnowledgeGraph/explore/{nodeId}`,
+ * or `null` if the node has no backend identity (= local fallback).
+ *
+ * Phase 2 source of truth: `entityId` + `explorable`. Falls back to legacy `backendId` /
+ * raw GUID-shaped `id` for nodes still produced by older code paths.
  */
 export function resolveKnowledgeGraphExploreNodeId(n: GraphNode): string | null {
-  const backend = n.backendId?.trim();
-  if (backend) return backend;
+  if (n.explorable && n.entityId?.trim()) return n.entityId.trim();
+  if (n.entityId === null && n.viewerNodeId?.includes(LOCAL_VIEWER_ID_MARKER)) return null;
+
+  // Legacy paths (pre-Phase 2 nodes still in caches):
+  const legacyBackend = n.backendId?.trim();
+  if (legacyBackend) return legacyBackend;
   const id = n.id?.trim();
   if (!id) return null;
-  if (SYNTHETIC_NODE_ID_PREFIX.test(id)) return null;
+  if (LEGACY_SYNTHETIC_NODE_ID_PREFIX.test(id)) return null;
+  if (id.includes(LOCAL_VIEWER_ID_MARKER)) return null;
+  // Composite `${Type}:${guid}` form: extract guid suffix.
+  const colonIdx = id.indexOf(':');
+  if (colonIdx > 0 && !id.includes(LOCAL_VIEWER_ID_MARKER)) {
+    return id.slice(colonIdx + 1).trim() || null;
+  }
   return id;
+}
+
+/** Stable selection key combining viewer id + entity id (avoids ambiguity for stale nodes). */
+export function selectionKeyOf(n: { viewerNodeId?: string; id: string; entityId?: string | null }): string {
+  return `${n.viewerNodeId ?? n.id}|${n.entityId ?? ''}`;
 }
 
 export function viewerTypeToApiEntityType(t: GraphNodeType): string {

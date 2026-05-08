@@ -27,7 +27,12 @@ export interface InstrumentDetectionResult {
 }
 
 /** Field targeted by rule-based / DB-joined metadata suggestions after instrument detection. */
-export type MetadataSuggestionField = 'ethnicity' | 'region' | 'vocalStyle' | 'eventType';
+export type MetadataSuggestionField =
+  | 'ethnicity'
+  | 'region'
+  | 'vocalStyle'
+  | 'eventType'
+  | 'musicalScale';
 
 /** One display-level suggestion derived from a detected instrument (human must confirm). */
 export interface MetadataSuggestion {
@@ -47,7 +52,12 @@ export type MetadataSuggestionCandidate = {
 };
 
 /** Advisory-only grouped suggestion used by Upload Step 1/2 UI. */
-export type AdvisoryMetadataSuggestionField = 'region' | 'vocalStyle' | 'ethnicGroup' | 'eventType';
+export type AdvisoryMetadataSuggestionField =
+  | 'region'
+  | 'vocalStyle'
+  | 'ethnicGroup'
+  | 'eventType'
+  | 'musicalScale';
 
 export type AdvisoryMetadataSuggestion = {
   field: AdvisoryMetadataSuggestionField;

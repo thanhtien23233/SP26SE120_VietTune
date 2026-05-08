@@ -42,6 +42,7 @@ import {
   scrollToFirstUploadError,
   validateUploadFormState,
 } from '@/features/upload/uploadFormValidation';
+import { recordingService } from '@/services/recordingService';
 import { useAuthStore } from '@/stores/authStore';
 import { UserRole } from '@/types';
 
@@ -154,6 +155,12 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     instrumentImagePreview,
     setInstrumentImagePreview,
     handleInstrumentImageChange,
+    recordingImages,
+    recordingImagePreviews,
+    existingRecordingImageUrls,
+    setExistingRecordingImageUrls,
+    handleRecordingImagesChange,
+    removeRecordingImage,
     collector,
     setCollector,
     copyright,
@@ -317,6 +324,34 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setIsEditMode,
   });
 
+  useEffect(() => {
+    if (!isEditMode || !editingRecordingId) {
+      setExistingRecordingImageUrls([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await recordingService.getRecordingImages(editingRecordingId);
+        if (cancelled) return;
+        const rows = Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray((res as { items?: unknown[] })?.items)
+            ? ((res as { items?: unknown[] }).items ?? [])
+            : [];
+        const urls = rows
+          .map((row) => (row as { imageUrl?: string | null })?.imageUrl)
+          .filter((url): url is string => typeof url === 'string' && url.trim().length > 0);
+        setExistingRecordingImageUrls(urls);
+      } catch {
+        if (!cancelled) setExistingRecordingImageUrls([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editingRecordingId, isEditMode, setExistingRecordingImageUrls]);
+
   useUploadEditReferenceEffects({
     isEditMode,
     initialEthnicGroupId,
@@ -429,6 +464,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     currentUserRole: currentUser?.role,
     mediaType,
     file,
+    recordingImages,
     createdRecordingId,
     setCreatedRecordingId,
     setCurrentSubmissionId,
@@ -822,6 +858,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           onUseAiAnalysisChange={setUseAiAnalysis}
           onMediaTypeChange={handleMediaTypeChange}
           onResetSelectedFile={handleResetSelectedFile}
+          recordingImagePreviews={recordingImagePreviews}
+          existingRecordingImageUrls={existingRecordingImageUrls}
+          onRecordingImagesChange={handleRecordingImagesChange}
+          onRemoveRecordingImage={removeRecordingImage}
           formatFileSize={formatFileSize}
           formatDuration={formatDuration}
         />

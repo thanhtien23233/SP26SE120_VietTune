@@ -24,7 +24,7 @@ const SHOW_HOME_RECORDING_HIGHLIGHTS = false;
 const FEATURE_CARDS = [
   { icon: Music, title: 'Khám phá bản thu', subtitle: 'Nghe và tìm kiếm bản ghi', to: '/explore' },
   { icon: Upload, title: 'Đóng góp bản thu', subtitle: 'Chia sẻ di sản của bạn', to: '/upload' },
-  { icon: BookOpen, title: 'Tra cứu tri thức', subtitle: 'Khám phá kho tri thức', to: '/chatbot' },
+  { icon: BookOpen, title: 'Tra cứu tri thức', subtitle: 'Khám phá kho tri thức', to: '/knowledge-base' },
 ];
 
 function asObject(input: unknown): Record<string, unknown> | null {

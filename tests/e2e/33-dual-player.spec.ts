@@ -67,9 +67,15 @@ test.describe("researcher — dual compare player (33)", () => {
     const isVideoPair = await videoNote.isVisible().catch(() => false);
     test.skip(isVideoPair, "Cặp bản chọn là video — dual waveform không áp dụng.");
 
-    await expect(page.getByRole("heading", { name: "Dual Audio Compare Player" })).toBeVisible({
-      timeout: 45_000,
-    });
+    const legacyHeading = page.getByRole("heading", { name: "Dual Audio Compare Player" });
+    const sharedHeading = page.getByRole("heading", { name: "VietTune Shared Spectrogram Compare Engine" });
+    const isShared = await sharedHeading.isVisible().catch(() => false);
+    if (isShared) {
+      await expect(sharedHeading).toBeVisible({ timeout: 45_000 });
+      await expect(page.getByLabel(/Spectrogram compare surface/i)).toBeVisible({ timeout: 45_000 });
+    } else {
+      await expect(legacyHeading).toBeVisible({ timeout: 45_000 });
+    }
 
     await page.getByRole("button", { name: "A+B" }).click();
     await expect(page.getByRole("button", { name: "A+B" })).toBeVisible();
@@ -77,13 +83,19 @@ test.describe("researcher — dual compare player (33)", () => {
     await page.getByRole("button", { name: "B only" }).click();
     await page.getByRole("button", { name: "A+B" }).click();
 
-    const playAll = page.getByRole("button", { name: "Play All" });
-    await expect(playAll).toBeEnabled({ timeout: 30_000 });
-    await playAll.click();
-    await expect(page.getByRole("button", { name: "Pause All" })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: "Pause All" }).click();
+    const playBtn = isShared
+      ? page.getByRole("button", { name: "Play" })
+      : page.getByRole("button", { name: "Play All" });
+    const pauseBtn = isShared
+      ? page.getByRole("button", { name: "Pause" })
+      : page.getByRole("button", { name: "Pause All" });
+
+    await expect(playBtn).toBeEnabled({ timeout: 30_000 });
+    await playBtn.click();
+    await expect(pauseBtn).toBeVisible({ timeout: 15_000 });
+    await pauseBtn.click();
 
     await page.getByRole("button", { name: "Reset" }).click();
-    await expect(page.getByRole("button", { name: "Play All" })).toBeVisible();
+    await expect(playBtn).toBeVisible();
   });
 });

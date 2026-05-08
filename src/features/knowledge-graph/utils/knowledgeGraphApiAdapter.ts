@@ -1,4 +1,4 @@
-import type { GraphLink, GraphNode, GraphNodeType, KnowledgeGraphData } from '@/types/graph';
+import type { ApiEntityType, GraphLink, GraphNode, GraphNodeType, KnowledgeGraphData } from '@/types/graph';
 import type {
   KnowledgeGraphApiGraphResponse,
   KnowledgeGraphApiNode,
@@ -15,8 +15,37 @@ const API_TYPE_TO_VIEWER: Record<string, GraphNodeType> = {
   Tag: 'tag',
 };
 
+const VALID_API_ENTITY_TYPES: ReadonlySet<ApiEntityType> = new Set<ApiEntityType>([
+  'EthnicGroup',
+  'Instrument',
+  'Ceremony',
+  'Recording',
+  'Province',
+  'VocalStyle',
+  'MusicalScale',
+  'Tag',
+]);
+
+export function isValidApiEntityType(value: string): value is ApiEntityType {
+  return VALID_API_ENTITY_TYPES.has(value as ApiEntityType);
+}
+
 function mapApiTypeToViewer(apiType: string): GraphNodeType {
   return API_TYPE_TO_VIEWER[apiType] ?? 'recording';
+}
+
+/**
+ * Composite viewer node id used everywhere from Phase 2 onward.
+ *  - `${entityType}:${entityId}` when GUID is known (API-sourced or matched local node).
+ *  - `${entityType}:local:${slug}` for local-only fallback nodes that have no DB match.
+ */
+export function buildViewerNodeId(
+  entityType: ApiEntityType,
+  entityId: string | null | undefined,
+  fallbackSlug?: string,
+): string {
+  if (entityId && entityId.trim()) return `${entityType}:${entityId.trim()}`;
+  return `${entityType}:local:${(fallbackSlug ?? 'unknown').trim() || 'unknown'}`;
 }
 
 function summarizeProperties(properties: Record<string, unknown> | undefined): string | undefined {
@@ -54,9 +83,16 @@ function linkValueFromApiProperties(properties: Record<string, unknown> | null |
 
 export function mapKnowledgeGraphApiNodeToGraphNode(n: KnowledgeGraphApiNode): GraphNode {
   const viewerType = mapApiTypeToViewer(n.type);
+  const entityType: ApiEntityType = isValidApiEntityType(n.type) ? n.type : 'Recording';
+  const entityId = n.id?.trim() || null;
+  const viewerNodeId = buildViewerNodeId(entityType, entityId, n.label || n.id);
   return {
-    id: n.id,
-    backendId: n.id,
+    id: viewerNodeId,
+    viewerNodeId,
+    entityId,
+    entityType,
+    explorable: !!entityId,
+    backendId: entityId ?? undefined, // legacy alias
     name: n.label?.trim() ? n.label : n.id,
     type: viewerType,
     apiEntityType: n.type,
@@ -70,10 +106,17 @@ export function mapKnowledgeGraphApiNodeToGraphNode(n: KnowledgeGraphApiNode): G
 export function knowledgeGraphApiToViewerData(
   api: KnowledgeGraphApiGraphResponse,
 ): KnowledgeGraphData {
-  const nodes = (api.nodes ?? []).map(mapKnowledgeGraphApiNodeToGraphNode);
+  const apiNodes = api.nodes ?? [];
+  const nodes = apiNodes.map(mapKnowledgeGraphApiNodeToGraphNode);
+  // Build a quick map: backend GUID → composite viewer id, so edges can be remapped reliably.
+  const idMap = new Map<string, string>();
+  for (let i = 0; i < apiNodes.length; i++) {
+    const guid = apiNodes[i].id;
+    if (guid && nodes[i]?.id) idMap.set(guid, nodes[i].id);
+  }
   const links: GraphLink[] = (api.edges ?? []).map((e) => ({
-    source: e.sourceId,
-    target: e.targetId,
+    source: idMap.get(e.sourceId) ?? e.sourceId,
+    target: idMap.get(e.targetId) ?? e.targetId,
     type: e.relation,
     value: linkValueFromApiProperties(e.properties ?? undefined),
   }));

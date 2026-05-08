@@ -19,6 +19,7 @@ import {
   InstrumentCategory,
 } from '@/types';
 import { pickContributorFieldsFromApiRow } from '@/utils/contributorFields';
+import { normalizeSearchText } from '@/utils/searchText';
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -205,6 +206,109 @@ function toGuestPaginatedResponse(
   };
 }
 
+function toPaginatedRecordingsResponse(
+  input: unknown,
+  page: number,
+  pageSize: number,
+): PaginatedResponse<Recording> {
+  const root = asRecord(input) ?? {};
+  const candidates: unknown[] = [
+    root.items,
+    root.data,
+    root.records,
+    root.result,
+    asRecord(root.data)?.items,
+    asRecord(root.data)?.records,
+    asRecord(root.data)?.data,
+    asRecord(root.result)?.items,
+  ];
+  let items: Recording[] = [];
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate)) continue;
+    items = candidate as Recording[];
+    break;
+  }
+  if (items.length === 0 && Array.isArray(input)) {
+    items = input as Recording[];
+  }
+  const pageRaw = root.page ?? asRecord(root.data)?.page;
+  const pageSizeRaw = root.pageSize ?? asRecord(root.data)?.pageSize;
+  const totalRaw =
+    root.total ?? root.totalCount ?? asRecord(root.data)?.total ?? asRecord(root.data)?.totalCount;
+  const total = typeof totalRaw === 'number' ? totalRaw : items.length;
+  const totalPagesRaw = root.totalPages ?? asRecord(root.data)?.totalPages;
+  const totalPages =
+    typeof totalPagesRaw === 'number'
+      ? totalPagesRaw
+      : Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
+  return {
+    items,
+    total,
+    totalPages,
+    page: typeof pageRaw === 'number' ? pageRaw : page,
+    pageSize: typeof pageSizeRaw === 'number' ? pageSizeRaw : pageSize,
+  };
+}
+
+function hasMetadataFilters(filters: SearchFilters): boolean {
+  return Boolean(
+    (filters.ethnicityIds?.length ?? 0) > 0 ||
+      (filters.instrumentIds?.length ?? 0) > 0 ||
+      (filters.regions?.length ?? 0) > 0 ||
+      (filters.recordingTypes?.length ?? 0) > 0 ||
+      (filters.verificationStatus?.length ?? 0) > 0 ||
+      (filters.tags?.length ?? 0) > 0 ||
+      filters.dateFrom ||
+      filters.dateTo,
+  );
+}
+
+function matchesMetadataFilters(recording: Recording, filters: SearchFilters): boolean {
+  if (filters.ethnicityIds?.length) {
+    const ok = filters.ethnicityIds.some(
+      (id) =>
+        id === recording.ethnicity?.id ||
+        id === recording.ethnicity?.name ||
+        id === recording.ethnicity?.nameVietnamese,
+    );
+    if (!ok) return false;
+  }
+  if (filters.instrumentIds?.length) {
+    const ok = filters.instrumentIds.some((id) =>
+      (recording.instruments ?? []).some(
+        (inst) => inst.id === id || inst.name === id || inst.nameVietnamese === id,
+      ),
+    );
+    if (!ok) return false;
+  }
+  if (filters.regions?.length && !filters.regions.includes(recording.region)) return false;
+  if (
+    filters.recordingTypes?.length &&
+    !filters.recordingTypes.includes(recording.recordingType)
+  ) {
+    return false;
+  }
+  if (
+    filters.verificationStatus?.length &&
+    !filters.verificationStatus.includes(recording.verificationStatus)
+  ) {
+    return false;
+  }
+  if (filters.tags?.length) {
+    const hay = normalizeSearchText((recording.tags ?? []).join(' '));
+    const queryTags = filters.tags.map((x) => normalizeSearchText(x)).filter(Boolean);
+    if (!queryTags.every((tag) => hay.includes(tag))) return false;
+  }
+  if (filters.dateFrom || filters.dateTo) {
+    const ts = new Date(recording.recordedDate || recording.uploadedDate || 0).getTime();
+    const fromTs = filters.dateFrom ? new Date(filters.dateFrom).getTime() : Number.NaN;
+    const toTs = filters.dateTo ? new Date(filters.dateTo).getTime() : Number.NaN;
+    if (Number.isFinite(fromTs) && ts < fromTs) return false;
+    if (Number.isFinite(toTs) && ts > toTs) return false;
+  }
+  return true;
+}
+
 type RecordingSearchByFilterResponse =
   | Record<string, unknown>[]
   | {
@@ -217,7 +321,57 @@ type RecordingSearchByFilterResponse =
       value?: Record<string, unknown>[];
     };
 
+type RecordingImageDto = {
+  id?: string;
+  recordingId?: string;
+  imageUrl?: string | null;
+  caption?: string | null;
+  sortOrder?: number;
+};
+
 export const recordingService = {
+  /** Authenticated title search: GET /api/Recording/search-by-title */
+  searchRecordingsByTitle: async (
+    title: string,
+    page: number = 1,
+    pageSize: number = 20,
+    opts?: { signal?: AbortSignal },
+  ): Promise<PaginatedResponse<Recording>> => {
+    const data = await apiOk(
+      asApiEnvelope<unknown>(
+        apiFetchLoose.GET('/api/Recording/search-by-title', {
+          params: { query: openApiQueryRecord({ title: title.trim() }) },
+          signal: opts?.signal,
+        }),
+      ),
+    );
+    return toPaginatedRecordingsResponse(data, page, pageSize);
+  },
+
+  /** Guest title search (no Authorization): GET /api/RecordingGuest/search-by-title */
+  searchGuestRecordingsByTitle: async (
+    title: string,
+    page: number = 1,
+    pageSize: number = 20,
+    opts?: { signal?: AbortSignal },
+  ): Promise<PaginatedResponse<Recording>> => {
+    const reqOpts = {
+      signal: opts?.signal,
+      params: { title: title.trim(), page, pageSize },
+    };
+    try {
+      const data = await legacyGetAnonymous<unknown>('/RecordingGuest/search-by-title', reqOpts);
+      return toGuestPaginatedResponse(data, page, pageSize);
+    } catch (primaryErr) {
+      try {
+        const data = await legacyGetAnonymous<unknown>('/recordingGuest/search-by-title', reqOpts);
+        return toGuestPaginatedResponse(data, page, pageSize);
+      } catch {
+        throw primaryErr;
+      }
+    }
+  },
+
   getRecordings: async (
     page: number = 1,
     pageSize: number = 20,
@@ -257,6 +411,56 @@ export const recordingService = {
     }
   },
 
+  /** Guest-only filtered search (no Authorization): GET /api/RecordingGuest/search-by-filter */
+  getGuestRecordingsByFilter: async (
+    filters: SearchFilters,
+    page: number = 1,
+    pageSize: number = 20,
+    opts?: { signal?: AbortSignal },
+  ) => {
+    const q = filters.query?.trim();
+    if (q) {
+      const titleRes = await recordingService.searchGuestRecordingsByTitle(q, page, pageSize, opts);
+      if (!hasMetadataFilters({ ...filters, query: undefined })) {
+        return titleRes;
+      }
+      const filtered = titleRes.items.filter((item) =>
+        matchesMetadataFilters(item, { ...filters, query: undefined }),
+      );
+      return {
+        items: filtered,
+        total: filtered.length,
+        totalPages: Math.max(1, Math.ceil(filtered.length / Math.max(1, pageSize))),
+        page,
+        pageSize,
+      };
+    }
+    const ethnicId = filters.ethnicityIds?.find((id) => id?.trim());
+    const instrumentId = filters.instrumentIds?.find((id) => id?.trim());
+    const regionCode = filters.regions?.[0];
+    const reqOpts = {
+      signal: opts?.signal,
+      params: {
+        page,
+        pageSize,
+        ...(ethnicId ? { ethnicGroupId: ethnicId.trim() } : {}),
+        ...(instrumentId ? { instrumentId: instrumentId.trim() } : {}),
+        ...(regionCode ? { regionCode: String(regionCode) } : {}),
+      },
+    };
+    try {
+      const data = await legacyGetAnonymous<unknown>('/RecordingGuest/search-by-filter', reqOpts);
+      return toGuestPaginatedResponse(data, page, pageSize);
+    } catch (primaryErr) {
+      try {
+        const data = await legacyGetAnonymous<unknown>('/recordingGuest/search-by-filter', reqOpts);
+        return toGuestPaginatedResponse(data, page, pageSize);
+      } catch {
+        throw primaryErr;
+      }
+    }
+  },
+
   /** Researcher: GET /api/Recording/search-by-filter — verified catalog with ID metadata filters. */
   searchRecordingsByFilter: async (query: ApiRecordingSearchByFilterQuery) => {
     const params = new URLSearchParams();
@@ -287,7 +491,7 @@ export const recordingService = {
   /**
    * Authenticated catalog search with text + facet filters.
    * Legacy `GET /api/Search/songs` was removed from OpenAPI; use `GET /api/Recording/search-by-filter`
-   * (same endpoint as researcher filter search; optional `q` passed loose for backends that support it).
+   * for metadata filters and `GET /api/Recording/search-by-title` for keyword search.
    */
   searchRecordings: async (
     filters: SearchFilters,
@@ -296,20 +500,32 @@ export const recordingService = {
     opts?: { signal?: AbortSignal },
   ) => {
     const q = filters.query?.trim();
+    if (q) {
+      const titleRes = await recordingService.searchRecordingsByTitle(q, page, pageSize, opts);
+      if (!hasMetadataFilters({ ...filters, query: undefined })) {
+        return titleRes;
+      }
+      const filtered = titleRes.items.filter((item) =>
+        matchesMetadataFilters(item, { ...filters, query: undefined }),
+      );
+      return {
+        items: filtered,
+        total: filtered.length,
+        totalPages: Math.max(1, Math.ceil(filtered.length / Math.max(1, pageSize))),
+        page,
+        pageSize,
+      };
+    }
     const ethnicId = filters.ethnicityIds?.find((id) => id?.trim());
     const instrumentId = filters.instrumentIds?.find((id) => id?.trim());
     const regionCode = filters.regions?.[0];
-    const genreTags = filters.tags?.join(',')?.trim();
-
     const merged: Record<string, string | number> = {
       page,
       pageSize,
     };
-    if (q) merged.q = q;
     if (ethnicId) merged.ethnicGroupId = ethnicId.trim();
     if (instrumentId) merged.instrumentId = instrumentId.trim();
     if (regionCode) merged.regionCode = String(regionCode);
-    if (genreTags) merged.genre = genreTags;
 
     return apiOk(
       asApiEnvelope<PaginatedResponse<Recording>>(
@@ -369,6 +585,44 @@ export const recordingService = {
       }>(
         apiFetch.POST('/api/Submission/create-submission', {
           body: payload,
+        }),
+      ),
+    );
+  },
+
+  // Recording images: list by recording id
+  getRecordingImages: async (recordingId: string) => {
+    return apiOk(
+      asApiEnvelope<{
+        isSuccess?: boolean;
+        message?: string;
+        data?: RecordingImageDto[];
+        items?: RecordingImageDto[];
+      }>(
+        apiFetch.GET('/api/RecordingImage', {
+          params: { query: openApiQueryRecord({ recordingId, page: 1, pageSize: 100 }) },
+        }),
+      ),
+    );
+  },
+
+  // Recording images: create image entry
+  createRecordingImage: async (data: {
+    recordingId: string;
+    imageUrl: string;
+    caption?: string;
+    sortOrder?: number;
+  }) => {
+    const payload: RecordingImageDto = {
+      recordingId: data.recordingId,
+      imageUrl: data.imageUrl,
+      caption: data.caption ?? null,
+      sortOrder: data.sortOrder ?? 0,
+    };
+    return apiOk(
+      asApiEnvelope<{ isSuccess?: boolean; message?: string; data?: RecordingImageDto }>(
+        apiFetch.POST('/api/RecordingImage', {
+          body: payload as never,
         }),
       ),
     );
