@@ -45,7 +45,7 @@ namespace VietTuneArchive.API.Controllers
         [HttpPost("create")]
         public async Task<IActionResult> Create([FromBody] CreateReviewDto dto)
         {
-            var result = await _reviewService.CreateAsync(dto);
+            var result = await _reviewService.SubmitReviewAsync(dto.SubmissionId, dto.ReviewerId, dto.Decision, dto.Comments);
             if (result.IsSuccess)
             {
                 return Ok(result);

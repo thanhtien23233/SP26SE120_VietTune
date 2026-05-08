@@ -4,6 +4,7 @@ using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Mapper.DTOs;
 using VietTuneArchive.Application.Responses;
 using VietTuneArchive.Domain.Entities;
+using VietTuneArchive.Domain.Entities.Enum;
 using VietTuneArchive.Domain.IRepositories;
 
 namespace VietTuneArchive.Application.Services
@@ -124,8 +125,8 @@ namespace VietTuneArchive.Application.Services
                 var submission = await _submissionRepository.GetByIdAsync(submissionId);
                 if (submission == null) return Result<bool>.Failure("Submission not found");
 
-                if (submission.Status == Domain.Entities.Enum.SubmissionStatus.Approved || 
-                    submission.Status == Domain.Entities.Enum.SubmissionStatus.Rejected)
+                if (submission.Status == SubmissionStatus.Approved || 
+                    submission.Status == SubmissionStatus.Rejected)
                 {
                     return Result<bool>.Failure("Cannot review an already decided submission");
                 }
@@ -159,28 +160,33 @@ namespace VietTuneArchive.Application.Services
 
                 await _reviewRepository.AddAsync(review);
 
-                if (decision == 1) // Reject
+                if (decision == 0) // Reject
                 {
-                    submission.Status = Domain.Entities.Enum.SubmissionStatus.Rejected;
+                    submission.Status = SubmissionStatus.Rejected;
                     await _notificationService.SendNotificationAsync(submission.ContributorId, "Submission Rejected", "Your submission was rejected.", "SubmissionRejected", "Submission", submission.Id);
                 }
-                else if (decision == 0) // Approve/Pass
+                //else if (decision == 1) // Approve/Pass
+                //{
+                //    if (submission.CurrentStage == 1) // Screening
+                //    {
+                //        submission.CurrentStage = 2; // Verification
+                //        await _notificationService.SendNotificationAsync(submission.ContributorId, "Screening Passed", "Your submission passed screening.", "ScreeningPassed", "Submission", submission.Id);
+                //    }
+                //    else if (submission.CurrentStage == 2) // Verification
+                //    {
+                //        submission.CurrentStage = 3; // Approval
+                //        await _notificationService.SendNotificationAsync(submission.ContributorId, "Verification Passed", "Your submission passed verification.", "VerificationPassed", "Submission", submission.Id);
+                //    }
+                //    else if (submission.CurrentStage == 3) // Final Approval
+                //    {
+                //        submission.Status = SubmissionStatus.Approved;
+                //        await _notificationService.SendNotificationAsync(submission.ContributorId, "Submission Approved", "Your submission is approved.", "SubmissionApproved", "Submission", submission.Id);
+                //    }
+                //} 
+                else if (decision == 1) // Request Revision
                 {
-                    if (submission.CurrentStage == 0) // Screening
-                    {
-                        submission.CurrentStage = 1; // Verification
-                        await _notificationService.SendNotificationAsync(submission.ContributorId, "Screening Passed", "Your submission passed screening.", "ScreeningPassed", "Submission", submission.Id);
-                    }
-                    else if (submission.CurrentStage == 1) // Verification
-                    {
-                        submission.CurrentStage = 2; // Approval
-                        await _notificationService.SendNotificationAsync(submission.ContributorId, "Verification Passed", "Your submission passed verification.", "VerificationPassed", "Submission", submission.Id);
-                    }
-                    else if (submission.CurrentStage == 2) // Final Approval
-                    {
-                        submission.Status = Domain.Entities.Enum.SubmissionStatus.Approved;
-                        await _notificationService.SendNotificationAsync(submission.ContributorId, "Submission Approved", "Your submission is approved.", "SubmissionApproved", "Submission", submission.Id);
-                    }
+                    submission.Status = SubmissionStatus.UpdateRequested;
+                    await _notificationService.SendNotificationAsync(submission.ContributorId, "Revision Requested", "Your submission requires revisions.", "RevisionRequested", "Submission", submission.Id);
                 }
 
                 submission.UpdatedAt = DateTime.UtcNow;
