@@ -25,22 +25,39 @@ namespace VietTuneArchive.Application.Services
         private readonly IUserRepository _userRepository;
         private readonly IVectorEmbeddingService _vectorEmbeddingService;
         private readonly ILogger<RecordingService> _logger;
-        public RecordingService(IRecordingRepository repository, IMapper mapper, ICommuneRepository communeRepository, IEthnicGroupRepository ethnicGroupRepository, ICeremonyRepository ceremonyRepository, IMusicalScaleRepository musicalScaleRepository, IInstrumentRepository instrumentRepository, IVocalStyleRepository vocalStyleRepository, ISubmissionRepository submissionRepository, INotificationService notificationService, IUserRepository userRepository, IVectorEmbeddingService vectorEmbeddingService, ILogger<RecordingService> logger)
+        private readonly ISupabaseStorageService _storageService;
+
+        public RecordingService(
+            IRecordingRepository repository,
+            IMapper mapper,
+            ICommuneRepository communeRepository,
+            IEthnicGroupRepository ethnicGroupRepository,
+            ICeremonyRepository ceremonyRepository,
+            IMusicalScaleRepository musicalScaleRepository,
+            IInstrumentRepository instrumentRepository,
+            IVocalStyleRepository vocalStyleRepository,
+            ISubmissionRepository submissionRepository,
+            INotificationService notificationService,
+            IUserRepository userRepository,
+            IVectorEmbeddingService vectorEmbeddingService,
+            ILogger<RecordingService> logger,
+            ISupabaseStorageService storageService)
             : base(repository, mapper)
         {
-            _recordingRepository = repository ?? throw new ArgumentNullException(nameof(repository));
-            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
-            _submissionRepository = submissionRepository ?? throw new ArgumentNullException(nameof(submissionRepository));
-            _notificationService = notificationService;
-            _userRepository = userRepository;
-            _communeRepository = communeRepository;
-            _ethnicGroupRepository = ethnicGroupRepository;
-            _ceremonyRepository = ceremonyRepository;
+            _recordingRepository    = repository ?? throw new ArgumentNullException(nameof(repository));
+            _mapper                 = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _submissionRepository   = submissionRepository ?? throw new ArgumentNullException(nameof(submissionRepository));
+            _notificationService    = notificationService;
+            _userRepository         = userRepository;
+            _communeRepository      = communeRepository;
+            _ethnicGroupRepository  = ethnicGroupRepository;
+            _ceremonyRepository     = ceremonyRepository;
             _musicalScaleRepository = musicalScaleRepository;
-            _instrumentRepository = instrumentRepository;
-            _vocalStyleRepository = vocalStyleRepository;
+            _instrumentRepository   = instrumentRepository;
+            _vocalStyleRepository   = vocalStyleRepository;
             _vectorEmbeddingService = vectorEmbeddingService;
-            _logger = logger;
+            _logger                 = logger;
+            _storageService         = storageService ?? throw new ArgumentNullException(nameof(storageService));
         }
         public async Task<Result<RecordingDto>> UploadRecordInfo(RecordingDto recordingDto, Guid recordingId)
         {
@@ -545,6 +562,54 @@ namespace VietTuneArchive.Application.Services
                 }
             }
             return response;
+        }
+
+        /// <summary>
+        /// Xoá Recording: dọn dẹp audio file + tất cả ảnh trên Supabase Storage
+        /// trước khi xoá DB record.
+        /// </summary>
+        public override async Task<ServiceResponse<bool>> DeleteAsync(Guid id)
+        {
+            try
+            {
+                if (id == Guid.Empty)
+                    throw new ArgumentException("Id cannot be empty.", nameof(id));
+
+                // Lấy recording kèm danh sách ảnh
+                var recording = await _recordingRepository.GetByIdAsync(id);
+                if (recording == null)
+                    return new ServiceResponse<bool> { Success = false, Message = "Recording not found." };
+
+                // 1. Xoá audio file khỏi Supabase (bỏ qua nếu URL không phải Supabase)
+                if (!string.IsNullOrWhiteSpace(recording.AudioFileUrl))
+                    await _storageService.DeleteByUrlAsync(recording.AudioFileUrl);
+
+                // 2. Xoá video file nếu có
+                if (!string.IsNullOrWhiteSpace(recording.VideoFileUrl))
+                    await _storageService.DeleteByUrlAsync(recording.VideoFileUrl);
+
+                // 3. Xoá tất cả ảnh liên quan
+                if (recording.RecordingImages != null)
+                {
+                    foreach (var img in recording.RecordingImages)
+                    {
+                        await _storageService.DeleteByUrlAsync(img.ImageUrl);
+                    }
+                }
+
+                // 4. Xoá DB record (cascade xoá RecordingImages, RecordingInstruments,...)
+                return await base.DeleteAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete Recording {Id}", id);
+                return new ServiceResponse<bool>
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Errors  = new List<string> { ex.Message }
+                };
+            }
         }
     }
 }

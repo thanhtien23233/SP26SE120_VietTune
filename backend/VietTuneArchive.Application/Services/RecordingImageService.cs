@@ -59,6 +59,39 @@ namespace VietTuneArchive.Application.Services
             }
         }
 
+        /// <summary>
+        /// Xoá ảnh: trước tiên xoá file khỏi Supabase Storage (dùng URL từ DB),
+        /// sau đó mới xoá DB record.
+        /// </summary>
+        public override async Task<ServiceResponse<bool>> DeleteAsync(Guid id)
+        {
+            try
+            {
+                if (id == Guid.Empty)
+                    throw new ArgumentException("Id cannot be empty.", nameof(id));
+
+                // Lấy entity trước để lấy ImageUrl
+                var image = await _recordingImageRepository.GetByIdAsync(id);
+                if (image == null)
+                    return new ServiceResponse<bool> { Success = false, Message = "Image not found." };
+
+                // Xoá file khỏi Supabase Storage (bỏ qua nếu URL không thuộc Supabase)
+                await _storageService.DeleteByUrlAsync(image.ImageUrl);
+
+                // Xoá DB record
+                return await base.DeleteAsync(id);
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse<bool>
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Errors  = new List<string> { ex.Message }
+                };
+            }
+        }
+
         // =================================================================
         // QUERY
         // =================================================================

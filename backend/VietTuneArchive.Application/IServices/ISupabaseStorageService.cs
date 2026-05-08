@@ -29,5 +29,13 @@ namespace VietTuneArchive.Application.IServices
         /// <param name="bucketName">Tên bucket.</param>
         /// <param name="filePath">Đường dẫn object trong bucket (không gồm base URL).</param>
         Task DeleteAsync(string bucketName, string filePath);
+
+        /// <summary>
+        /// Xoá file bằng public URL đã lưu trong DB.
+        /// Tự parse bucket + object path từ URL format:
+        /// {supabaseUrl}/storage/v1/object/public/{bucket}/{objectPath}
+        /// Nếu URL không thuộc Supabase thì bỏ qua (không throw).
+        /// </summary>
+        Task DeleteByUrlAsync(string publicUrl);
     }
 }

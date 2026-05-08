@@ -88,6 +88,49 @@ namespace VietTuneArchive.Application.Services
             }
         }
 
+        /// <inheritdoc/>
+        public async Task DeleteByUrlAsync(string publicUrl)
+        {
+            if (string.IsNullOrWhiteSpace(publicUrl))
+                return;
+
+            // Chỉ xử lý URL thuộc Supabase project này
+            if (!publicUrl.StartsWith(SupabaseUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogDebug(
+                    "SupabaseStorage: DeleteByUrlAsync skipped — URL không thuộc Supabase: {Url}", publicUrl);
+                return;
+            }
+
+            // Parse: {supabaseUrl}/storage/v1/object/public/{bucket}/{objectPath}
+            const string marker = "/storage/v1/object/public/";
+            var markerIndex = publicUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (markerIndex < 0)
+            {
+                _logger.LogWarning(
+                    "SupabaseStorage: DeleteByUrlAsync — không parse được URL: {Url}", publicUrl);
+                return;
+            }
+
+            var afterMarker = publicUrl[(markerIndex + marker.Length)..];
+            // afterMarker = "{bucket}/{objectPath}"
+            var slashIndex = afterMarker.IndexOf('/');
+            if (slashIndex < 0)
+            {
+                _logger.LogWarning(
+                    "SupabaseStorage: DeleteByUrlAsync — URL thiếu objectPath: {Url}", publicUrl);
+                return;
+            }
+
+            var bucket     = afterMarker[..slashIndex];
+            var objectPath = afterMarker[(slashIndex + 1)..];
+
+            _logger.LogInformation(
+                "SupabaseStorage: DeleteByUrlAsync bucket={Bucket} path={Path}", bucket, objectPath);
+
+            await DeleteAsync(bucket, objectPath);
+        }
+
         // =================================================================
         // PRIVATE — Core HTTP
         // =================================================================
