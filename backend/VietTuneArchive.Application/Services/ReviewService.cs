@@ -142,7 +142,7 @@ namespace VietTuneArchive.Application.Services
                     return Result<bool>.Failure("Forbidden: You are not assigned to review this submission");
                 }
 
-                if (string.IsNullOrWhiteSpace(comments) && (decision == 1 || decision == 2))
+                if (string.IsNullOrWhiteSpace(comments) && (decision == 0 || decision == 1))
                 {
                     return Result<bool>.Failure("Validation Error: Feedback is required when rejecting or requesting edits");
                 }
