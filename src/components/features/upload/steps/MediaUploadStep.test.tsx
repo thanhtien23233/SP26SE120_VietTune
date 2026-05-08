@@ -47,6 +47,10 @@ describe('MediaUploadStep', () => {
         onUseAiAnalysisChange={vi.fn()}
         onMediaTypeChange={vi.fn()}
         onResetSelectedFile={vi.fn()}
+        recordingImagePreviews={[]}
+        existingRecordingImageUrls={[]}
+        onRecordingImagesChange={vi.fn()}
+        onRemoveRecordingImage={vi.fn()}
         formatFileSize={() => '1 KB'}
         formatDuration={() => '00:12'}
       />,

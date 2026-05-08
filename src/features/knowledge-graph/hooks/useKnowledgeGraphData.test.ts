@@ -62,7 +62,10 @@ describe('buildKnowledgeGraphData', () => {
     const b = baseRecording('2', 'B');
     const data = buildKnowledgeGraphData([a, b], [], [], []);
     const located = data.links.filter(
-      (l) => l.type === 'located_in' && typeof l.source === 'string' && l.source.startsWith('eth_'),
+      (l) =>
+        l.type === 'located_in' &&
+        typeof l.source === 'string' &&
+        l.source.startsWith('EthnicGroup:'),
     );
     expect(located).toHaveLength(1);
   });
@@ -94,7 +97,7 @@ describe('buildKnowledgeGraphData', () => {
     expect(inst?.val).toBe(0.4);
   });
 
-  it('sets backendId and apiEntityType for explore and recording-detail alignment', () => {
+  it('sets entityId / entityType / explorable for explore + recording-detail alignment', () => {
     const r = baseRecording('recording-guid-7', 'Title');
     r.instruments = [
       {
@@ -107,14 +110,18 @@ describe('buildKnowledgeGraphData', () => {
       },
     ];
     const data = buildKnowledgeGraphData([r], [], [], []);
-    const rec = data.nodes.find((n) => n.id === 'rec_recording-guid-7');
-    expect(rec?.backendId).toBe('recording-guid-7');
-    expect(rec?.apiEntityType).toBe('Recording');
+    const rec = data.nodes.find((n) => n.id === 'Recording:recording-guid-7');
+    expect(rec?.entityId).toBe('recording-guid-7');
+    expect(rec?.entityType).toBe('Recording');
+    expect(rec?.explorable).toBe(true);
+    expect(rec?.backendId).toBe('recording-guid-7'); // legacy alias kept for one release
     const eth = data.nodes.find((n) => n.type === 'ethnic_group');
-    expect(eth?.backendId).toBe('eth-1');
-    expect(eth?.apiEntityType).toBe('EthnicGroup');
+    expect(eth?.entityId).toBe('eth-1');
+    expect(eth?.entityType).toBe('EthnicGroup');
+    expect(eth?.explorable).toBe(true);
     const inst = data.nodes.find((n) => n.type === 'instrument');
-    expect(inst?.backendId).toBe('instrument-guid-2');
-    expect(inst?.apiEntityType).toBe('Instrument');
+    expect(inst?.entityId).toBe('instrument-guid-2');
+    expect(inst?.entityType).toBe('Instrument');
+    expect(inst?.explorable).toBe(true);
   });
 });

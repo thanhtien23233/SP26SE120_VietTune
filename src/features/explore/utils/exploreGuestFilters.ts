@@ -8,6 +8,7 @@ export function hasActiveGuestFilters(filters: SearchFilters): boolean {
   if ((filters.regions?.length ?? 0) > 0) return true;
   if ((filters.recordingTypes?.length ?? 0) > 0) return true;
   if ((filters.ethnicityIds?.length ?? 0) > 0) return true;
+  if ((filters.instrumentIds?.length ?? 0) > 0) return true;
   if ((filters.tags?.length ?? 0) > 0) return true;
   if (filters.dateFrom || filters.dateTo) return true;
   return false;
@@ -22,6 +23,7 @@ export function applyGuestFilters(rows: Recording[], filters: SearchFilters): Re
   const dateTo = filters.dateTo ? new Date(filters.dateTo).getTime() : null;
   const tags = (filters.tags ?? []).map((t) => normalizeSearchText(t)).filter(Boolean);
   const ethnicityIds = filters.ethnicityIds ?? [];
+  const instrumentIds = filters.instrumentIds ?? [];
 
   return rows.filter((r) => {
     if (query) {
@@ -46,6 +48,16 @@ export function applyGuestFilters(rows: Recording[], filters: SearchFilters): Re
       const ok = ethnicityIds.some(
         (id) =>
           id === r.ethnicity.id || id === r.ethnicity.name || id === r.ethnicity.nameVietnamese,
+      );
+      if (!ok) return false;
+    }
+    if (instrumentIds.length > 0) {
+      const wanted = new Set(instrumentIds);
+      const ok = (r.instruments ?? []).some(
+        (inst) =>
+          wanted.has(inst.id ?? '') ||
+          wanted.has(inst.name ?? '') ||
+          wanted.has(inst.nameVietnamese ?? ''),
       );
       if (!ok) return false;
     }

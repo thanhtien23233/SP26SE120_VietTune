@@ -56,6 +56,9 @@ export function useUploadForm() {
   const [lyricsFile, setLyricsFile] = useState<File | null>(null);
   const [instrumentImage, setInstrumentImage] = useState<File | null>(null);
   const [instrumentImagePreview, setInstrumentImagePreview] = useState<string>('');
+  const [recordingImages, setRecordingImages] = useState<File[]>([]);
+  const [recordingImagePreviews, setRecordingImagePreviews] = useState<string[]>([]);
+  const [existingRecordingImageUrls, setExistingRecordingImageUrls] = useState<string[]>([]);
 
   const handleInstrumentImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = e.target.files?.[0] || null;
@@ -70,6 +73,31 @@ export function useUploadForm() {
       setInstrumentImagePreview('');
     }
   };
+
+  const handleRecordingImagesChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []).filter((file) => file.type.startsWith('image/'));
+    if (picked.length === 0) return;
+
+    void (async () => {
+      const previewPromises = picked.map(
+        (file) =>
+          new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => resolve((ev.target?.result as string) || '');
+            reader.onerror = () => resolve('');
+            reader.readAsDataURL(file);
+          }),
+      );
+      const previews = (await Promise.all(previewPromises)).filter(Boolean);
+      setRecordingImages((prev) => [...prev, ...picked]);
+      setRecordingImagePreviews((prev) => [...prev, ...previews]);
+    })();
+  }, []);
+
+  const removeRecordingImage = useCallback((index: number) => {
+    setRecordingImages((prev) => prev.filter((_, i) => i !== index));
+    setRecordingImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  }, []);
 
   const [collector, setCollector] = useState('');
   const [copyright, setCopyright] = useState('');
@@ -291,6 +319,14 @@ export function useUploadForm() {
     instrumentImagePreview,
     setInstrumentImagePreview,
     handleInstrumentImageChange,
+    recordingImages,
+    setRecordingImages,
+    recordingImagePreviews,
+    setRecordingImagePreviews,
+    existingRecordingImageUrls,
+    setExistingRecordingImageUrls,
+    handleRecordingImagesChange,
+    removeRecordingImage,
     collector,
     setCollector,
     copyright,

@@ -1,9 +1,11 @@
-import { Bot, Info, Lightbulb, Send } from 'lucide-react';
+import { Bot, History, Info, Lightbulb, Send } from 'lucide-react';
 import React from 'react';
 
+import QAChatHistorySidebar from '@/components/researcher/QAChatHistorySidebar';
 import { INTELLIGENCE_NAME } from '@/config/constants';
 import { CHAT_INPUT_COUNTER_FROM, CHAT_INPUT_MAX_LENGTH } from '@/config/validationConstants';
 import type { ResearcherPortalChatMessage } from '@/features/researcher/researcherPortalTypes';
+import type { QAConversationRequest } from '@/services/qaConversationService';
 import { Recording } from '@/types';
 
 const QUICK_QUESTIONS = [
@@ -24,6 +26,13 @@ export interface ResearcherPortalQATabProps {
   onQuickQuestion: (q: string) => void | Promise<void>;
   onCitationClick: (target: Recording | string) => void;
   approvedRecordings: Recording[];
+  history: QAConversationRequest[];
+  isLoadingHistory: boolean;
+  conversationId: string;
+  onSelectConversation: (conv: QAConversationRequest) => void;
+  onNewChat: () => void;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (open: boolean) => void;
 }
 
 export default function ResearcherPortalQATab({
@@ -37,11 +46,38 @@ export default function ResearcherPortalQATab({
   onQuickQuestion,
   onCitationClick,
   approvedRecordings,
+  history,
+  isLoadingHistory,
+  conversationId,
+  onSelectConversation,
+  onNewChat,
+  isSidebarOpen,
+  setIsSidebarOpen,
 }: ResearcherPortalQATabProps) {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 flex flex-col rounded-2xl border border-secondary-200/50 bg-gradient-to-b from-surface-panel to-secondary-50/55 shadow-lg backdrop-blur-sm overflow-hidden min-h-[500px] max-h-[700px]">
+      {!isSidebarOpen && (
+        <button
+          type="button"
+          onClick={() => setIsSidebarOpen(true)}
+          className="lg:hidden mb-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-50 border border-primary-200 text-primary-800 font-semibold text-sm shadow-sm hover:bg-primary-100 transition-all cursor-pointer"
+        >
+          <History className="w-4 h-4" strokeWidth={2.5} />
+          Mở lịch sử
+        </button>
+      )}
+      <div className="flex flex-col lg:flex-row gap-6">
+        <QAChatHistorySidebar
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          history={history}
+          isLoadingHistory={isLoadingHistory}
+          conversationId={conversationId}
+          onSelectConversation={onSelectConversation}
+          onNewChat={onNewChat}
+        />
+
+        <div className="flex-1 min-w-0 flex flex-col rounded-2xl border border-secondary-200/50 bg-gradient-to-b from-surface-panel to-secondary-50/55 shadow-lg backdrop-blur-sm overflow-hidden min-h-[500px] max-h-[700px]">
           <div className="bg-gradient-to-r from-primary-700 to-primary-600 text-white px-4 sm:px-6 py-4 border-b border-primary-800">
             <h2 className="text-lg font-semibold">VietTune Intelligence</h2>
             <p className="text-secondary-200 text-sm mt-0.5">
@@ -153,7 +189,7 @@ export default function ResearcherPortalQATab({
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 lg:w-80 flex-shrink-0">
           <div className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-surface-panel via-cream-50/80 to-secondary-50/50 shadow-lg backdrop-blur-sm p-4">
             <h3 className="flex items-center gap-2 text-base font-semibold text-primary-800 mb-3">
               <Lightbulb className="w-5 h-5 text-secondary-600" strokeWidth={2.5} />

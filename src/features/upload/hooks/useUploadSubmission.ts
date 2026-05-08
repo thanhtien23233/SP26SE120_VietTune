@@ -21,6 +21,8 @@ import { UserRole } from '@/types';
 import type { DetectedInstrument, MetadataSuggestion } from '@/types/instrumentDetection';
 import { uiToast } from '@/uiToast';
 import {
+  buildAiDirectSuggestions,
+  dedupeAndSortMetadataSuggestions,
   mapInstrumentsToMetadataSuggestions,
   normalizeInstrumentMatchKey,
 } from '@/utils/instrumentMetadataMapper';
@@ -43,6 +45,7 @@ type UseUploadSubmissionOptions = {
   currentUserRole?: UserRole;
   mediaType: 'audio' | 'video';
   file: File | null;
+  recordingImages: File[];
   createdRecordingId: string | null;
   setCreatedRecordingId: (value: string | null) => void;
   setCurrentSubmissionId: (value: string | null) => void;
@@ -235,6 +238,7 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
       options.setUploadProgress(99);
       options.setNewUploadedUrl(publicUrl);
 
+      let recordingIdForImages: string | null = options.isEditMode ? options.editingRecordingId : null;
       if (!options.isEditMode) {
         const uploaderId = options.currentUserId ? options.currentUserId.toString() : '1';
         const res = await recordingService.createSubmission({
@@ -246,9 +250,27 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
         const submissionId = res?.data?.submissionId;
         if (!recordingId) throw new Error('Không nhận được ID bản thu từ hệ thống.');
         options.setCreatedRecordingId(recordingId);
+        recordingIdForImages = recordingId;
         if (submissionId) options.setCurrentSubmissionId(submissionId);
       } else {
         options.setCreatedRecordingId('EDIT_MODE_UPLOADED');
+      }
+
+      if (options.recordingImages.length > 0 && recordingIdForImages) {
+        const imageResults = await Promise.allSettled(
+          options.recordingImages.map(async (imageFile, index) => {
+            const imageUrl = await uploadFileToSupabase(imageFile, 'images');
+            await recordingService.createRecordingImage({
+              recordingId: recordingIdForImages,
+              imageUrl,
+              sortOrder: index,
+            });
+          }),
+        );
+        const failedCount = imageResults.filter((result) => result.status === 'rejected').length;
+        if (failedCount > 0) {
+          uiToast.warning('Một số ảnh minh họa chưa tải lên được. Bạn có thể thử lại sau.');
+        }
       }
 
       if (aiRes) {
@@ -432,15 +454,29 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
         options.setComposerUnknown(false);
       }
       options.setInstrumentPredictions(detectedInstruments);
-      if (instrumentDetectionFlags.confidenceEnabled && detectedInstruments.length > 0) {
-        const suggestions = mapInstrumentsToMetadataSuggestions({
-          detected: detectedInstruments,
-          instrumentsData: options.instrumentsData,
-          ethnicGroupsData: options.ethnicGroupsData,
-          vocalStylesData: options.vocalStylesData,
-          availableRegions: options.REGIONS,
-        });
-        options.setAiMetadataSuggestions(suggestions);
+
+      // Build the read-only "Suggested Metadata" panel from two complementary sources:
+      //   1. AI-direct fields from Gemini's analyze-only response (ethnicGroup, vocalStyle,
+      //      musicalScale, ceremony, regionSuggestion). These outrank fallback rows.
+      //   2. Instrument-name → DB join + INSTRUMENT_METADATA_FALLBACK heuristics.
+      // Both lists are deduped by (field, canonical value); rankCandidates surfaces
+      // AI-direct values to the "Primary" slot regardless of nominal confidence.
+      if (instrumentDetectionFlags.confidenceEnabled) {
+        const aiDirect = aiRes
+          ? buildAiDirectSuggestions(aiRes, options.REGIONS)
+          : ([] as MetadataSuggestion[]);
+        const fromInstruments =
+          detectedInstruments.length > 0
+            ? mapInstrumentsToMetadataSuggestions({
+                detected: detectedInstruments,
+                instrumentsData: options.instrumentsData,
+                ethnicGroupsData: options.ethnicGroupsData,
+                vocalStylesData: options.vocalStylesData,
+                availableRegions: options.REGIONS,
+              })
+            : ([] as MetadataSuggestion[]);
+        const merged = dedupeAndSortMetadataSuggestions([...aiDirect, ...fromInstruments]);
+        options.setAiMetadataSuggestions(merged);
       } else {
         options.setAiMetadataSuggestions([]);
       }

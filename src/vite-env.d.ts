@@ -17,6 +17,11 @@ interface ImportMetaEnv {
   readonly VITE_SIGNALR_HUB_URL?: string;
   readonly VITE_INSTRUMENT_CONFIDENCE?: string;
   readonly VITE_INSTRUMENT_DETECTION_MOCK?: string;
+  readonly VITE_ENABLE_SPECTROGRAM_COMPARE?: string;
+  /** `custom` → custom FFT canvas renderer; any other/absent → WaveSurfer Spectrogram plugin (default). */
+  readonly VITE_COMPARE_SPECTROGRAM_RENDERER?: string;
+  /** `true` → console.debug FFT + canvas checkpoints (dev only). */
+  readonly VITE_SPECTROGRAM_DEBUG?: string;
 }
 
 interface ImportMeta {

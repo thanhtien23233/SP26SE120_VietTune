@@ -101,15 +101,15 @@ export type ApiSemanticSearch768Query = NonNullable<
 >;
 
 export type ApiAdminUserAdminDto =
-  Schemas['VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserAdminDto'];
+  Schemas['VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserAdminDto'];
 export type ApiAdminUserDetailAdminDto =
-  Schemas['VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserDetailAdminDto'];
+  Schemas['VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserDetailAdminDto'];
 export type ApiAdminUsersPagedList =
-  Schemas['VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto+UserAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'];
+  Schemas['VietTuneArchive.Application.Mapper.DTOs.PagedList`1[[VietTuneArchive.Application.Mapper.DTOs.AdminDto.UserAdminDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'];
 export type ApiAdminUpdateRoleRequest =
-  Schemas['VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+UpdateRoleRequest'];
+  Schemas['VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.UpdateRoleRequest'];
 export type ApiAdminUpdateStatusRequest =
-  Schemas['VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest+UpdateStatusRequest'];
+  Schemas['VietTuneArchive.Application.Mapper.DTOs.Request.AdminRequest.UpdateStatusRequest'];
 export type ApiBaseResponse = Schemas['VietTuneArchive.Application.Mapper.DTOs.BaseResponse'];
 
 export type ApiAuthLoginModel = Schemas['VietTuneArchive.Domain.Entities.Model.LoginModel'];
