@@ -5,9 +5,6 @@ export const VERIFICATION_STEPS = [
     wizardTitle: 'Bước 1: Kiểm tra sơ bộ',
     description: 'Đánh giá tính đầy đủ và phù hợp của thông tin',
     sectionTitle: 'Yêu cầu kiểm tra',
-    notesLabel: 'Ghi chú kiểm tra sơ bộ',
-    notesPlaceholder: 'Ghi chú về các vấn đề cần lưu ý hoặc cần bổ sung...',
-    notesField: 'notes',
     fields: [
       {
         key: 'infoComplete',
@@ -75,12 +72,6 @@ export const VERIFICATION_STEPS = [
         key: 'finalApproval',
         label:
           'Xác nhận phê duyệt: Tôi xác nhận đã hoàn thành tất cả các bước kiểm tra và đồng ý phê duyệt bản thu này',
-      },
-    ],
-    optionalFields: [
-      {
-        key: 'sensitiveContent',
-        label: 'Nội dung nhạy cảm: Đề xuất áp dụng hạn chế công bố cho bản ghi này',
       },
     ],
   },

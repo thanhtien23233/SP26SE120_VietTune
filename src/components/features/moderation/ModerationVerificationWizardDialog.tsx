@@ -1,5 +1,5 @@
 import { AlertCircle, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, Ref } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -13,6 +13,7 @@ import type { LocalRecordingMini } from '@/features/moderation/types/localRecord
 import { buildRecordingForModerationWizard } from '@/features/moderation/utils/buildRecordingForModerationWizard';
 import { resolveCulturalContextForDisplay } from '@/features/moderation/utils/resolveReferenceDisplayStrings';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
+import { referenceDataService, type InstrumentItem } from '@/services/referenceDataService';
 import { detectCrossCaseWarning } from '@/utils/crossCaseInstrumentWarning';
 import { isYouTubeUrl } from '@/utils/youtube';
 
@@ -26,6 +27,10 @@ function culturalContextDepsKey(ctx: LocalRecordingMini['culturalContext']): str
     ctx.performanceType ?? '',
     (ctx.instruments ?? []).join('|'),
   ].join('\u0001');
+}
+
+function normalizeInstrumentDisplayKey(name: string): string {
+  return name.trim().toLowerCase();
 }
 
 const overlayBackdropStyle: CSSProperties = {
@@ -190,6 +195,42 @@ export function ModerationVerificationWizardDialog({
   const step1CulturalContext =
     item.culturalContext != null ? (resolvedCulturalContext ?? item.culturalContext) : undefined;
   const [newInstrumentOverride, setNewInstrumentOverride] = useState('');
+  const instrumentCatalogListId = `verification-instrument-catalog-${submissionId}`;
+  const [instrumentsCatalog, setInstrumentsCatalog] = useState<InstrumentItem[]>([]);
+  const [instrumentsLoading, setInstrumentsLoading] = useState(false);
+
+  useEffect(() => {
+    if (currentStep !== 2) return;
+    let cancelled = false;
+    setInstrumentsLoading(true);
+    void referenceDataService
+      .getInstruments()
+      .then((items) => {
+        if (!cancelled) setInstrumentsCatalog(Array.isArray(items) ? items : []);
+      })
+      .catch(() => {
+        if (!cancelled) setInstrumentsCatalog([]);
+      })
+      .finally(() => {
+        if (!cancelled) setInstrumentsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStep]);
+
+  const instrumentCatalogByNormName = useMemo(() => {
+    const map = new Map<string, InstrumentItem>();
+    for (const inst of instrumentsCatalog) {
+      const k = normalizeInstrumentDisplayKey(inst.name);
+      if (k && !map.has(k)) map.set(k, inst);
+    }
+    return map;
+  }, [instrumentsCatalog]);
+
+  const catalogMatchForDisplayName = (displayName: string) =>
+    instrumentCatalogByNormName.get(normalizeInstrumentDisplayKey(displayName));
+
   const step2Overrides = (formSlice?.step2?.instrumentOverrides ?? {}) as Record<
     string,
     'confirmed' | 'rejected' | 'added'
@@ -203,7 +244,6 @@ export function ModerationVerificationWizardDialog({
       step1CulturalContext?.eventType ?? '',
     ],
   });
-  const crossCaseSelection = formSlice?.step2?.crossCaseClassification ?? 'none';
   const step2MissingFields =
     currentStep === 2
       ? getMissingStep2Fields(formSlice?.step2, step1CulturalContext?.instruments ?? [])
@@ -528,20 +568,6 @@ export function ModerationVerificationWizardDialog({
                       </div>
                     ))}
                   </div>
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      {VERIFICATION_STEPS[0].notesLabel}{' '}
-                      <span className="text-sm text-neutral-500">(Tùy chọn)</span>
-                    </label>
-                    <textarea
-                      value={formSlice?.step1?.notes || ''}
-                      onChange={(e) => onUpdateVerificationForm(1, VERIFICATION_STEPS[0].notesField, e.target.value)}
-                      rows={3}
-                      maxLength={MODERATION_EXPERT_TEXTAREA_MAX_LENGTH}
-                      className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:border-primary-500"
-                      placeholder={VERIFICATION_STEPS[0].notesPlaceholder}
-                    />
-                  </div>
                 </div>
               )}
 
@@ -573,52 +599,52 @@ export function ModerationVerificationWizardDialog({
                       </div>
                     ))}
                   </div>
-                  <div className="rounded-xl border border-neutral-200 bg-white p-4">
-                    <p className="mb-3 text-sm font-medium text-neutral-800">
-                      Đánh dấu cross-case nhạc cụ truyền thống/hiện đại
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        {
-                          key: 'traditional_with_modern_instruments',
-                          label: 'Traditional + modern instruments',
-                        },
-                        {
-                          key: 'contemporary_with_traditional_instruments',
-                          label: 'Contemporary + traditional instruments',
-                        },
-                        { key: 'none', label: 'Không có cross-case' },
-                      ].map((option) => (
-                        <button
-                          key={option.key}
-                          type="button"
-                          onClick={() => onUpdateVerificationForm(2, 'crossCaseClassification', option.key)}
-                          className={`rounded-full px-3 py-1 text-xs font-medium ${
-                            crossCaseSelection === option.key
-                              ? 'bg-primary-600 text-white'
-                              : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
+                  <div className="rounded-xl border border-secondary-200/70 bg-gradient-to-br from-surface-panel to-cream-50/50 p-4 shadow-sm">
+                    <div className="mb-3 space-y-1">
+                      <p className="text-sm font-semibold text-neutral-900">Xác minh nhạc cụ</p>
+                      <p className="text-xs text-neutral-600 leading-relaxed">
+                        Đối chiếu nhạc cụ khai báo với danh mục hệ thống. Thêm nhạc cụ thiếu bằng cách gõ hoặc
+                        chọn gợi ý.
+                      </p>
                     </div>
-                  </div>
-                  <div className="rounded-xl border border-neutral-200 bg-white p-4">
-                    <p className="mb-3 text-sm font-medium text-neutral-800">
-                      Xác minh nhạc cụ (confirm/reject/add)
+                    {instrumentsLoading && (
+                      <p className="mb-2 text-xs font-medium text-neutral-500">Đang tải danh mục nhạc cụ…</p>
+                    )}
+                    <datalist id={instrumentCatalogListId}>
+                      {instrumentsCatalog.map((inst) => (
+                        <option key={inst.id} value={inst.name} />
+                      ))}
+                    </datalist>
+
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Danh sách khai báo
                     </p>
                     {listedInstruments.length > 0 ? (
                       <div className="space-y-2">
                         {listedInstruments.map((instrumentName) => {
                           const status = step2Overrides[instrumentName];
+                          const catalogRow = catalogMatchForDisplayName(instrumentName);
+                          const descTrimmed = catalogRow?.description?.trim();
+                          const subtitle =
+                            catalogRow?.category?.trim() ||
+                            (descTrimmed && descTrimmed.length > 0
+                              ? descTrimmed.length > 120
+                                ? `${descTrimmed.slice(0, 120)}…`
+                                : descTrimmed
+                              : null) ||
+                            null;
                           return (
                             <div
                               key={instrumentName}
-                              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-200 px-3 py-2"
+                              className="flex flex-col gap-3 rounded-xl border border-neutral-200/90 bg-white/90 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                             >
-                              <span className="text-sm text-neutral-800">{instrumentName}</span>
-                              <div className="flex items-center gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-neutral-900">{instrumentName}</p>
+                                {subtitle ? (
+                                  <p className="mt-0.5 text-xs text-neutral-500 leading-snug">{subtitle}</p>
+                                ) : null}
+                              </div>
+                              <div className="flex shrink-0 flex-wrap gap-2">
                                 {(['confirmed', 'rejected'] as const).map((choice) => (
                                   <button
                                     key={choice}
@@ -629,12 +655,12 @@ export function ModerationVerificationWizardDialog({
                                         [instrumentName]: choice,
                                       })
                                     }
-                                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                                    className={`min-h-[40px] rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
                                       status === choice
                                         ? choice === 'confirmed'
-                                          ? 'bg-emerald-600 text-white'
-                                          : 'bg-red-600 text-white'
-                                        : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                                          ? 'bg-emerald-600 text-white shadow-sm'
+                                          : 'bg-red-600 text-white shadow-sm'
+                                        : 'border border-neutral-200 bg-neutral-50 text-neutral-800 hover:bg-neutral-100'
                                     }`}
                                   >
                                     {choice === 'confirmed' ? 'Xác nhận' : 'Bác bỏ'}
@@ -646,35 +672,50 @@ export function ModerationVerificationWizardDialog({
                         })}
                       </div>
                     ) : (
-                      <p className="text-xs text-neutral-600">Chưa có nhạc cụ để xác minh.</p>
+                      <p className="text-xs text-neutral-600">Chưa có nhạc cụ khai báo để xác minh.</p>
                     )}
 
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <input
-                        type="text"
-                        value={newInstrumentOverride}
-                        onChange={(e) => setNewInstrumentOverride(e.target.value)}
-                        placeholder="Thêm nhạc cụ bị thiếu..."
-                        className="min-w-[220px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const name = newInstrumentOverride.trim();
-                          if (!name) return;
-                          onUpdateVerificationForm(2, 'instrumentOverrides', {
-                            ...step2Overrides,
-                            [name]: 'added',
-                          });
-                          setNewInstrumentOverride('');
-                        }}
-                        className="rounded-lg bg-primary-600 px-3 py-2 text-xs font-medium text-white hover:bg-primary-700"
+                    <div className="mt-4 border-t border-neutral-200/80 pt-4 space-y-2">
+                      <label
+                        htmlFor={`add-instrument-${submissionId}`}
+                        className="block text-xs font-semibold text-neutral-800"
                       >
-                        Thêm nhạc cụ
-                      </button>
+                        Thêm nhạc cụ thiếu
+                      </label>
+                      <p id={`add-instrument-hint-${submissionId}`} className="text-xs text-neutral-500">
+                        Gõ hoặc chọn gợi ý từ danh mục (không bắt buộc trùng chính xác).
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                        <input
+                          id={`add-instrument-${submissionId}`}
+                          type="text"
+                          list={instrumentCatalogListId}
+                          value={newInstrumentOverride}
+                          onChange={(e) => setNewInstrumentOverride(e.target.value)}
+                          placeholder="Ví dụ: Đàn tranh…"
+                          autoComplete="off"
+                          aria-describedby={`add-instrument-hint-${submissionId}`}
+                          className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-primary-400/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const name = newInstrumentOverride.trim();
+                            if (!name) return;
+                            onUpdateVerificationForm(2, 'instrumentOverrides', {
+                              ...step2Overrides,
+                              [name]: 'added',
+                            });
+                            setNewInstrumentOverride('');
+                          }}
+                          className="min-h-[44px] shrink-0 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                        >
+                          Thêm nhạc cụ
+                        </button>
+                      </div>
                     </div>
                     {Object.entries(step2Overrides).some(([, status]) => status === 'added') && (
-                      <p className="mt-2 text-xs text-neutral-600">
+                      <p className="mt-3 text-xs font-medium text-neutral-600">
                         Đã thêm:{' '}
                         {Object.entries(step2Overrides)
                           .filter(([, status]) => status === 'added')
@@ -719,20 +760,7 @@ export function ModerationVerificationWizardDialog({
                         <span className="text-neutral-700">{field.label}</span>
                       </div>
                     ))}
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        aria-label={VERIFICATION_STEPS[2].optionalFields?.[0]?.label}
-                        checked={formSlice?.step3?.sensitiveContent || false}
-                        onChange={(e) =>
-                          onUpdateVerificationForm(3, 'sensitiveContent', e.target.checked)
-                        }
-                        className="mt-1 h-5 w-5 flex-shrink-0 rounded border-neutral-300 accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer"
-                      />
-                      <span className="text-neutral-700">
-                        {VERIFICATION_STEPS[2].optionalFields?.[0]?.label}
-                      </span>
-                    </div>
+
                   </div>
                   <div className="mt-4">
                     <label

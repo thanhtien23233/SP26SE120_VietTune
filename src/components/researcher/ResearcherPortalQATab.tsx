@@ -1,5 +1,6 @@
 import { Bot, History, Info, Lightbulb, Send } from 'lucide-react';
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 import QAChatHistorySidebar from '@/components/researcher/QAChatHistorySidebar';
 import { INTELLIGENCE_NAME } from '@/config/constants';
@@ -14,6 +15,86 @@ const QUICK_QUESTIONS = [
   "T'rưng được chế tạo như thế nào?",
   'Hát Xoan xuất hiện khi nào?',
 ];
+
+// UUID pattern: 8-4-4-4-12 hex chars
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/**
+ * Parse AI response text and render:
+ * - [Recording] <title>: Id: <uuid>, Mo ta: ... → clickable link to /recordings/<uuid>
+ * - [KBEntry] <title>: <content>           → plain text without the [KBEntry] tag
+ * - remaining text                          → plain whitespace-preserved text
+ */
+function renderAiContent(text: string): React.ReactNode[] {
+  // Split on [Recording] or [KBEntry] blocks
+  const tokenRe = /\[(Recording|KBEntry)\]\s*/g;
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tokenRe.exec(text)) !== null) {
+    // Push plain text before this token
+    if (match.index > last) {
+      parts.push(text.slice(last, match.index));
+    }
+
+    const type = match[1]; // 'Recording' | 'KBEntry'
+    const rest = text.slice(match.index + match[0].length);
+
+    if (type === 'Recording') {
+      // Format: "<title>: Id: <uuid>, Mo ta: <desc>"
+      // Extract UUID
+      const uuidMatch = UUID_RE.exec(rest);
+      if (uuidMatch) {
+        const uuid = uuidMatch[0];
+        // Title is everything before ': Id:'
+        const beforeId = rest.slice(0, rest.toLowerCase().indexOf(': id:'));
+        const displayTitle = beforeId.trim() || 'Bản thu';
+        parts.push(
+          <Link
+            key={`rec-${uuid}`}
+            to={`/recordings/${uuid}`}
+            className="inline-flex items-center gap-1 text-primary-700 font-semibold underline underline-offset-2 hover:text-primary-900 transition-colors"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🎵 {displayTitle}
+          </Link>
+        );
+        // Advance past this entire block (up to next token or end)
+        const blockEnd = tokenRe.lastIndex > 0 ? tokenRe.lastIndex : text.length;
+        // Find end of this Recording block: next newline or end
+        const nlIdx = rest.indexOf('\n');
+        const blockLen = nlIdx !== -1 ? nlIdx : rest.length;
+        tokenRe.lastIndex = match.index + match[0].length + blockLen;
+        last = tokenRe.lastIndex;
+        continue;
+      }
+    } else if (type === 'KBEntry') {
+      // Format: "<title>: <content>"
+      // Find end of block: double newline or end
+      const nlIdx = rest.indexOf('\n');
+      const blockLen = nlIdx !== -1 ? nlIdx : rest.length;
+      const blockText = rest.slice(0, blockLen).trim();
+      // Remove leading "<title>: " label
+      const colonIdx = blockText.indexOf(':');
+      const content = colonIdx !== -1 ? blockText.slice(colonIdx + 1).trim() : blockText;
+      parts.push(content);
+      tokenRe.lastIndex = match.index + match[0].length + blockLen;
+      last = tokenRe.lastIndex;
+      continue;
+    }
+
+    last = tokenRe.lastIndex;
+  }
+
+  // Push remaining plain text
+  if (last < text.length) {
+    parts.push(text.slice(last));
+  }
+
+  return parts;
+}
 
 export interface ResearcherPortalQATabProps {
   chatMessages: ResearcherPortalChatMessage[];
@@ -103,7 +184,9 @@ export default function ResearcherPortalQATab({
                       {INTELLIGENCE_NAME}
                     </div>
                   )}
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {msg.role === 'assistant' ? renderAiContent(msg.content) : msg.content}
+                  </p>
                   {msg.role === 'assistant' && msg.citations && msg.citations.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-neutral-200">
                       <p className="text-[11px] font-semibold text-neutral-600 mb-1">
