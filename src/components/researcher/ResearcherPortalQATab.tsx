@@ -61,8 +61,6 @@ function renderAiContent(text: string): React.ReactNode[] {
             🎵 {displayTitle}
           </Link>
         );
-        // Advance past this entire block (up to next token or end)
-        const blockEnd = tokenRe.lastIndex > 0 ? tokenRe.lastIndex : text.length;
         // Find end of this Recording block: next newline or end
         const nlIdx = rest.indexOf('\n');
         const blockLen = nlIdx !== -1 ? nlIdx : rest.length;
