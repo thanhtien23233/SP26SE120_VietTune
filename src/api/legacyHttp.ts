@@ -175,6 +175,30 @@ export async function legacyPut<T>(
   return data as T;
 }
 
+export async function legacyDelete<T>(
+  path: string,
+  config?: HttpClientRequestConfig,
+): Promise<T> {
+  const url = new URL(joinUrl(path));
+  if (config?.params && typeof config.params === 'object') {
+    Object.entries(config.params as Record<string, unknown>).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+    });
+  }
+  const token = getItem('access_token');
+  const res = await fetch(url.toString(), {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    signal: config?.signal as AbortSignal | undefined,
+  });
+  const data = await parseBody(res);
+  if (!res.ok) throwHttpError(res, data);
+  return data as T;
+}
+
 export const legacyApi: ServiceApiClient = {
   get: legacyGet,
   post: legacyPost,

@@ -7,7 +7,7 @@ import Badge from '@/components/common/Badge';
 import Button from '@/components/common/Button';
 import { knowledgeBaseApi } from '@/services/knowledgeBaseApi';
 import type { KBEntry, KBListFilters } from '@/types/knowledgeBase';
-import { KB_CATEGORY_LABELS, KB_STATUS_MAP } from '@/types/knowledgeBase';
+import { KB_CATEGORIES, KB_CATEGORY_LABELS, KB_STATUS_MAP } from '@/types/knowledgeBase';
 
 function statusVariant(s: number): 'warning' | 'success' | 'secondary' {
   if (s === 1) return 'success';
@@ -99,7 +99,13 @@ export default function KBEntryList({
 
   const hasNext = entries.length >= PAGE_SIZE;
   const categoryPills = useMemo(
-    () => [{ value: '', label: 'Tất cả' }, ...Object.entries(KB_CATEGORY_LABELS).map(([k, v]) => ({ value: k, label: v }))],
+    () => [
+      { value: '', label: 'Tất cả' },
+      ...KB_CATEGORIES.map((key) => ({
+        value: key,
+        label: KB_CATEGORY_LABELS[key] ?? key,
+      })),
+    ],
     [],
   );
   const statusPills = useMemo(
@@ -125,7 +131,10 @@ export default function KBEntryList({
                 key={option.value || 'all-category'}
                 type="button"
                 className={pillClass(category === option.value)}
-                onClick={() => setCategory(option.value)}
+                onClick={() => {
+                  setCategory(option.value);
+                  setPage(1);
+                }}
               >
                 {option.label}
               </button>
@@ -142,7 +151,10 @@ export default function KBEntryList({
                   key={option.value || 'all-status'}
                   type="button"
                   className={pillClass(status === option.value)}
-                  onClick={() => setStatus(option.value)}
+                  onClick={() => {
+                    setStatus(option.value);
+                    setPage(1);
+                  }}
                 >
                   {option.label}
                 </button>

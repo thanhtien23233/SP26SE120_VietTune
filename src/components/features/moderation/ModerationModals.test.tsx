@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ModerationModals } from '@/components/features/moderation/ModerationModals';
+import { ReviewDecision } from '@/types/reviewDecision';
 
 const noopProps = {
   onDismiss: vi.fn(),
@@ -9,7 +10,7 @@ const noopProps = {
   onApproveExpertNotesChange: vi.fn(),
   rejectConfirmExpertNotes: '',
   onRejectConfirmExpertNotesChange: vi.fn(),
-  rejectType: 'temporary' as const,
+  reviewDecision: ReviewDecision.RequestUpdate,
   deleteRecordingTitle: '',
   onConfirmApprove: vi.fn(),
   onConfirmReject: vi.fn(),

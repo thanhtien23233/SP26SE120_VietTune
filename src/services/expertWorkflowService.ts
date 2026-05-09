@@ -11,10 +11,10 @@ import {
   assignReviewerSubmission,
   completeStageOneOnServer,
   completeStageTwoOnServer,
+  createReviewDecisionOnServer,
   fetchExpertQueueBase,
   fetchSubmissionsByReviewer,
   postExpertModerationAuditLog,
-  rejectSubmissionOnServer,
   unassignReviewerSubmission,
 } from '@/services/expertModerationApi';
 import { getLocalRecordingMetaList } from '@/services/recordingStorage';
@@ -24,6 +24,7 @@ import type { LocalRecording } from '@/types';
 import { ModerationStatus } from '@/types';
 import type { MutationResult } from '@/types/mutationResult';
 import { mutationOk } from '@/types/mutationResult';
+import { ReviewDecision } from '@/types/reviewDecision';
 
 // Phase 1 Spike: storage key — replace with server session / assign API in Phase 2.
 export const EXPERT_MODERATION_STATE_KEY = 'EXPERT_MODERATION_STATE';
@@ -226,18 +227,21 @@ async function applyRejectToMap(
   submissionId: string,
   expertId: string,
   expertUsername: string,
-  type: 'direct' | 'temporary',
+  decision: ReviewDecision,
   rejectionNote: string,
   notes: string,
   opts?: { wasResubmitted?: boolean },
 ): Promise<void> {
   const map = await readMap();
   const prev = map[submissionId]?.moderation ?? {};
-  const lockFromReject = type === 'direct' && opts?.wasResubmitted === true;
+  const lockFromReject = decision === ReviewDecision.Reject && opts?.wasResubmitted === true;
   const trimmedExpertNotes = notes.trim();
   const moderation: LocalModerationState = {
     ...prev,
-    status: type === 'direct' ? ModerationStatus.REJECTED : ModerationStatus.TEMPORARILY_REJECTED,
+    status:
+      decision === ReviewDecision.Reject
+        ? ModerationStatus.REJECTED
+        : ModerationStatus.TEMPORARILY_REJECTED,
     reviewerId: expertId,
     reviewerName: expertUsername,
     reviewedAt: new Date().toISOString(),
@@ -459,7 +463,7 @@ export const expertWorkflowService = {
     submissionId: string,
     expertId: string,
     expertUsername: string,
-    type: 'direct' | 'temporary',
+    decision: ReviewDecision,
     rejectionNote: string,
     notes: string,
     opts?: { wasResubmitted?: boolean },
@@ -468,7 +472,7 @@ export const expertWorkflowService = {
       submissionId,
       expertId,
       expertUsername,
-      type,
+      decision,
       rejectionNote,
       notes,
       opts,
@@ -481,10 +485,14 @@ export const expertWorkflowService = {
     return approveSubmissionOnServer(submissionId);
   },
 
-  /** Phase 2: PUT reject-submission; Phase 1: no-op success. */
-  async syncRejectToServer(submissionId: string): Promise<MutationResult> {
+  /** Phase 2: POST /Review/create; Phase 1: no-op success. */
+  async syncRejectToServer(
+    submissionId: string,
+    decision: ReviewDecision,
+    comment: string,
+  ): Promise<MutationResult> {
     if (!EXPERT_API_PHASE2) return mutationOk();
-    return rejectSubmissionOnServer(submissionId);
+    return createReviewDecisionOnServer({ submissionId, decision, comment });
   },
 
   /** Phase 2: PUT done-stage-one; Phase 1: no-op success. */
@@ -523,21 +531,25 @@ export const expertWorkflowService = {
     submissionId: string,
     expertId: string,
     expertUsername: string,
-    type: 'direct' | 'temporary',
+    decision: ReviewDecision,
     rejectionNote: string,
     notes: string,
     opts?: { wasResubmitted?: boolean },
   ): Promise<boolean> {
     try {
       if (EXPERT_API_PHASE2) {
-        const serverRes = await rejectSubmissionOnServer(submissionId);
+        const serverRes = await createReviewDecisionOnServer({
+          submissionId,
+          decision,
+          comment: rejectionNote || notes,
+        });
         if (!serverRes.ok) return false;
       }
       await applyRejectToMap(
         submissionId,
         expertId,
         expertUsername,
-        type,
+        decision,
         rejectionNote,
         notes,
         opts,

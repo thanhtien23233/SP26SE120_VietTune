@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { MODERATION_REJECT_REASON_MAX_LENGTH } from '@/config/validationConstants';
+import { ReviewDecision, reviewDecisionLabelVi } from '@/types/reviewDecision';
 
 const backdropStyle: CSSProperties = {
   animation: 'fadeIn 0.3s ease-out',
@@ -17,16 +18,16 @@ const backdropStyle: CSSProperties = {
 
 export function ModerationRejectReasonFormPortal({
   submissionId,
-  rejectType,
-  onRejectTypeChange,
+  reviewDecision,
+  onReviewDecisionChange,
   rejectNote,
   onRejectNoteChange,
   onCancel,
   onConfirm,
 }: {
   submissionId: string | null;
-  rejectType: 'direct' | 'temporary';
-  onRejectTypeChange: (v: 'direct' | 'temporary') => void;
+  reviewDecision: ReviewDecision;
+  onReviewDecisionChange: (v: ReviewDecision) => void;
   rejectNote: string;
   onRejectNoteChange: (v: string) => void;
   onCancel: () => void;
@@ -81,40 +82,34 @@ export function ModerationRejectReasonFormPortal({
         </h3>
         <div className="space-y-4">
           <fieldset className="space-y-2 border-0 p-0 m-0">
-            <legend className="block text-sm font-medium text-neutral-700 mb-2">Loại từ chối</legend>
+            <legend className="block text-sm font-medium text-neutral-700 mb-2">
+              Quyết định kiểm duyệt
+            </legend>
             <div className="space-y-2">
               <div className="flex items-center gap-3 select-none">
                 <input
                   type="radio"
-                  name="rejectType"
-                  value="direct"
-                  checked={rejectType === 'direct'}
-                  onChange={(e) => onRejectTypeChange(e.target.value as 'direct' | 'temporary')}
-                  aria-label="Từ chối vĩnh viễn"
+                  name="reviewDecision"
+                  checked={reviewDecision === ReviewDecision.Reject}
+                  onChange={() => onReviewDecisionChange(ReviewDecision.Reject)}
+                  aria-label="Từ chối"
                   className="h-4 w-4 shrink-0 cursor-pointer accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
                 />
                 <div>
-                  <span className="text-neutral-800 font-medium">Từ chối vĩnh viễn</span>
-                  <p className="text-sm text-neutral-600">
-                    Dùng khi sai thông tin trầm trọng, bị trùng file, v.v.
-                  </p>
+                  <span className="text-neutral-800 font-medium">Từ chối</span>
                 </div>
               </div>
               <div className="flex items-center gap-3 select-none">
                 <input
                   type="radio"
-                  name="rejectType"
-                  value="temporary"
-                  checked={rejectType === 'temporary'}
-                  onChange={(e) => onRejectTypeChange(e.target.value as 'direct' | 'temporary')}
-                  aria-label="Từ chối tạm thời"
+                  name="reviewDecision"
+                  checked={reviewDecision === ReviewDecision.RequestUpdate}
+                  onChange={() => onReviewDecisionChange(ReviewDecision.RequestUpdate)}
+                  aria-label="Yêu cầu cập nhật"
                   className="h-4 w-4 shrink-0 cursor-pointer accent-primary-600 hover:accent-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
                 />
                 <div>
-                  <span className="text-neutral-800 font-medium">Từ chối tạm thời</span>
-                  <p className="text-sm text-neutral-600">
-                    Người đóng góp có thể chỉnh sửa và gửi lại
-                  </p>
+                  <span className="text-neutral-800 font-medium">Yêu cầu cập nhật</span>
                 </div>
               </div>
             </div>
@@ -140,11 +135,7 @@ export function ModerationRejectReasonFormPortal({
               className={`w-full px-4 py-2 border rounded-lg text-neutral-900 placeholder:text-neutral-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:border-primary-500 bg-surface-panel ${
                 noteError ? 'border-red-600' : 'border-neutral-300'
               }`}
-              placeholder={
-                rejectType === 'temporary'
-                  ? 'Nhập lý do từ chối và ghi chú những điểm cần chỉnh sửa...'
-                  : 'Nhập lý do từ chối...'
-              }
+              placeholder="Nhập lý do..."
               aria-required="true"
             />
             {noteError ? (
@@ -178,7 +169,7 @@ export function ModerationRejectReasonFormPortal({
               onClick={handleConfirm}
               className="px-4 py-2 rounded-full bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-medium transition-all duration-300 shadow-xl hover:shadow-2xl shadow-red-600/40 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
             >
-              {rejectType === 'direct' ? 'Từ chối vĩnh viễn' : 'Từ chối tạm thời'}
+              {reviewDecisionLabelVi(reviewDecision)}
             </button>
           </div>
         </div>

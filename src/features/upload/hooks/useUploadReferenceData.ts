@@ -44,7 +44,7 @@ export function useUploadReferenceData(options: {
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
+    const loadData = async () => {
       try {
         const ethnicGroups = await referenceDataService.getEthnicGroups();
         if (!cancelled && ethnicGroups.length > 0) {
@@ -98,9 +98,20 @@ export function useUploadReferenceData(options: {
       } catch (err) {
         console.warn('Failed to load music style traits', err);
       }
-    })();
+    };
+    
+    void loadData();
+
+    const handleRefDataUpdate = () => {
+      console.log('Reference data updated, refetching...');
+      void loadData();
+    };
+
+    window.addEventListener('viettune:refdata-updated', handleRefDataUpdate);
+
     return () => {
       cancelled = true;
+      window.removeEventListener('viettune:refdata-updated', handleRefDataUpdate);
     };
   }, []);
 

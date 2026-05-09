@@ -59,8 +59,6 @@ export default function ResearcherRecordingList({
           { label: 'Xã/Phường', value: communeValue },
         ].filter((x) => Boolean(x.value));
 
-        const missingMetadataCount = 5 - metadataPairs.length;
-
         return (
           <div
             key={result.id ?? `${result.title ?? 'recording'}-${resultIdx}`}
@@ -76,11 +74,6 @@ export default function ResearcherRecordingList({
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
                       <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
                       Đã xác minh
-                    </span>
-                  )}
-                  {missingMetadataCount > 0 && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
-                      Thiếu metadata
                     </span>
                   )}
                 </div>

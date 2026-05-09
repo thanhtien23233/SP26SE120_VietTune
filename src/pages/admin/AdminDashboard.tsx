@@ -203,12 +203,21 @@ export default function AdminDashboard() {
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               type="button"
+              onClick={() => { window.location.href = '/admin/master-data'; }}
+              className="inline-flex items-center justify-center gap-2 h-11 px-6 py-0 border-2 border-primary-600 text-primary-700 hover:bg-primary-50 font-semibold rounded-full transition-all duration-300 shadow-sm hover:shadow-md hover:scale-105 active:scale-95 cursor-pointer focus:outline-none"
+              title="Quản lý Master Data"
+            >
+              <BookOpen className="h-5 w-5" strokeWidth={2.5} />
+              <span>Dữ liệu hệ thống</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setShowAdminGuide(true)}
               className={guideButtonClass}
               title="Hướng dẫn Quản trị viên"
             >
-              <BookOpen className="h-5 w-5" strokeWidth={2.5} />
-              <span>Hướng dẫn Quản trị viên</span>
+              <Shield className="h-5 w-5" strokeWidth={2.5} />
+              <span>Hướng dẫn</span>
             </button>
             <BackButton />
           </div>

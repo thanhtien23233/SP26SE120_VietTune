@@ -8,6 +8,7 @@ import StageTransitionConfirmDialog, {
 } from '@/components/features/moderation/StageTransitionConfirmDialog';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
+import type { ReviewDecision } from '@/types/reviewDecision';
 
 export interface ModerationPageDialogsProps {
   showVerificationDialog: string | null;
@@ -36,8 +37,8 @@ export interface ModerationPageDialogsProps {
   ) => void;
 
   showRejectDialog: string | null;
-  rejectType: 'direct' | 'temporary';
-  onRejectTypeChange: (v: 'direct' | 'temporary') => void;
+  reviewDecision: ReviewDecision;
+  onReviewDecisionChange: (v: ReviewDecision) => void;
   rejectNote: string;
   onRejectNoteChange: (v: string) => void;
   onRejectCancel: () => void;
@@ -81,8 +82,8 @@ export default function ModerationPageDialogs({
   allVerificationStepsComplete,
   updateVerificationForm,
   showRejectDialog,
-  rejectType,
-  onRejectTypeChange,
+  reviewDecision,
+  onReviewDecisionChange,
   rejectNote,
   onRejectNoteChange,
   onRejectCancel,
@@ -139,8 +140,8 @@ export default function ModerationPageDialogs({
 
       <ModerationRejectReasonFormPortal
         submissionId={showRejectDialog}
-        rejectType={rejectType}
-        onRejectTypeChange={onRejectTypeChange}
+        reviewDecision={reviewDecision}
+        onReviewDecisionChange={onReviewDecisionChange}
         rejectNote={rejectNote}
         onRejectNoteChange={onRejectNoteChange}
         onCancel={onRejectCancel}
@@ -160,7 +161,7 @@ export default function ModerationPageDialogs({
         onApproveExpertNotesChange={onApproveExpertNotesChange}
         rejectConfirmExpertNotes={rejectConfirmExpertNotes}
         onRejectConfirmExpertNotesChange={onRejectConfirmExpertNotesChange}
-        rejectType={rejectType}
+        reviewDecision={reviewDecision}
         deleteRecordingTitle={deleteRecordingTitle}
         onConfirmUnclaim={onConfirmUnclaim}
         onConfirmApprove={onConfirmApprove}

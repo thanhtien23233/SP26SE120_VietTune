@@ -1,6 +1,6 @@
 import { UserRole } from '@/types';
 
-export type StepId = 'users' | 'analytics' | 'aiMonitoring' | 'moderation';
+export type StepId = 'users' | 'analytics' | 'aiMonitoring' | 'moderation' | 'master-data';
 
 export type LegacyAdminPanelId =
   | 'expertDeletion'

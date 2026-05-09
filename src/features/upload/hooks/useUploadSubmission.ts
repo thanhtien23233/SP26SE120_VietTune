@@ -9,6 +9,7 @@ import {
   instrumentDetectionService,
 } from '@/services/instrumentDetectionService';
 import { recordingService } from '@/services/recordingService';
+import { recordingImageService } from '@/services/recordingImageService';
 import type {
   EthnicGroupItem,
   InstrumentItem,
@@ -258,14 +259,9 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
 
       if (options.recordingImages.length > 0 && recordingIdForImages) {
         const imageResults = await Promise.allSettled(
-          options.recordingImages.map(async (imageFile, index) => {
-            const imageUrl = await uploadFileToSupabase(imageFile, 'images');
-            await recordingService.createRecordingImage({
-              recordingId: recordingIdForImages,
-              imageUrl,
-              sortOrder: index,
-            });
-          }),
+          options.recordingImages.map(async (imageFile) =>
+            recordingImageService.uploadImage(recordingIdForImages, imageFile),
+          ),
         );
         const failedCount = imageResults.filter((result) => result.status === 'rejected').length;
         if (failedCount > 0) {

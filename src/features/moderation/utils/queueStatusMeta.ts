@@ -88,12 +88,12 @@ export function buildQueueStatusMeta(
           },
           {
             key: ModerationStatus.REJECTED,
-            label: 'Đã bị từ chối vĩnh viễn',
+            label: 'Đã từ chối',
             count: counts[ModerationStatus.REJECTED] ?? 0,
           },
           {
             key: ModerationStatus.TEMPORARILY_REJECTED,
-            label: 'Đã bị từ chối tạm thời',
+            label: 'Đã yêu cầu cập nhật',
             count: counts[ModerationStatus.TEMPORARILY_REJECTED] ?? 0,
           },
         ],

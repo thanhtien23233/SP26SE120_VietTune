@@ -7,6 +7,7 @@ import { projectModerationLists } from '@/features/moderation/utils/expertQueueP
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
 import { expertWorkflowService } from '@/services/expertWorkflowService';
 import { ModerationStatus } from '@/types';
+import { ReviewDecision } from '@/types/reviewDecision';
 import { uiToast } from '@/uiToast';
 
 export type ModerationExpertUser = { id: string; username?: string | null };
@@ -148,7 +149,7 @@ export async function confirmModerationApprove(p: ConfirmModerationApproveParams
 export type ExecuteModerationRejectParams = {
   id: string;
   user: ModerationExpertUser;
-  type: 'direct' | 'temporary';
+  decision: ReviewDecision;
   note: string;
   confirmExpertNotes: string;
   allItems: LocalRecordingMini[];
@@ -160,20 +161,22 @@ export type ExecuteModerationRejectParams = {
   setItems: Dispatch<SetStateAction<LocalRecordingMini[]>>;
   setShowRejectDialog: Dispatch<SetStateAction<string | null>>;
   setRejectNote: Dispatch<SetStateAction<string>>;
-  setRejectType: Dispatch<SetStateAction<'direct' | 'temporary'>>;
+  setReviewDecision: Dispatch<SetStateAction<ReviewDecision>>;
   setExpertReviewNotesDraft: Dispatch<SetStateAction<Record<string, string>>>;
   load: () => Promise<void>;
 };
 
 export async function executeModerationReject(p: ExecuteModerationRejectParams): Promise<boolean> {
-  const { id, user, type } = p;
+  const { id, user, decision } = p;
   const it = p.allItems.find((x) => x.id === id);
   if (!it) return false;
   if (it.moderation?.claimedBy !== user.id && it.moderation?.reviewerId !== user.id) {
     return false;
   }
   const expertNotesPayload = (p.confirmExpertNotes ?? '').trim() || (p.note ?? '').trim();
-  if (!expertNotesPayload) {
+  const requiresComment =
+    decision === ReviewDecision.Reject || decision === ReviewDecision.RequestUpdate;
+  if (requiresComment && !expertNotesPayload) {
     uiToast.warning('moderation.reject.notes_required');
     return false;
   }
@@ -189,8 +192,11 @@ export async function executeModerationReject(p: ExecuteModerationRejectParams):
   const overlaySnapshot = await expertWorkflowService.snapshotSubmissionOverlay(id);
   const reviewedAt = new Date().toISOString();
   const nextStatus =
-    type === 'direct' ? ModerationStatus.REJECTED : ModerationStatus.TEMPORARILY_REJECTED;
-  const lockFromReject = type === 'direct' && it.resubmittedForModeration === true;
+    decision === ReviewDecision.Reject
+      ? ModerationStatus.REJECTED
+      : ModerationStatus.TEMPORARILY_REJECTED;
+  const lockFromReject =
+    decision === ReviewDecision.Reject && it.resubmittedForModeration === true;
   const optimisticItem: LocalRecordingMini = {
     ...it,
     moderation: {
@@ -212,7 +218,7 @@ export async function executeModerationReject(p: ExecuteModerationRejectParams):
       id,
       user.id,
       user.username ?? '',
-      type,
+      decision,
       p.note ?? '',
       combinedRejectNotes,
       {
@@ -236,10 +242,14 @@ export async function executeModerationReject(p: ExecuteModerationRejectParams):
 
   p.setShowRejectDialog(null);
   p.setRejectNote('');
-  p.setRejectType('direct');
+  p.setReviewDecision(ReviewDecision.Reject);
 
   void (async () => {
-    const syncRes = await expertWorkflowService.syncRejectToServer(id);
+    const syncRes = await expertWorkflowService.syncRejectToServer(
+      id,
+      decision,
+      combinedRejectNotes,
+    );
     if (!syncRes.ok) {
       console.warn('[moderationApproveReject] syncRejectToServer failed', syncRes.error);
       await expertWorkflowService.restoreSubmissionOverlay(id, overlaySnapshot);

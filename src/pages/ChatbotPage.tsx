@@ -1,5 +1,5 @@
 import { Send, History } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import BackButton from '@/components/common/BackButton';
@@ -9,6 +9,7 @@ import { INTELLIGENCE_NAME } from '@/config/constants';
 import { CHAT_INPUT_COUNTER_FROM, CHAT_INPUT_MAX_LENGTH } from '@/config/validationConstants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChatbotSession } from '@/hooks/useChatbotSession';
+import { chatSessionStorage } from '@/services/chatSessionStorage';
 import { createQAConversation, type QAConversationRequest } from '@/services/qaConversationService';
 import {
   createQAMessage,
@@ -34,19 +35,30 @@ const LOGIN_REQUIRED_REPLY = 'Bạn vui lòng đăng nhập để hiển thị k
 export default function ChatbotPage() {
   const { user, isAuthenticated } = useAuth();
   const { history, isLoadingHistory, loadHistory } = useChatbotSession(user?.id);
-  const [conversationId, setConversationId] = useState<string>(() => crypto.randomUUID());
-  const [isFirstMessage, setIsFirstMessage] = useState<boolean>(true);
-  const [chatTitle, setChatTitle] = useState('Cuộc trò chuyện mới');
+
+  // ── Restore session from localStorage or start fresh ──
+  const restoredSession = chatSessionStorage.loadSession();
+
+  const [conversationId, setConversationId] = useState<string>(
+    () => restoredSession?.conversationId ?? crypto.randomUUID(),
+  );
+  const [isFirstMessage, setIsFirstMessage] = useState<boolean>(() => !restoredSession);
+  const [chatTitle, setChatTitle] = useState(
+    () => restoredSession?.title ?? 'Cuộc trò chuyện mới',
+  );
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-  const [messages, setMessages] = useState<Message[]>(() => [
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: WELCOME_MESSAGE,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(
+    () =>
+      restoredSession?.messages ?? [
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: WELCOME_MESSAGE,
+          timestamp: new Date(),
+        },
+      ],
+  );
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -117,7 +129,17 @@ export default function ChatbotPage() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleNewChat = () => {
+  // ── Persist current session to localStorage on changes ──
+  useEffect(() => {
+    // Only persist sessions with real messages (not just welcome)
+    const hasRealMessages = messages.some((m) => m.id !== 'welcome');
+    if (hasRealMessages) {
+      chatSessionStorage.saveSessionMessages(conversationId, chatTitle, messages);
+    }
+  }, [messages, conversationId, chatTitle]);
+
+  const handleNewChat = useCallback(() => {
+    chatSessionStorage.clearSession();
     setConversationId(crypto.randomUUID());
     setIsFirstMessage(true);
     setChatTitle('Cuộc trò chuyện mới');
@@ -130,7 +152,7 @@ export default function ChatbotPage() {
       },
     ]);
     setInput('');
-  };
+  }, []);
 
   const sendMessage = async () => {
     const text = input.trim();

@@ -6,6 +6,7 @@ import {
   MODERATION_APPROVE_EXPERT_NOTES_MAX_LENGTH,
   MODERATION_EXPERT_TEXTAREA_MAX_LENGTH,
 } from '@/config/validationConstants';
+import { ReviewDecision, reviewDecisionLabelVi, type ReviewDecision } from '@/types/reviewDecision';
 
 export type ModerationPortalModal =
   | null
@@ -21,7 +22,7 @@ export interface ModerationModalsProps {
   onApproveExpertNotesChange: (value: string) => void;
   rejectConfirmExpertNotes: string;
   onRejectConfirmExpertNotesChange: (value: string) => void;
-  rejectType: 'direct' | 'temporary';
+  reviewDecision: ReviewDecision;
   deleteRecordingTitle: string;
   onConfirmUnclaim: () => void;
   onConfirmApprove: () => void;
@@ -36,7 +37,7 @@ export function ModerationModals({
   onApproveExpertNotesChange,
   rejectConfirmExpertNotes,
   onRejectConfirmExpertNotesChange,
-  rejectType,
+  reviewDecision,
   deleteRecordingTitle,
   onConfirmUnclaim,
   onConfirmApprove,
@@ -296,14 +297,14 @@ export function ModerationModals({
                   id="moderation-reject-confirm-desc"
                   className="text-xl font-semibold text-neutral-900 text-center"
                 >
-                  Bạn có chắc chắn muốn{' '}
-                  {rejectType === 'direct' ? 'từ chối vĩnh viễn' : 'từ chối tạm thời'} bản thu này?
+                  Bạn có chắc chắn muốn {reviewDecisionLabelVi(reviewDecision).toLowerCase()} bản thu
+                  này?
                 </h3>
                 <div className="text-neutral-800 text-center text-sm space-y-1 max-w-lg">
                   <p>
-                    {rejectType === 'direct'
-                      ? 'Bản thu sẽ bị từ chối vĩnh viễn. Người đóng góp sẽ không thể chỉnh sửa bản thu.'
-                      : 'Bản thu sẽ bị từ chối tạm thời. Người đóng góp sẽ có thể chỉnh sửa bản thu.'}
+                    {reviewDecision === ReviewDecision.Reject
+                      ? 'Bản thu sẽ được ghi nhận là từ chối.'
+                      : 'Bản thu sẽ được ghi nhận là yêu cầu cập nhật để người đóng góp chỉnh sửa và gửi lại.'}
                   </p>
                 </div>
               </div>
@@ -355,7 +356,7 @@ export function ModerationModals({
               variant="danger"
               className="px-6 py-2.5"
             >
-              Xác nhận {rejectType === 'direct' ? 'từ chối vĩnh viễn' : 'từ chối tạm thời'}
+              {reviewDecisionLabelVi(reviewDecision)}
             </Button>
           </div>
         </div>

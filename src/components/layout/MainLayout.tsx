@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import Footer from './Footer';
@@ -8,6 +8,7 @@ import ErrorBoundary from '@/components/common/ErrorBoundary';
 import NotificationFeedBootstrap from '@/components/common/NotificationFeedBootstrap';
 import backgroundImage from '@/components/image/background.png';
 import { setItem } from '@/services/storageService';
+import { vectorSyncService } from '@/services/vectorSyncService';
 import { useAuthStore } from '@/stores/authStore';
 import { UserRole } from '@/types';
 
@@ -15,6 +16,14 @@ export default function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+
+  // Fire-and-forget vector resync on first mount (once per app lifecycle)
+  const vectorSyncFired = useRef(false);
+  useEffect(() => {
+    if (vectorSyncFired.current) return;
+    vectorSyncFired.current = true;
+    void vectorSyncService.resync();
+  }, []);
   const backgroundAttachment = useMemo(() => {
     if (typeof navigator === 'undefined') return 'fixed';
 

@@ -101,7 +101,7 @@ export function ModerationClaimActions({
       )}
       {toModerationUiStatus(item.moderation?.status) === ModerationStatus.REJECTED && (
         <p className="text-sm text-red-200/95 bg-red-900/40 rounded-xl px-4 py-2 border border-red-600/50">
-          Bản thu đã bị từ chối vĩnh viễn và không thể chỉnh sửa bởi bất kỳ ai.
+          Bản thu đã bị từ chối.
         </p>
       )}
       {item.id && status !== ModerationStatus.APPROVED && (

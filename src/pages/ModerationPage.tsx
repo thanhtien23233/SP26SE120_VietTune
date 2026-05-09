@@ -39,6 +39,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { ModerationStatus } from '@/types';
 import { LocalRecording, UserRole } from '@/types';
 import { toModerationUiStatus } from '@/types/moderation';
+import { ReviewDecision } from '@/types/reviewDecision';
 import { uiToast } from '@/uiToast';
 import { migrateVideoDataToVideoData } from '@/utils/helpers';
 
@@ -95,7 +96,7 @@ export default function ModerationPage() {
     },
   });
   const [showRejectDialog, setShowRejectDialog] = useState<string | null>(null);
-  const [rejectType, setRejectType] = useState<'direct' | 'temporary'>('direct');
+  const [reviewDecision, setReviewDecision] = useState<ReviewDecision>(ReviewDecision.Reject);
   const [rejectNote, setRejectNote] = useState('');
   const [activeTab, setActiveTab] = useState<ExpertTabId>('review');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -411,7 +412,7 @@ export default function ModerationPage() {
       if (showRejectDialog) {
         setShowRejectDialog(null);
         setRejectNote('');
-        setRejectType('direct');
+        setReviewDecision(ReviewDecision.Reject);
         return;
       }
       if (showVerificationDialog) {
@@ -535,7 +536,7 @@ export default function ModerationPage() {
     const ok = await executeModerationReject({
       id,
       user: { id: user.id, username: user.username },
-      type: rejectType,
+      decision: reviewDecision,
       note: rejectNote,
       confirmExpertNotes: rejectConfirmExpertNotes,
       allItems,
@@ -547,7 +548,7 @@ export default function ModerationPage() {
       setItems,
       setShowRejectDialog,
       setRejectNote,
-      setRejectType,
+      setReviewDecision,
       setExpertReviewNotesDraft,
       load,
     });
@@ -557,7 +558,7 @@ export default function ModerationPage() {
     setPortalModal(null);
     setRejectNote('');
     setRejectConfirmExpertNotes('');
-    setRejectType('direct');
+    setReviewDecision(ReviewDecision.Reject);
   };
 
   const handleConfirmUnclaim = async () => {
@@ -771,14 +772,14 @@ export default function ModerationPage() {
           allVerificationStepsComplete={allVerificationStepsComplete}
           updateVerificationForm={updateVerificationForm}
           showRejectDialog={showRejectDialog}
-          rejectType={rejectType}
-          onRejectTypeChange={setRejectType}
+          reviewDecision={reviewDecision}
+          onReviewDecisionChange={setReviewDecision}
           rejectNote={rejectNote}
           onRejectNoteChange={setRejectNote}
           onRejectCancel={() => {
             setShowRejectDialog(null);
             setRejectNote('');
-            setRejectType('direct');
+            setReviewDecision(ReviewDecision.Reject);
           }}
           onRejectFormConfirm={() => {
             if (!showRejectDialog) return;
@@ -795,9 +796,9 @@ export default function ModerationPage() {
           deleteRecordingTitle={
             portalModal?.kind === 'delete'
               ? (() => {
-                  const t = allItems.find((it) => it.id === portalModal.submissionId);
-                  return t?.basicInfo?.title || t?.title || 'Không có tiêu đề';
-                })()
+                const t = allItems.find((it) => it.id === portalModal.submissionId);
+                return t?.basicInfo?.title || t?.title || 'Không có tiêu đề';
+              })()
               : ''
           }
           onConfirmUnclaim={handleConfirmUnclaim}
