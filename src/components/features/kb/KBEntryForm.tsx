@@ -16,7 +16,7 @@ import type {
   CreateKBEntryRequest,
   UpdateKBEntryRequest,
 } from '@/types/knowledgeBase';
-import { KB_CATEGORY_LABELS, KB_CATEGORIES } from '@/types/knowledgeBase';
+import { KB_CATEGORY_LABELS, KB_CATEGORIES, normalizeKbCategory } from '@/types/knowledgeBase';
 import { filterValidCitations } from '@/utils/kbCitations';
 
 function stripHtmlToText(html: string): string {
@@ -44,7 +44,7 @@ export interface KBEntryFormProps {
 export default function KBEntryForm({
   mode,
   initialTitle = '',
-  initialCategory = 'general',
+  initialCategory = 'Instrument',
   initialContent = '',
   initialRevisionNote = '',
   initialCitations = [],
@@ -56,7 +56,7 @@ export default function KBEntryForm({
   onCancel,
 }: KBEntryFormProps) {
   const [title, setTitle] = useState(initialTitle);
-  const [category, setCategory] = useState(initialCategory);
+  const [category, setCategory] = useState(normalizeKbCategory(initialCategory));
   const [content, setContent] = useState(initialContent);
   const [revisionNote, setRevisionNote] = useState(initialRevisionNote);
   const [citations, setCitations] = useState<CreateKBCitationRequest[]>(
@@ -118,7 +118,7 @@ export default function KBEntryForm({
       const payload: CreateKBEntryRequest = {
         title: title.trim(),
         content,
-        category: category.trim(),
+        category: normalizeKbCategory(category),
         citations:
           showCitations && citations.length > 0 ? filterValidCitations(citations) : undefined,
       };
@@ -131,7 +131,7 @@ export default function KBEntryForm({
       const payload: UpdateKBEntryRequest = {
         title: title.trim(),
         content,
-        category: category.trim() || null,
+        category: normalizeKbCategory(category) || null,
         revisionNote: revisionNote.trim() || null,
       };
       void onSubmitUpdate(payload);

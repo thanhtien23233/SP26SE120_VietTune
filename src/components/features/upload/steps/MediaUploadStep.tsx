@@ -417,7 +417,7 @@ export default function MediaUploadStep({
                   <div className="mt-4 w-full max-w-xl mx-auto rounded-xl border border-secondary-200/70 bg-white/80 p-4 text-left shadow-sm">
                     <div className="flex items-center gap-2 text-sm font-bold text-neutral-800">
                       <Sparkles className="h-4 w-4 text-primary-600" />
-                      AI Instrument Analysis
+                      Phân tích nhạc cụ (AI)
                     </div>
 
                     {showAiLoading && (
@@ -456,13 +456,13 @@ export default function MediaUploadStep({
                     )}
 
                     <p className="mt-3 text-xs text-neutral-600">
-                      AI suggestion only. Expert will verify later.
+                      Chỉ là gợi ý từ AI. Chuyên gia sẽ xác minh sau.
                     </p>
 
                     {hasSuggestionPreview && (
                       <div className="mt-4 rounded-lg border border-secondary-200/70 bg-secondary-50/50 p-3">
                         <p className="text-sm font-semibold text-neutral-800">
-                          Suggested Metadata (Read-only)
+                          Gợi ý metadata (chỉ đọc)
                         </p>
                         <div className="mt-2 space-y-3 text-sm text-neutral-700">
                           {advisorySuggestions.map((group) => (
@@ -470,31 +470,31 @@ export default function MediaUploadStep({
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="font-semibold text-neutral-800">
                                   {group.field === 'region'
-                                    ? 'Suggested Region'
+                                    ? 'Khu vực gợi ý'
                                     : group.field === 'vocalStyle'
-                                      ? 'Suggested Vocal Style'
+                                      ? 'Lối hát gợi ý'
                                       : group.field === 'eventType'
-                                        ? 'Suggested Event Type'
+                                        ? 'Loại sự kiện gợi ý'
                                         : group.field === 'musicalScale'
-                                          ? 'Suggested Musical Scale'
-                                          : 'Suggested Ethnic Group'}
+                                          ? 'Âm giai gợi ý'
+                                          : 'Nhóm dân tộc gợi ý'}
                                 </p>
                                 {group.conflictDetected && (
                                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                                    Mixed influence
+                                    Nguồn không đồng nhất
                                   </span>
                                 )}
                                 {group.requiresExpert && (
                                   <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                                    Requires expert review
+                                    Cần chuyên gia xác minh
                                   </span>
                                 )}
                               </div>
                               {group.candidates.length > 0 && (
                                 <div className="mt-2 space-y-2">
                                   <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                                      Primary
+                                    <p className="text-xs font-semibold tracking-wide text-neutral-500 normal-case">
+                                      Chính
                                     </p>
                                     <p className="text-sm text-neutral-800">
                                       {group.candidates[0].label}{' '}
@@ -505,15 +505,15 @@ export default function MediaUploadStep({
                                         group.candidates[0].sourceInstruments.length > 0 && (
                                           <span className="text-neutral-500">
                                             {' '}
-                                            · from {group.candidates[0].sourceInstruments.join(', ')}
+                                            · từ {group.candidates[0].sourceInstruments.join(', ')}
                                           </span>
                                         )}
                                     </p>
                                   </div>
                                   {group.candidates.length > 1 && (
                                     <div>
-                                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                                        Secondary
+                                      <p className="text-xs font-semibold tracking-wide text-neutral-500 normal-case">
+                                        Phụ
                                       </p>
                                       <ul className="mt-1 space-y-1">
                                         {group.candidates.slice(1, 3).map((candidate) => (
@@ -531,7 +531,7 @@ export default function MediaUploadStep({
                                                 candidate.sourceInstruments.length > 0 && (
                                                   <span className="text-neutral-500">
                                                     {' '}
-                                                    · from {candidate.sourceInstruments.join(', ')}
+                                                    · từ {candidate.sourceInstruments.join(', ')}
                                                   </span>
                                                 )}
                                             </span>

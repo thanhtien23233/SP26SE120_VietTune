@@ -1,5 +1,6 @@
 /** Shared labels and formatters for contributor submissions UI. */
 
+import { formatViDateTimeShortBangkok } from '@/config/datetimeDisplay';
 import type { SubmissionRecording } from '@/services/submissionService';
 
 export type SubmissionRecordingMedia = SubmissionRecording & {
@@ -48,13 +49,7 @@ export function formatContributionPerformanceType(type: string | null | undefine
 export function formatContributionDate(dateString: string | null): string {
   if (!dateString) return '—';
   try {
-    return new Date(dateString).toLocaleString('vi-VN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatViDateTimeShortBangkok(dateString);
   } catch {
     return dateString;
   }

@@ -54,25 +54,9 @@ export function useUploadForm() {
   const [fieldNotes, setFieldNotes] = useState('');
   const [transcription, setTranscription] = useState('');
   const [lyricsFile, setLyricsFile] = useState<File | null>(null);
-  const [instrumentImage, setInstrumentImage] = useState<File | null>(null);
-  const [instrumentImagePreview, setInstrumentImagePreview] = useState<string>('');
   const [recordingImages, setRecordingImages] = useState<File[]>([]);
   const [recordingImagePreviews, setRecordingImagePreviews] = useState<string[]>([]);
   const [existingRecordingImageUrls, setExistingRecordingImageUrls] = useState<string[]>([]);
-
-  const handleInstrumentImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const picked = e.target.files?.[0] || null;
-    setInstrumentImage(picked);
-    if (picked) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setInstrumentImagePreview(ev.target?.result as string);
-      };
-      reader.readAsDataURL(picked);
-    } else {
-      setInstrumentImagePreview('');
-    }
-  };
 
   const handleRecordingImagesChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? []).filter((file) => file.type.startsWith('image/'));
@@ -314,11 +298,6 @@ export function useUploadForm() {
     setTranscription,
     lyricsFile,
     setLyricsFile,
-    instrumentImage,
-    setInstrumentImage,
-    instrumentImagePreview,
-    setInstrumentImagePreview,
-    handleInstrumentImageChange,
     recordingImages,
     setRecordingImages,
     recordingImagePreviews,

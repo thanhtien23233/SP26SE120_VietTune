@@ -1,4 +1,3 @@
-import { format, parseISO } from 'date-fns';
 import {
   ArrowLeft,
   BookOpen,
@@ -18,6 +17,7 @@ import Badge from '@/components/common/Badge';
 import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { formatIsoDdMmYyyyBangkok } from '@/config/datetimeDisplay';
 import { knowledgeBaseApi } from '@/services/knowledgeBaseApi';
 import type {
   ArticleSearchResult,
@@ -25,7 +25,7 @@ import type {
   KBEntry,
   KBListFilters,
 } from '@/types/knowledgeBase';
-import { KB_CATEGORY_LABELS, KB_STATUS_MAP } from '@/types/knowledgeBase';
+import { KB_CATEGORIES, KB_CATEGORY_LABELS, KB_STATUS_MAP } from '@/types/knowledgeBase';
 
 type Screen = 'list' | 'view';
 
@@ -35,7 +35,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 const CATEGORY_PILLS: Array<{ value: string; label: string }> = [
   { value: '', label: 'Tất cả' },
-  ...Object.entries(KB_CATEGORY_LABELS).map(([value, label]) => ({ value, label })),
+  ...KB_CATEGORIES.map((value) => ({ value, label: KB_CATEGORY_LABELS[value] ?? value })),
 ];
 
 function stripHtmlText(html: string): string {
@@ -56,11 +56,7 @@ function buildExcerpt(html: string, max = 160): string {
 
 function formatDate(raw?: string): string {
   if (!raw) return '—';
-  try {
-    return format(parseISO(raw), 'dd/MM/yyyy');
-  } catch {
-    return raw;
-  }
+  return formatIsoDdMmYyyyBangkok(raw);
 }
 
 interface ListItem {

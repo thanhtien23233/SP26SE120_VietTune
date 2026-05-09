@@ -2,6 +2,7 @@ import { FileEdit, Trash2, UserMinus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { ExpertSelectDropdown } from '@/components/admin/AdminDashboardDropdowns';
+import { formatViDateTimeShortBangkok } from '@/config/datetimeDisplay';
 import { recordingRequestService } from '@/services/recordingRequestService';
 import {
   UserRole,
@@ -64,7 +65,7 @@ export function AdminRecordingRequestsPanel({
                       <p className="font-medium text-neutral-900">{req.recordingTitle}</p>
                       <p className="text-sm text-neutral-600">
                         Người đóng góp: {req.contributorName} ·{' '}
-                        {new Date(req.requestedAt).toLocaleString('vi-VN')}
+                        {formatViDateTimeShortBangkok(req.requestedAt)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -149,7 +150,7 @@ export function AdminRecordingRequestsPanel({
                       <p className="font-medium text-neutral-900">{req.recordingTitle}</p>
                       <p className="text-sm text-neutral-600">
                         Người đóng góp: {req.contributorName} ·{' '}
-                        {new Date(req.requestedAt).toLocaleString('vi-VN')}
+                        {formatViDateTimeShortBangkok(req.requestedAt)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -244,7 +245,7 @@ export function AdminExpertDeletionPanel({
                 </p>
                 <p className="text-sm text-neutral-600 font-medium">
                   @{req.expertUsername} · Yêu cầu lúc:{' '}
-                  {new Date(req.requestedAt).toLocaleString('vi-VN')}
+                  {formatViDateTimeShortBangkok(req.requestedAt)}
                 </p>
               </div>
               <button

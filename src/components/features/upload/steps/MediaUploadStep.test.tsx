@@ -56,8 +56,8 @@ describe('MediaUploadStep', () => {
       />,
     );
 
-    expect(screen.queryByText('AI Instrument Analysis')).not.toBeNull();
+    expect(screen.queryByText('Phân tích nhạc cụ (AI)')).not.toBeNull();
     expect(screen.queryByText('Đàn tranh')).not.toBeNull();
-    expect(screen.queryByText('Suggested Metadata (Read-only)')).not.toBeNull();
+    expect(screen.queryByText('Gợi ý metadata (chỉ đọc)')).not.toBeNull();
   });
 });

@@ -18,7 +18,7 @@ namespace VietTuneArchive.Application.Services
         private readonly IEmbeddingService _embeddingService;
         private readonly IUserRepository _userRepository;
         private readonly IRecordingRepository _recordingRepository;
-        private readonly string[] _validCategories = { "Instrument", "VocalStyle", "Genre", "Ceremony", "Ethnic", "EthnicGroup" };
+        private static readonly string[] ValidCategories = { "Instrument", "VocalStyle", "Genre", "Ceremony", "Ethnic", "EthnicGroup" };
 
         public KBEntryService(IKBEntryRepository repo, IEmbeddingService embeddingService, IUserRepository userRepository, IRecordingRepository recordingRepository)
         {
@@ -64,7 +64,8 @@ namespace VietTuneArchive.Application.Services
             if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Content) || string.IsNullOrWhiteSpace(request.Category))
                 throw new BadRequestException("Missing required fields.");
 
-            if (!_validCategories.Contains(request.Category))
+            var category = NormalizeCategory(request.Category);
+            if (category == null)
                 throw new BadRequestException("Invalid category.");
 
             var slug = await GenerateUniqueSlug(request.Title);
@@ -75,7 +76,7 @@ namespace VietTuneArchive.Application.Services
                 Id = entryId,
                 Title = request.Title,
                 Content = request.Content,
-                Category = request.Category,
+                Category = category,
                 AuthorId = currentUserId,
                 CreatedAt = DateTime.UtcNow,
                 Status = 0,
@@ -120,7 +121,8 @@ namespace VietTuneArchive.Application.Services
             var entry = await _repo.GetByIdAsync(entryId);
             if (entry == null) throw new NotFoundException("Entry not found.");
 
-            if (!_validCategories.Contains(request.Category))
+            var category = NormalizeCategory(request.Category);
+            if (category == null)
                 throw new BadRequestException("Invalid category.");
 
             if (entry.Title != request.Title)
@@ -130,7 +132,7 @@ namespace VietTuneArchive.Application.Services
 
             entry.Title = request.Title;
             entry.Content = request.Content;
-            entry.Category = request.Category;
+            entry.Category = category;
             entry.UpdatedAt = DateTime.UtcNow;
 
             await _repo.UpdateAsync(entry);
@@ -250,6 +252,12 @@ namespace VietTuneArchive.Application.Services
                 counter++;
             }
             return uniqueSlug;
+        }
+
+        private static string? NormalizeCategory(string? category)
+        {
+            if (string.IsNullOrWhiteSpace(category)) return null;
+            return ValidCategories.FirstOrDefault(c => string.Equals(c, category.Trim(), StringComparison.OrdinalIgnoreCase));
         }
 
         private static string ToSlug(string s)

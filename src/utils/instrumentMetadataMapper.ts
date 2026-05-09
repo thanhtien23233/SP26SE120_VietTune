@@ -9,9 +9,8 @@ import type {
   MetadataSuggestionCandidate,
 } from '@/types/instrumentDetection';
 
-/** Source label for suggestions derived directly from the Gemini AI analysis JSON
- *  (as opposed to instrument-name → fallback table heuristics). */
-export const AI_ANALYSIS_SOURCE_LABEL = 'AI Analysis';
+/** Nhãn nguồn cho gợi ý lấy trực tiếp từ JSON phân tích AI (Gemini), khác với heuristic từ tên nhạc cụ. */
+export const AI_ANALYSIS_SOURCE_LABEL = 'Phân tích AI';
 
 /** Normalize for case- and accent-insensitive instrument name matching. */
 export function normalizeInstrumentMatchKey(input: string): string {
@@ -107,7 +106,7 @@ export type AiDirectSuggestionInput = {
 /**
  * Convert direct AI fields (Gemini JSON) into the legacy `MetadataSuggestion` shape.
  *
- * These rows carry `sourceInstrument = 'AI Analysis'` and the AI's `overallConfidence`
+ * These rows carry `sourceInstrument = AI_ANALYSIS_SOURCE_LABEL` (`Phân tích AI`) and the AI's `overallConfidence`
  * so they outrank instrument-fallback rows during dedupe/sort and are presented as
  * the **primary** advisory candidate by `groupMetadataSuggestionsForAdvisory`.
  */
@@ -299,7 +298,7 @@ function rankCandidates(rows: readonly MetadataSuggestion[]): MetadataSuggestion
   }
   return [...bestByValue.entries()]
     .map(([key, candidate]) => {
-      // Hoist AI Analysis to the front of source list so it surfaces in the UI's
+      // Hoist Phân tích AI to the front of source list so it surfaces in the UI's
       // "from {sources}" hint. Order otherwise preserved.
       const sources = [...(sourceByValue.get(key) ?? new Set<string>())];
       const sourceInstruments = sources.includes(AI_ANALYSIS_SOURCE_LABEL)

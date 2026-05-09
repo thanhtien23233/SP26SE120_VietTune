@@ -1,8 +1,8 @@
-import { format, parseISO } from 'date-fns';
 import { ChevronRight, Clock, Loader2, RefreshCcw, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Button from '@/components/common/Button';
+import { formatIsoDdMmYyyyHmBangkok } from '@/config/datetimeDisplay';
 import { submissionVersionApi } from '@/services/submissionVersionApi';
 import { parseChangesJson } from '@/types/submissionVersion';
 import type { SubmissionVersionChange, SubmissionVersionDto } from '@/types/submissionVersion';
@@ -12,11 +12,7 @@ const PAGE_SIZE = 10;
 
 function formatWhen(raw?: string | null): string {
   if (!raw) return '—';
-  try {
-    return format(parseISO(raw), 'dd/MM/yyyy HH:mm');
-  } catch {
-    return raw;
-  }
+  return formatIsoDdMmYyyyHmBangkok(raw);
 }
 
 function renderCell(value: unknown): string {

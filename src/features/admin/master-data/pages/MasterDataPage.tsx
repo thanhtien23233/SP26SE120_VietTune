@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+
+import BackButton from '@/components/common/BackButton';
 import { EntitySidebar } from '../components/EntitySidebar';
 import { EntityTableToolbar } from '../components/EntityTableToolbar';
 import { EntityTable } from '../components/EntityTable';
@@ -88,13 +90,16 @@ export function MasterDataPage() {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pb-12">
       {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">
-          {config.title}
-        </h1>
-        <p className="text-sm text-neutral-500 mt-1.5 font-medium">
-          Quản lý danh sách {config.singularName} — dữ liệu tham chiếu cho toàn bộ hệ thống VietTune.
-        </p>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">
+            {config.title}
+          </h1>
+          <p className="text-sm text-neutral-500 mt-1.5 font-medium">
+            Quản lý danh sách {config.singularName} — dữ liệu tham chiếu cho toàn bộ hệ thống VietTune.
+          </p>
+        </div>
+        <BackButton to="/admin" />
       </div>
 
       {/* Main layout: sidebar + workspace */}

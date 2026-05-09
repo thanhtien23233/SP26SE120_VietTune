@@ -1,10 +1,10 @@
 
-import { format, parseISO } from 'date-fns';
 import { BookOpen, ChevronDown, Eye, Pencil, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Badge from '@/components/common/Badge';
 import Button from '@/components/common/Button';
+import { formatIsoDdMmYyyyHmBangkok } from '@/config/datetimeDisplay';
 import { knowledgeBaseApi } from '@/services/knowledgeBaseApi';
 import type { KBEntry, KBListFilters } from '@/types/knowledgeBase';
 import { KB_CATEGORIES, KB_CATEGORY_LABELS, KB_STATUS_MAP } from '@/types/knowledgeBase';
@@ -17,11 +17,7 @@ function statusVariant(s: number): 'warning' | 'success' | 'secondary' {
 
 function formatDate(raw?: string): string {
   if (!raw) return '—';
-  try {
-    return format(parseISO(raw), 'dd/MM/yyyy HH:mm');
-  } catch {
-    return raw;
-  }
+  return formatIsoDdMmYyyyHmBangkok(raw);
 }
 
 export interface KBEntryListProps {
@@ -97,7 +93,19 @@ export default function KBEntryList({
     setQueryKey((k) => k + 1);
   };
 
+  const clearFilters = () => {
+    setCategory('');
+    setStatus('');
+    setSearch('');
+    setPage(1);
+    setQueryKey((k) => k + 1);
+  };
+
   const hasNext = entries.length >= PAGE_SIZE;
+  const hasActiveFilters = Boolean(category || status !== '' || search.trim());
+  const fixedStatusLabel =
+    fixedStatus !== undefined ? (KB_STATUS_MAP[fixedStatus] ?? `Trạng thái ${fixedStatus}`) : null;
+  const restrictedStatusLabel = fixedStatusLabel ?? (readOnly ? KB_STATUS_MAP[1] : null);
   const categoryPills = useMemo(
     () => [
       { value: '', label: 'Tất cả' },
@@ -162,6 +170,12 @@ export default function KBEntryList({
           </div>
         )}
 
+        {restrictedStatusLabel && (
+          <p className="rounded-xl bg-cream-50 px-3 py-2 text-xs text-neutral-600">
+            Chỉ hiển thị bài viết ở trạng thái: {restrictedStatusLabel}.
+          </p>
+        )}
+
         <div className="grid gap-2 md:grid-cols-[1fr_auto] md:items-end">
           <label className="block">
             <span className="mb-0.5 block text-xs font-medium text-neutral-700">Tìm kiếm</span>
@@ -207,13 +221,21 @@ export default function KBEntryList({
         {!loading && entries.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-secondary-200/80 bg-cream-50/70 px-4 py-12 text-center">
             <BookOpen className="mb-3 h-12 w-12 text-primary-200" />
-            <p className="text-base font-semibold text-neutral-800">Chưa có bài viết nào</p>
+            <p className="text-base font-semibold text-neutral-800">
+              {hasActiveFilters ? 'Không có bài viết phù hợp' : 'Chưa có bài viết nào'}
+            </p>
             <p className="mt-1 text-sm text-neutral-500">
-              {readOnly
+              {hasActiveFilters
+                ? 'Thử đổi danh mục, trạng thái hoặc từ khóa tìm kiếm.'
+                : readOnly
                 ? 'Hiện chưa có bài viết công khai.'
                 : 'Tạo bài viết đầu tiên cho hệ thống AI.'}
             </p>
-            {!readOnly && onCreateFirst && (
+            {hasActiveFilters ? (
+              <Button type="button" className="mt-4" variant="outline" size="sm" onClick={clearFilters}>
+                Xóa bộ lọc
+              </Button>
+            ) : !readOnly && onCreateFirst && (
               <Button type="button" className="mt-4" size="sm" onClick={onCreateFirst}>
                 Tạo bài viết đầu tiên
               </Button>

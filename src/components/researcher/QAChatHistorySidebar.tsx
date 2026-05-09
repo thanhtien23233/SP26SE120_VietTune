@@ -2,6 +2,7 @@ import { ChevronLeft, History, Menu, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { QAConversationRequest } from '@/services/qaConversationService';
+import { formatViDateTimeShortBangkok } from '@/config/datetimeDisplay';
 
 interface QAChatHistorySidebarProps {
   isSidebarOpen: boolean;
@@ -144,13 +145,7 @@ export default function QAChatHistorySidebar({
               >
                 <p className="font-medium text-sm truncate">{conv.title || 'Cuộc trò chuyện mới'}</p>
                 <p className="text-[10px] text-neutral-500 mt-1">
-                  {new Date(conv.createdAt).toLocaleDateString('vi-VN', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {formatViDateTimeShortBangkok(conv.createdAt)}
                 </p>
               </button>
             ))

@@ -2,6 +2,7 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { embargoApi } from '@/services/embargoApi';
+import { formatViDateTimeShortBangkok } from '@/config/datetimeDisplay';
 import { EMBARGO_STATUS_LABELS } from '@/types/embargo';
 import type { EmbargoDto } from '@/types/embargo';
 import { uiToast } from '@/uiToast';
@@ -12,15 +13,7 @@ export interface EmbargoListPanelProps {
 
 function formatDateTime(value?: string | null): string {
   if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('vi-VN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatViDateTimeShortBangkok(value);
 }
 
 export default function EmbargoListPanel({ className }: EmbargoListPanelProps) {

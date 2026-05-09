@@ -1,5 +1,9 @@
 import { type ClassValue, clsx } from 'clsx';
 
+import {
+  formatViDateBangkok,
+  formatViDateTimeBangkok,
+} from '@/config/datetimeDisplay';
 import { mapApiSubmissionStatusToModeration } from '@/services/submissionApiMapper';
 import { ModerationStatus } from '@/types';
 import { toModerationUiStatus } from '@/types/moderation';
@@ -79,24 +83,7 @@ export function migrateVideoDataToVideoData<
  * @returns Formatted date string in Vietnamese locale, or '-' if invalid
  */
 export function formatDateTime(dateString: string | Date | null | undefined): string {
-  if (!dateString) return '-';
-
-  try {
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-    if (isNaN(date.getTime())) return '-';
-
-    return date.toLocaleString('vi-VN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
-  } catch {
-    return '-';
-  }
+  return formatViDateTimeBangkok(dateString);
 }
 
 /**
@@ -104,23 +91,10 @@ export function formatDateTime(dateString: string | Date | null | undefined): st
  * Format: "dd/MM/yyyy"
  *
  * @param dateString - ISO date string or Date object
- * @returns Formatted date string in Vietnamese locale, or '-' if invalid
+ * @returns Formatted date string in Vietnamese locale (Asia/Bangkok), or '-' if invalid
  */
 export function formatDate(dateString: string | Date | null | undefined): string {
-  if (!dateString) return '-';
-
-  try {
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-    if (isNaN(date.getTime())) return '-';
-
-    return date.toLocaleDateString('vi-VN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  } catch {
-    return '-';
-  }
+  return formatViDateBangkok(dateString);
 }
 
 export function formatRelativeTimeVi(dateString: string | Date | null | undefined): string {

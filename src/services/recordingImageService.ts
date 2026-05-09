@@ -162,3 +162,17 @@ export const recordingImageService = {
     );
   },
 };
+
+/** URLs for UI gallery: primary image first (GET `/primary` + `/by-recording`). */
+export async function fetchRecordingImageDisplayUrls(recordingId: string): Promise<string[]> {
+  const [primary, images] = await Promise.all([
+    recordingImageService.getPrimary(recordingId),
+    recordingImageService.getByRecording(recordingId),
+  ]);
+  const urls = images
+    .map((img) => img.imageUrl)
+    .filter((url): url is string => typeof url === 'string' && url.trim().length > 0);
+  const primaryUrl = primary?.imageUrl?.trim();
+  if (!primaryUrl) return urls;
+  return [primaryUrl, ...urls.filter((u) => u !== primaryUrl)];
+}

@@ -243,6 +243,62 @@ export type RecordingUploadDto = ApiRecordingDto & {
   recordingLocation?: string | null;
 };
 
+function isLikelyUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+}
+
+/**
+ * Strip FE-only fields and values that break strict OpenAPI / ASP.NET binding for
+ * `PUT /api/Recording/{id}/upload` (additionalProperties: false; valid GUIDs).
+ */
+export function sanitizeRecordingDtoForUpload(dto: RecordingUploadDto): ApiRecordingDto {
+  const keys: (keyof ApiRecordingDto)[] = [
+    'title',
+    'description',
+    'audioFileUrl',
+    'videoFileUrl',
+    'audioFormat',
+    'durationSeconds',
+    'fileSizeBytes',
+    'uploadedById',
+    'communeId',
+    'ethnicGroupId',
+    'ceremonyId',
+    'vocalStyleId',
+    'musicalScaleId',
+    'performanceContext',
+    'lyricsOriginal',
+    'lyricsVietnamese',
+    'performerName',
+    'performerAge',
+    'recordingDate',
+    'gpsLatitude',
+    'gpsLongitude',
+    'tempo',
+    'keySignature',
+    'status',
+    'instrumentIds',
+  ];
+
+  const out: Partial<ApiRecordingDto> = {};
+  for (const key of keys) {
+    const v = dto[key];
+    if (v === undefined) continue;
+    if (key === 'instrumentIds' && Array.isArray(v) && v.length === 0) continue;
+    if ((key === 'gpsLatitude' || key === 'gpsLongitude') && v === null) continue;
+    if (
+      key === 'uploadedById' &&
+      typeof v === 'string' &&
+      v.trim() !== '' &&
+      !isLikelyUuid(v)
+    ) {
+      continue;
+    }
+    out[key] = v as never;
+  }
+  return out as ApiRecordingDto;
+}
+
 /** Map `LocalRecording` → JSON body for PUT /api/Recording/{id}/upload. */
 export function buildRecordingUploadPayload(recording: LocalRecording): Record<string, unknown> {
   const uploaderId = (recording.uploader as { id?: string } | undefined)?.id;

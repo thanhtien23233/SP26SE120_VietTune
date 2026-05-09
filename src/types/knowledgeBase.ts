@@ -90,13 +90,38 @@ export const KB_STATUS_MAP: Record<number, string> = {
   2: 'Lưu trữ',
 };
 
-export const KB_CATEGORIES = ['instrument', 'ceremony', 'term', 'general'] as const;
+export const KB_CATEGORIES = [
+  'Instrument',
+  'Ceremony',
+  'VocalStyle',
+  'Genre',
+  'Ethnic',
+  'EthnicGroup',
+] as const;
+
+const KB_CATEGORY_CANONICAL_BY_LOWERCASE = new Map(
+  KB_CATEGORIES.map((category) => [category.toLowerCase(), category]),
+);
+
+export function normalizeKbCategory(category: string | null | undefined): string {
+  const trimmed = category?.trim();
+  if (!trimmed) return '';
+  return KB_CATEGORY_CANONICAL_BY_LOWERCASE.get(trimmed.toLowerCase()) ?? trimmed;
+}
 
 export const KB_CATEGORY_LABELS: Record<string, string> = {
   instrument: 'Nhạc cụ',
   Instrument: 'Nhạc cụ',
   ceremony: 'Nghi lễ',
   Ceremony: 'Nghi lễ',
+  vocalStyle: 'Phong cách hát',
+  VocalStyle: 'Phong cách hát',
+  genre: 'Thể loại',
+  Genre: 'Thể loại',
+  ethnic: 'Dân tộc',
+  Ethnic: 'Dân tộc',
+  ethnicGroup: 'Nhóm dân tộc',
+  EthnicGroup: 'Nhóm dân tộc',
   term: 'Thuật ngữ',
   Term: 'Thuật ngữ',
   general: 'Tổng hợp',

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { isClickOnScrollbar } from '@/features/upload/uploadConstants';
+import { formatViDateBangkok } from '@/config/datetimeDisplay';
 
 export function UploadDatePicker({
   value,
@@ -159,8 +160,7 @@ export function UploadDatePicker({
 
   const formatDisplayDate = (dateStr: string) => {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('vi-VN');
+    return formatViDateBangkok(dateStr);
   };
 
   return (

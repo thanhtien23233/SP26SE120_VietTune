@@ -1,19 +1,15 @@
 
-import { format, parseISO } from 'date-fns';
 import { ChevronRight, Clock, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import Button from '@/components/common/Button';
+import { formatIsoDdMmYyyyHmBangkok } from '@/config/datetimeDisplay';
 import { knowledgeBaseApi } from '@/services/knowledgeBaseApi';
 import type { KBRevision } from '@/types/knowledgeBase';
 
 function formatWhen(raw?: string): string {
   if (!raw) return '—';
-  try {
-    return format(parseISO(raw), 'dd/MM/yyyy HH:mm');
-  } catch {
-    return raw;
-  }
+  return formatIsoDdMmYyyyHmBangkok(raw);
 }
 
 export interface KBRevisionHistoryProps {

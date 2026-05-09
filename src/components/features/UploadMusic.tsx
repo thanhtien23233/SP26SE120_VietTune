@@ -42,7 +42,7 @@ import {
   scrollToFirstUploadError,
   validateUploadFormState,
 } from '@/features/upload/uploadFormValidation';
-import { recordingImageService } from '@/services/recordingImageService';
+import { fetchRecordingImageDisplayUrls } from '@/services/recordingImageService';
 import { useAuthStore } from '@/stores/authStore';
 import { UserRole } from '@/types';
 
@@ -150,15 +150,12 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setTranscription,
     lyricsFile,
     setLyricsFile,
-    instrumentImage,
-    setInstrumentImage,
-    instrumentImagePreview,
-    setInstrumentImagePreview,
-    handleInstrumentImageChange,
     recordingImages,
     recordingImagePreviews,
     existingRecordingImageUrls,
     setExistingRecordingImageUrls,
+    setRecordingImages,
+    setRecordingImagePreviews,
     handleRecordingImagesChange,
     removeRecordingImage,
     collector,
@@ -325,19 +322,21 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
   });
 
   useEffect(() => {
-    if (!isEditMode || !editingRecordingId) {
+    const rid =
+      editingRecordingId ??
+      (createdRecordingId && createdRecordingId !== 'EDIT_MODE_UPLOADED'
+        ? createdRecordingId
+        : null);
+    if (!rid) {
       setExistingRecordingImageUrls([]);
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
-        const images = await recordingImageService.getByRecording(editingRecordingId);
+        const ordered = await fetchRecordingImageDisplayUrls(rid);
         if (cancelled) return;
-        const urls = images
-          .map((img) => img.imageUrl)
-          .filter((url): url is string => typeof url === 'string' && url.trim().length > 0);
-        setExistingRecordingImageUrls(urls);
+        setExistingRecordingImageUrls(ordered);
       } catch {
         if (!cancelled) setExistingRecordingImageUrls([]);
       }
@@ -345,7 +344,7 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     return () => {
       cancelled = true;
     };
-  }, [editingRecordingId, isEditMode, setExistingRecordingImageUrls]);
+  }, [editingRecordingId, createdRecordingId, isEditMode, setExistingRecordingImageUrls]);
 
   useUploadEditReferenceEffects({
     isEditMode,
@@ -531,6 +530,9 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     setSubmitStatus,
     setSubmitMessage,
     setIsSubmitting,
+    setExistingRecordingImageUrls,
+    setRecordingImages,
+    setRecordingImagePreviews,
   });
 
   const handleNextStep = async () => {
@@ -908,11 +910,6 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
           setVocalStyle={setVocalStyle}
           requiresInstruments={requiresInstruments}
           allowsLyrics={allowsLyrics}
-          instrumentImage={instrumentImage}
-          instrumentImagePreview={instrumentImagePreview}
-          setInstrumentImage={setInstrumentImage}
-          setInstrumentImagePreview={setInstrumentImagePreview}
-          handleInstrumentImageChange={handleInstrumentImageChange}
           lyricsFile={lyricsFile}
           setLyricsFile={setLyricsFile}
           handleLyricsFileChange={handleLyricsFileChange}

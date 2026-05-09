@@ -1,4 +1,3 @@
-import { format, parseISO } from 'date-fns';
 import { BookOpen, Calendar, Link2, Pencil, RefreshCw, User } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -12,6 +11,7 @@ import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
 import ConfirmationDialog from '@/components/common/ConfirmationDialog';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { formatIsoDdMmYyyyHmBangkok } from '@/config/datetimeDisplay';
 import { knowledgeBaseApi } from '@/services/knowledgeBaseApi';
 import type { CreateKBEntryRequest, KBEntry, UpdateKBEntryRequest } from '@/types/knowledgeBase';
 import { KB_CATEGORY_LABELS, KB_STATUS_MAP } from '@/types/knowledgeBase';
@@ -23,11 +23,7 @@ type Screen = 'list' | 'create' | 'edit' | 'view';
 
 function formatMetaDate(raw?: string): string {
   if (!raw) return '—';
-  try {
-    return format(parseISO(raw), 'dd/MM/yyyy HH:mm');
-  } catch {
-    return raw;
-  }
+  return formatIsoDdMmYyyyHmBangkok(raw);
 }
 
 export interface KnowledgeBasePanelProps {

@@ -12,6 +12,7 @@ import {
 } from '@/services/qaMessageService';
 import { notifyLine, uiToast } from '@/uiToast';
 import { toastApiError } from '@/uiToast/toastApiError';
+import { formatViDateTimeShortBangkok } from '@/config/datetimeDisplay';
 
 export interface FlaggedResponseListProps {
   className?: string;
@@ -22,13 +23,7 @@ export interface FlaggedResponseListProps {
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString('vi-VN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatViDateTimeShortBangkok(d);
 }
 
 function roleLabel(role: number): string {

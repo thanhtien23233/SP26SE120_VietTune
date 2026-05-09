@@ -6,6 +6,7 @@ import DisputeEvidenceUpload from './DisputeEvidenceUpload';
 import Button from '@/components/common/Button';
 import { DISPUTE_RESOLUTION_NOTES_MAX_LENGTH } from '@/config/validationConstants';
 import { copyrightDisputeApi } from '@/services/copyrightDisputeApi';
+import { formatViDateTimeShortBangkok } from '@/config/datetimeDisplay';
 import { COPYRIGHT_DISPUTE_STATUS_LABELS } from '@/types/copyrightDispute';
 import type { CopyrightDisputeDto, ResolveDisputeRequest } from '@/types/copyrightDispute';
 import { uiToast } from '@/uiToast';
@@ -26,15 +27,7 @@ function readDisputeId(row: CopyrightDisputeDto): string {
 
 function formatDateTime(value?: string | null): string {
   if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('vi-VN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatViDateTimeShortBangkok(value);
 }
 
 const RESOLUTION_OPTIONS = [

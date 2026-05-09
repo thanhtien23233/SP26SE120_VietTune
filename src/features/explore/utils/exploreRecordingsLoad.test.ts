@@ -9,6 +9,7 @@ vi.mock('@/services/semanticSearchService', () => ({
 vi.mock('@/services/recordingService', () => ({
   recordingService: {
     getGuestRecordings: vi.fn(),
+    getGuestRecordingsByFilter: vi.fn(),
     searchRecordings: vi.fn(),
   },
 }));
@@ -85,7 +86,7 @@ describe('loadExploreRecordings semantic mode', () => {
     expect(p2.recordings[4]?.id).toBe('sem-24');
   });
 
-  it('when vector API fails, ranks catalog by token overlap (not upload date) and tags semanticLocal', async () => {
+  it('when vector API fails, returns empty list with fetchWarning', async () => {
     vi.mocked(semanticSearchService.searchSemantic).mockRejectedValue(new Error('semantic down'));
     vi.mocked(fetchVerifiedSubmissionsAsRecordings).mockResolvedValue([
       mkRecording({
@@ -108,15 +109,16 @@ describe('loadExploreRecordings semantic mode', () => {
       isAuthenticated: true,
     });
 
-    expect(r.dataSource).toBe('semanticLocal');
-    expect(r.recordings.map((x) => x.id)).toEqual(['older', 'newer']);
-    expect(r.recordings[0]?._semanticScore ?? 0).toBeGreaterThan(r.recordings[1]?._semanticScore ?? 0);
+    expect(r.dataSource).toBe('empty');
+    expect(r.recordings).toHaveLength(0);
+    expect(r.fetchWarning).toMatch(/ngữ nghĩa/i);
   });
 });
 
 describe('loadExploreRecordings guest mode', () => {
   beforeEach(() => {
     vi.mocked(recordingService.getGuestRecordings).mockReset();
+    vi.mocked(recordingService.getGuestRecordingsByFilter).mockReset();
   });
 
   it('without client filters, uses server page and totals from RecordingGuest', async () => {
@@ -149,7 +151,7 @@ describe('loadExploreRecordings guest mode', () => {
         uploadedDate: new Date(2025, 0, 31 - i).toISOString(),
       }),
     );
-    vi.mocked(recordingService.getGuestRecordings).mockResolvedValue({
+    vi.mocked(recordingService.getGuestRecordingsByFilter).mockResolvedValue({
       items: pool,
       total: 500,
       totalPages: 1,
@@ -164,13 +166,18 @@ describe('loadExploreRecordings guest mode', () => {
       sqActive: '',
       isAuthenticated: false,
     });
-    expect(recordingService.getGuestRecordings).toHaveBeenCalledWith(1, 500, expect.any(Object));
+    expect(recordingService.getGuestRecordingsByFilter).toHaveBeenCalledWith(
+      { query: 'common' },
+      1,
+      500,
+      expect.any(Object),
+    );
     expect(r1.totalResults).toBe(25);
     expect(r1.recordings).toHaveLength(20);
     expect(r1.recordings[0]?.id).toBe('g-0');
 
-    vi.mocked(recordingService.getGuestRecordings).mockClear();
-    vi.mocked(recordingService.getGuestRecordings).mockResolvedValue({
+    vi.mocked(recordingService.getGuestRecordingsByFilter).mockClear();
+    vi.mocked(recordingService.getGuestRecordingsByFilter).mockResolvedValue({
       items: pool,
       total: 500,
       totalPages: 1,

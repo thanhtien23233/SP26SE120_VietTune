@@ -2,6 +2,7 @@ import { AlertCircle, Loader2, Lock, Unlock } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { EMBARGO_REASON_MAX_LENGTH } from '@/config/validationConstants';
+import { formatViDateTimeShortBangkok } from '@/config/datetimeDisplay';
 import { embargoApi } from '@/services/embargoApi';
 import type { EmbargoCreateUpdateDto, EmbargoDto } from '@/types/embargo';
 import { EMBARGO_STATUS_LABELS } from '@/types/embargo';
@@ -34,15 +35,7 @@ function toIsoOrNull(value: string): string | null {
 
 function formatDateTime(value?: string | null): string {
   if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('vi-VN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatViDateTimeShortBangkok(value);
 }
 
 export default function EmbargoSection({ recordingId, canEdit, className }: EmbargoSectionProps) {

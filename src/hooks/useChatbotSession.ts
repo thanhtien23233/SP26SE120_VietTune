@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { chatSessionStorage } from '@/services/chatSessionStorage';
-import { fetchUserConversations, type QAConversationRequest } from '@/services/qaConversationService';
+import type { QAConversationRequest } from '@/services/qaConversationService';
+import { listRagConversations, ragSummaryToQAConversation } from '@/services/ragChatService';
 
 export function useChatbotSession(userId: string | undefined) {
   const [history, setHistory] = useState<QAConversationRequest[]>(() =>
@@ -13,8 +14,9 @@ export function useChatbotSession(userId: string | undefined) {
     if (!userId) return;
     setIsLoadingHistory(true);
     try {
-      const data = await fetchUserConversations(userId);
-      const sorted = data.sort(
+      const data = await listRagConversations();
+      const mapped = data.map((s) => ragSummaryToQAConversation(s, userId));
+      const sorted = mapped.sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
       setHistory(sorted);

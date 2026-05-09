@@ -7,6 +7,7 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog';
 import AudioPlayer from '@/components/features/AudioPlayer';
 import VideoPlayer from '@/components/features/VideoPlayer';
 import { useApprovedRecordings } from '@/hooks/useApprovedRecordings';
+import { formatViDateTimeShortBangkok } from '@/config/datetimeDisplay';
 import ForbiddenPage from '@/pages/ForbiddenPage';
 import { recordingRequestService } from '@/services/recordingRequestService';
 import { removeLocalRecording } from '@/services/recordingStorage';
@@ -458,7 +459,7 @@ export default function ApprovedRecordingsPage() {
                     <p className="font-medium text-neutral-900">{sub.recordingTitle}</p>
                     <p className="text-sm text-neutral-600">
                       Người đóng góp: {sub.contributorName} · Gửi lúc:{' '}
-                      {new Date(sub.submittedAt).toLocaleString('vi-VN')}
+                      {formatViDateTimeShortBangkok(sub.submittedAt)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -506,7 +507,7 @@ export default function ApprovedRecordingsPage() {
                     <p className="font-medium text-neutral-900">{req.recordingTitle}</p>
                     <p className="text-sm text-neutral-600">
                       Người đóng góp: {req.contributorName} · Yêu cầu lúc:{' '}
-                      {new Date(req.requestedAt).toLocaleString('vi-VN')}
+                      {formatViDateTimeShortBangkok(req.requestedAt)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

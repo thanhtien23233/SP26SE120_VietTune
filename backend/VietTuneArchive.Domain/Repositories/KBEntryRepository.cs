@@ -33,7 +33,8 @@ namespace VietTuneArchive.Domain.Repositories
 
             if (!string.IsNullOrEmpty(queryParams.Category))
             {
-                query = query.Where(e => e.Category == queryParams.Category);
+                var category = queryParams.Category.Trim();
+                query = query.Where(e => EF.Functions.ILike(e.Category, category));
             }
 
             if (queryParams.Status.HasValue)
