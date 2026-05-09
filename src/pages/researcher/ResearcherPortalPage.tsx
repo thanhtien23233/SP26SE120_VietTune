@@ -22,14 +22,15 @@ import type { ResearcherPortalChatMessage } from '@/features/researcher/research
 import { buildCitationCandidates } from '@/features/researcher/researcherRecordingUtils';
 import { useChatbotSession } from '@/hooks/useChatbotSession';
 import {
-  createQAConversation,
-  type QAConversationRequest,
-} from '@/services/qaConversationService';
+  createRagConversation,
+  getRagConversation,
+  mergeRagAndQaToChatMessages,
+  sendRagMessage,
+} from '@/services/ragChatService';
 import {
-  createQAMessage,
   fetchConversationMessages,
 } from '@/services/qaMessageService';
-import { sendResearcherChatMessage } from '@/services/researcherChatService';
+import type { QAConversationRequest } from '@/services/qaConversationService';
 import { Recording, UserRole } from '@/types';
 import { isYouTubeUrl } from '@/utils/youtube';
 
@@ -158,15 +159,6 @@ export default function ResearcherPortalPage() {
     qaAutoLoadedRef.current = false;
   }, [qaUserId]);
 
-  const mapRemoteMessagesToChat = useCallback(
-    (remoteMsgs: Awaited<ReturnType<typeof fetchConversationMessages>>): ResearcherPortalChatMessage[] =>
-      remoteMsgs.map((m) => ({
-        role: m.role === 0 ? 'user' : 'assistant',
-        content: m.content,
-      })),
-    [],
-  );
-
   const handleSelectQaConversation = useCallback(
     async (conv: QAConversationRequest) => {
       if (!conv.id || conv.id === conversationId) return;
@@ -174,16 +166,25 @@ export default function ResearcherPortalPage() {
       setIsFirstQaMessage(false);
       setIsTyping(true);
       try {
-        const remoteMsgs = await fetchConversationMessages(conv.id);
+        const [ragResult, qaResult] = await Promise.allSettled([
+          getRagConversation(conv.id),
+          fetchConversationMessages(conv.id),
+        ]);
+        const ragMessages = ragResult.status === 'fulfilled' ? ragResult.value.messages : [];
+        const qaMessages = qaResult.status === 'fulfilled' ? qaResult.value : [];
+        const remoteMsgs = mergeRagAndQaToChatMessages(ragMessages, qaMessages);
+
         setChatMessages(
-          remoteMsgs.length > 0 ? mapRemoteMessagesToChat(remoteMsgs) : [{ role: 'assistant', content: WELCOME_CHAT }],
+          remoteMsgs.length > 0
+            ? remoteMsgs.map((message) => ({ role: message.role, content: message.content }))
+            : [{ role: 'assistant', content: WELCOME_CHAT }],
         );
         setChatInput('');
       } finally {
         setIsTyping(false);
       }
     },
-    [conversationId, mapRemoteMessagesToChat],
+    [conversationId],
   );
 
   const handleNewQaChat = useCallback(() => {
@@ -209,60 +210,37 @@ export default function ResearcherPortalPage() {
       setChatInput('');
       setIsTyping(true);
       try {
-        const now = new Date();
         const userId = user?.id || QA_DEFAULT_USER_ID;
-        const currentConversationId = conversationId;
+        let activeConvId = conversationId;
+
         if (isFirstQaMessage) {
+          const conv = await createRagConversation({ title: text });
+          activeConvId = conv.id;
           const newConv: QAConversationRequest = {
-            id: currentConversationId,
+            id: conv.id,
             userId,
             title: text,
-            createdAt: now.toISOString(),
+            createdAt: conv.createdAt,
           };
           setOptimisticQaConv(newConv);
-          await createQAConversation(newConv);
+          setConversationId(conv.id);
           setIsFirstQaMessage(false);
           void loadQaHistory();
         }
-        await createQAMessage({
-          id: crypto.randomUUID(),
-          conversationId: currentConversationId,
-          role: 0,
-          content: text,
-          sourceRecordingIdsJson: '[]',
-          sourceKBEntryIdsJson: '[]',
-          confidenceScore: 0,
-          flaggedByExpert: false,
-          correctedByExpertId: null,
-          expertCorrection: null,
-          createdAt: now.toISOString(),
-        });
-        const reply = await sendResearcherChatMessage(text);
-        const content = reply?.answer ?? CHAT_API_FALLBACK;
-        let citations = (reply?.citations ?? []).map((c) => ({
-          recordingId: c.recordingId,
-          label: c.title || `Bản thu ${c.recordingId.split('-')[0]}`,
-        }));
-        
-        // Fallback for debug if backend doesn't support yet
+
+        const assistant = await sendRagMessage(activeConvId, { content: text });
+        const content = assistant.content?.trim() || CHAT_API_FALLBACK;
+        let citations = (assistant.sources ?? [])
+          .filter((s) => (s.type || '').toLowerCase() === 'recording')
+          .map((s) => ({
+            recordingId: s.id,
+            label: s.title || `Bản thu ${s.id.split('-')[0]}`,
+          }));
         if (citations.length === 0) {
           citations = buildCitationCandidates(text, approvedRecordings);
         }
 
         setChatMessages((prev) => [...prev, { role: 'assistant', content, citations }]);
-        await createQAMessage({
-          id: crypto.randomUUID(),
-          conversationId: currentConversationId,
-          role: 1,
-          content,
-          sourceRecordingIdsJson: JSON.stringify(citations.map((c) => c.recordingId)),
-          sourceKBEntryIdsJson: '[]',
-          confidenceScore: 0,
-          flaggedByExpert: false,
-          correctedByExpertId: null,
-          expertCorrection: null,
-          createdAt: new Date().toISOString(),
-        });
       } catch {
         setChatMessages((prev) => [...prev, { role: 'assistant', content: CHAT_API_FALLBACK }]);
       } finally {
