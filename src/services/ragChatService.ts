@@ -219,3 +219,8 @@ export async function deleteRagConversation(conversationId: string): Promise<voi
 export async function postRagChatEmbeddingsBackfill(): Promise<unknown> {
   return apiOk(asApiEnvelope<unknown>(apiFetch.POST('/api/rag-chat/embeddings/backfill', {})));
 }
+
+/** Admin: trigger Gemini 768-dim embedding backfill for semantic/RAG pipelines. */
+export async function postRagChatEmbeddingsBackfill768(): Promise<unknown> {
+  return apiOk(asApiEnvelope<unknown>(apiFetch.POST('/api/rag-chat/embeddings/backfill-768', {})));
+}

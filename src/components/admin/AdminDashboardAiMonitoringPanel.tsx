@@ -5,7 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import { AdminAiMonitoringStatGrid } from '@/components/admin/AdminStatsCards';
 import FlaggedResponseList from '@/components/features/ai/FlaggedResponseList';
 import type { ExpertPerformanceRow } from '@/features/admin/adminDashboardTypes';
-import { postRagChatEmbeddingsBackfill } from '@/services/ragChatService';
+import {
+  postRagChatEmbeddingsBackfill,
+  postRagChatEmbeddingsBackfill768,
+} from '@/services/ragChatService';
 import { notifyLine, uiToast } from '@/uiToast';
 
 export default function AdminDashboardAiMonitoringPanel({
@@ -25,6 +28,8 @@ export default function AdminDashboardAiMonitoringPanel({
 }) {
   const navigate = useNavigate();
   const [backfillLoading, setBackfillLoading] = useState(false);
+  const [backfill768Loading, setBackfill768Loading] = useState(false);
+  const isBackfillBusy = backfillLoading || backfill768Loading;
 
   return (
     <div className="p-8">
@@ -111,36 +116,71 @@ export default function AdminDashboardAiMonitoringPanel({
               Gọi API tạo vector embedding cho bản thu / mục tri thức đã công bố còn thiếu (phục vụ tìm
               kiếm ngữ nghĩa và RAG). Thao tác có thể chạy lâu; chỉ dùng khi cần đồng bộ dữ liệu cũ.
             </p>
-            <button
-              type="button"
-              disabled={backfillLoading}
-              onClick={async () => {
-                setBackfillLoading(true);
-                try {
-                  await postRagChatEmbeddingsBackfill();
-                  uiToast.success(
-                    notifyLine('Backfill', 'Đã gửi yêu cầu tạo embedding. Kiểm tra log server nếu cần.'),
-                  );
-                } catch (e) {
-                  uiToast.error(
-                    notifyLine(
-                      'Lỗi',
-                      e instanceof Error ? e.message : 'Không thể chạy backfill embedding.',
-                    ),
-                  );
-                } finally {
-                  setBackfillLoading(false);
-                }
-              }}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-violet-300/80 bg-white px-4 py-2.5 text-sm font-semibold text-violet-900 shadow-sm transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${backfillLoading ? 'animate-spin' : ''}`}
-                strokeWidth={2.5}
-                aria-hidden
-              />
-              {backfillLoading ? 'Đang xử lý...' : 'Chạy backfill embedding'}
-            </button>
+            <p className="mb-3 text-xs leading-relaxed text-neutral-500">
+              384-dim dùng model local cũ; 768-dim dùng Gemini cho pipeline semantic search/RAG mới.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={isBackfillBusy}
+                onClick={async () => {
+                  setBackfillLoading(true);
+                  try {
+                    await postRagChatEmbeddingsBackfill();
+                    uiToast.success(
+                      notifyLine('Backfill 384', 'Đã gửi yêu cầu tạo embedding 384-dim. Kiểm tra log server nếu cần.'),
+                    );
+                  } catch (e) {
+                    uiToast.error(
+                      notifyLine(
+                        'Lỗi',
+                        e instanceof Error ? e.message : 'Không thể chạy backfill embedding 384-dim.',
+                      ),
+                    );
+                  } finally {
+                    setBackfillLoading(false);
+                  }
+                }}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-violet-300/80 bg-white px-4 py-2.5 text-sm font-semibold text-violet-900 shadow-sm transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${backfillLoading ? 'animate-spin' : ''}`}
+                  strokeWidth={2.5}
+                  aria-hidden
+                />
+                {backfillLoading ? 'Đang xử lý...' : 'Backfill 384-dim'}
+              </button>
+              <button
+                type="button"
+                disabled={isBackfillBusy}
+                onClick={async () => {
+                  setBackfill768Loading(true);
+                  try {
+                    await postRagChatEmbeddingsBackfill768();
+                    uiToast.success(
+                      notifyLine('Backfill 768', 'Đã gửi yêu cầu tạo embedding Gemini 768-dim. Kiểm tra log server nếu cần.'),
+                    );
+                  } catch (e) {
+                    uiToast.error(
+                      notifyLine(
+                        'Lỗi',
+                        e instanceof Error ? e.message : 'Không thể chạy backfill embedding 768-dim.',
+                      ),
+                    );
+                  } finally {
+                    setBackfill768Loading(false);
+                  }
+                }}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-violet-300/80 bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${backfill768Loading ? 'animate-spin' : ''}`}
+                  strokeWidth={2.5}
+                  aria-hidden
+                />
+                {backfill768Loading ? 'Đang xử lý...' : 'Backfill 768-dim'}
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
