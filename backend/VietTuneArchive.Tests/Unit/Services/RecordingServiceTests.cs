@@ -48,21 +48,21 @@ public class RecordingServiceTests
         _vectorMock = new Mock<IVectorEmbeddingService>();
         _loggerMock = new Mock<ILogger<RecordingService>>();
 
-        _sut = new RecordingService(
-            _repoMock.Object,
-            _mapperMock.Object,
-            _communeRepoMock.Object,
-            _ethnicGroupRepoMock.Object,
-            _ceremonyRepoMock.Object,
-            _musicalScaleRepoMock.Object,
-            _instrumentRepoMock.Object,
-            _vocalStyleRepoMock.Object,
-            _submissionRepoMock.Object,
-            _notificationMock.Object,
-            _userRepoMock.Object,
-            _vectorMock.Object,
-            _loggerMock.Object
-        );
+        //_sut = new RecordingService(
+        //    _repoMock.Object,
+        //    _mapperMock.Object,
+        //    _communeRepoMock.Object,
+        //    _ethnicGroupRepoMock.Object,
+        //    _ceremonyRepoMock.Object,
+        //    _musicalScaleRepoMock.Object,
+        //    _instrumentRepoMock.Object,
+        //    _vocalStyleRepoMock.Object,
+        //    _submissionRepoMock.Object,
+        //    _notificationMock.Object,
+        //    _userRepoMock.Object,
+        //    _vectorMock.Object,
+        //    _loggerMock.Object
+        //);
     }
 
     private void SetupValidFks()
