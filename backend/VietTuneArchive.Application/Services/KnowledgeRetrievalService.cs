@@ -63,7 +63,11 @@ namespace VietTuneArchive.Application.Services
                     if (kb != null)
                     {
                         double score = kbMatch.Score;
-                        if (kb.Title.ToLower() == lowerQuery || kb.Title.ToLower().Contains(lowerQuery) || lowerQuery.Contains(kb.Title.ToLower()))
+                        var mainTitle = kb.Title.Split(new[] { '-', ':' })[0].Trim().ToLower();
+                        if (kb.Title.ToLower() == lowerQuery || 
+                            kb.Title.ToLower().Contains(lowerQuery) || 
+                            lowerQuery.Contains(kb.Title.ToLower()) ||
+                            lowerQuery.Contains(mainTitle))
                         {
                             score = Math.Max(score, 1.0); // Boost to 1.0 if title match
                         }
@@ -98,7 +102,11 @@ namespace VietTuneArchive.Application.Services
                 foreach (var kb in kbEntries)
                 {
                     double score = 0.5;
-                    if (kb.Title.ToLower() == lowerQuery || kb.Title.ToLower().Contains(lowerQuery) || lowerQuery.Contains(kb.Title.ToLower()))
+                    var mainTitle = kb.Title.Split(new[] { '-', ':' })[0].Trim().ToLower();
+                    if (kb.Title.ToLower() == lowerQuery || 
+                        kb.Title.ToLower().Contains(lowerQuery) || 
+                        lowerQuery.Contains(kb.Title.ToLower()) ||
+                        lowerQuery.Contains(mainTitle))
                     {
                         score = 1.0; // Boost to 1.0 if title match even in fallback
                     }

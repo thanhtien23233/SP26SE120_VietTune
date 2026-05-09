@@ -17,6 +17,18 @@ namespace VietTuneArchive.Domain.Repositories
 
         public async Task<(List<KBEntry> Items, int TotalCount)> GetAllAsync(KBEntryQueryParams queryParams)
         {
+            try
+            {
+                var rawCount = await _context.KBEntries.CountAsync();
+                var status1Count = await _context.KBEntries.CountAsync(e => e.Status == 1);
+                var includeAuthorCount = await _context.KBEntries.Include(e => e.Author).CountAsync(e => e.Status == 1);
+                Console.WriteLine($"[KBEntryRepository Debug] Total Raw KBEntries in DB: {rawCount}, Status=1 Count: {status1Count}, WithAuthor Count: {includeAuthorCount}, PageSize requested: {queryParams.PageSize}, Page: {queryParams.Page}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[KBEntryRepository Debug Error] Failed to count KBEntries: {ex.Message}");
+            }
+
             var query = _context.KBEntries.Include(e => e.Author).AsQueryable();
 
             if (!string.IsNullOrEmpty(queryParams.Category))

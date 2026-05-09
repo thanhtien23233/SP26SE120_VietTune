@@ -103,8 +103,8 @@ namespace VietTuneArchive.Application.Services
             var docs = await _retrievalService.RetrieveAsync(request.Content, 5);
 
             // Filter out irrelevant context shards (noise reduction)
-            // Score >= 0.75 ensures we only keep title matches (1.0) or very strong semantic matches
-            docs = docs.Where(d => d.RelevanceScore >= 0.75).ToList();
+            // Score >= 0.60 ensures we keep strong semantic matches (typical for all-MiniLM-L6-v2)
+            docs = docs.Where(d => d.RelevanceScore >= 0.60).ToList();
 
             var contextBuilder = new StringBuilder();
             foreach (var doc in docs)
@@ -121,7 +121,7 @@ namespace VietTuneArchive.Application.Services
 
             // Chỉ gắn context vào câu hỏi hiện tại (fullPrompt), history sẽ là mảng riêng
             var fullPrompt = docs.Any() 
-                ? $"Dưới đây là thông tin tham khảo:\n{contextBuilder}\n\nHãy trả lời câu hỏi sau dựa trên thông tin trên: {request.Content}" 
+                ? $"Dưới đây là thông tin tham khảo:\n{contextBuilder}\n\nHãy trả lời câu hỏi sau dựa trên thông tin trên: {request.Content}\n\n(LƯU Ý QUAN TRỌNG: Tuyệt đối KHÔNG tự ghi thêm phần Nguồn, Source, hay Id vào trong câu trả lời của bạn vì hệ thống sẽ tự động đính kèm chúng)." 
                 : request.Content;
 
             var answerText = await _llmService.GenerateAsync(sysPrompt, fullPrompt, history);
@@ -130,9 +130,14 @@ namespace VietTuneArchive.Application.Services
 
             // Filter sources based on actual mention in AI's content (case-insensitive for titles)
             var filteredDocs = docs.Where(d => 
-                answerText.Contains(d.SourceId.ToString()) || 
-                (!string.IsNullOrEmpty(d.Title) && answerText.Contains(d.Title, StringComparison.OrdinalIgnoreCase))
-            ).ToList();
+            {
+                if (answerText.Contains(d.SourceId.ToString())) return true;
+                if (string.IsNullOrEmpty(d.Title)) return false;
+                
+                var mainTitle = d.Title.Split(new[] { '-', ':' })[0].Trim();
+                return answerText.Contains(d.Title, StringComparison.OrdinalIgnoreCase) || 
+                       answerText.Contains(mainTitle, StringComparison.OrdinalIgnoreCase);
+            }).ToList();
 
             // If AI didn't explicitly cite but docs were found, we might want to keep the highest score one as "fallback context" 
             // OR strictly stick to what AI mentioned. User asked to packaging based on AI output content.
