@@ -9,11 +9,13 @@ namespace VietTuneArchive.Application.Services
     {
         private readonly DBContext _context;
         private readonly IEmbeddingService _embeddingService;
+        private readonly IOpenAIEmbeddingService _openAIEmbeddingService;
 
-        public KnowledgeRetrievalService(DBContext context, IEmbeddingService embeddingService)
+        public KnowledgeRetrievalService(DBContext context, IEmbeddingService embeddingService, IOpenAIEmbeddingService openAIEmbeddingService)
         {
             _context = context;
             _embeddingService = embeddingService;
+            _openAIEmbeddingService = openAIEmbeddingService;
         }
 
         public async Task<List<RetrievedDocument>> RetrieveAsync(string question, int maxResults = 10)
@@ -25,7 +27,7 @@ namespace VietTuneArchive.Application.Services
             // 1. Semantic Search for Recordings and KBEntries
             try
             {
-                questionVector = await _embeddingService.GetEmbeddingAsync(question);
+                questionVector = await _openAIEmbeddingService.GetEmbeddingAsync(question, "RETRIEVAL_QUERY");
 
                 // 1a. Similar Recordings
                 var similarRecordings = await _embeddingService.SearchSimilarRecordingsAsync(questionVector, 5);
