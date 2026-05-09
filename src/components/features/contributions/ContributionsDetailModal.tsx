@@ -9,6 +9,7 @@ import {
   Headphones,
   Loader2,
   MapPin,
+  MessageSquare,
   Mic2,
   Music,
   RefreshCw,
@@ -37,7 +38,9 @@ import {
 } from '@/features/contributions/contributionDisplayUtils';
 import { MODERATION_LEGEND_STEPS } from '@/features/contributions/contributionFilterConstants';
 import type { InstrumentItem } from '@/services/referenceDataService';
+import type { ContributorSubmissionReview } from '@/services/reviewService';
 import type { Submission } from '@/services/submissionService';
+import { reviewDecisionLabelVi } from '@/types/reviewDecision';
 import { cn } from '@/utils/helpers';
 import { isYouTubeUrl } from '@/utils/youtube';
 
@@ -67,12 +70,16 @@ function renderDetailField(
 export default function ContributionsDetailModal({
   detailSubmission,
   detailLoading,
+  reviewFeedback = null,
+  reviewLoading = false,
   onClose,
   instruments,
   onQuickEdit,
 }: {
   detailSubmission: Submission | null;
   detailLoading: boolean;
+  reviewFeedback?: ContributorSubmissionReview | null;
+  reviewLoading?: boolean;
   onClose: () => void;
   instruments: InstrumentItem[];
   onQuickEdit: (sub: Submission) => void;
@@ -144,6 +151,36 @@ export default function ContributionsDetailModal({
 
           {detailSubmission && (
             <div className="space-y-4">
+              <div className="rounded-xl border border-amber-200/70 bg-gradient-to-br from-amber-50/80 to-cream-50/50 p-4 shadow-sm">
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-amber-950/90">
+                  <MessageSquare className="h-4 w-4 shrink-0 text-amber-700" strokeWidth={2} aria-hidden />
+                  Phản hồi từ kiểm duyệt
+                </h3>
+                {reviewLoading ? (
+                  <div className="flex items-center gap-2 text-sm font-medium text-neutral-600">
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-amber-700" aria-hidden />
+                    Đang tải phản hồi...
+                  </div>
+                ) : !reviewFeedback ? (
+                  <p className="text-sm font-medium leading-relaxed text-neutral-600">
+                    Chưa có phản hồi từ kiểm duyệt.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {reviewFeedback.decision !== undefined && (
+                      <p className="text-sm font-semibold text-neutral-900">
+                        Quyết định: {reviewDecisionLabelVi(reviewFeedback.decision)}
+                      </p>
+                    )}
+                    {reviewFeedback.comments ? (
+                      <p className="whitespace-pre-wrap break-words text-sm font-medium leading-relaxed text-neutral-800">
+                        {reviewFeedback.comments}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+
               {detailSubmission.status === 1 && (
                 <div className="rounded-xl border border-sky-200/60 bg-sky-50/50 p-4">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-sky-800">

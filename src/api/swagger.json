@@ -6212,6 +6212,261 @@
         }
       }
     },
+    "/api/RecordingImage/{recordingId}/upload": {
+      "post": {
+        "tags": [
+          "RecordingImage"
+        ],
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "File": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "Caption": {
+                    "type": "string"
+                  }
+                }
+              },
+              "encoding": {
+                "File": {
+                  "style": "form"
+                },
+                "Caption": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/RecordingImage/by-recording/{recordingId}": {
+      "get": {
+        "tags": [
+          "RecordingImage"
+        ],
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/RecordingImage/primary/{recordingId}": {
+      "get": {
+        "tags": [
+          "RecordingImage"
+        ],
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/RecordingImage/reorder/{recordingId}": {
+      "put": {
+        "tags": [
+          "RecordingImage"
+        ],
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/RecordingImage/cloud-file": {
+      "delete": {
+        "tags": [
+          "RecordingImage"
+        ],
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ReferenceData/ethnic-groups": {
       "get": {
         "tags": [
@@ -9669,6 +9924,10 @@
             "type": "string",
             "format": "uuid"
           },
+          "decision": {
+            "type": "integer",
+            "format": "int32"
+          },
           "comments": {
             "type": "string",
             "nullable": true
@@ -12009,6 +12268,33 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/VietTuneArchive.Application.Mapper.DTOs.ProvinceDto"
+            },
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto"
             },
             "nullable": true
           },

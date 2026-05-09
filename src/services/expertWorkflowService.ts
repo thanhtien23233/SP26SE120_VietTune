@@ -488,11 +488,17 @@ export const expertWorkflowService = {
   /** Phase 2: POST /Review/create; Phase 1: no-op success. */
   async syncRejectToServer(
     submissionId: string,
+    reviewerId: string,
     decision: ReviewDecision,
-    comment: string,
+    comments: string,
   ): Promise<MutationResult> {
     if (!EXPERT_API_PHASE2) return mutationOk();
-    return createReviewDecisionOnServer({ submissionId, decision, comment });
+    return createReviewDecisionOnServer({
+      submissionId,
+      reviewerId,
+      decision,
+      comments,
+    });
   },
 
   /** Phase 2: PUT done-stage-one; Phase 1: no-op success. */
@@ -540,8 +546,9 @@ export const expertWorkflowService = {
       if (EXPERT_API_PHASE2) {
         const serverRes = await createReviewDecisionOnServer({
           submissionId,
+          reviewerId: expertId,
           decision,
-          comment: rejectionNote || notes,
+          comments: rejectionNote || notes,
         });
         if (!serverRes.ok) return false;
       }

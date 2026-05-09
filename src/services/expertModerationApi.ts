@@ -335,16 +335,25 @@ export async function approveSubmissionOnServer(submissionId: string): Promise<M
   }
 }
 
+/** POST /api/Review/create — decision: 0 = reject, 1 = request update (aligned with backend). */
 export async function createReviewDecisionOnServer(params: {
   submissionId: string;
-  decision: ReviewDecision;
-  comment: string;
+  reviewerId: string;
+  decision: ReviewDecision | number;
+  comments: string;
 }): Promise<MutationResult> {
   try {
+    if (!isUuid(params.submissionId)) {
+      return mutationFail(new Error('ID không hợp lệ.'), 400);
+    }
+    if (!isUuid(params.reviewerId)) {
+      return mutationFail(new Error('ID không hợp lệ.'), 400);
+    }
     const payload = {
       submissionId: params.submissionId,
-      decision: params.decision,
-      comment: params.comment,
+      reviewerId: params.reviewerId,
+      decision: typeof params.decision === 'number' ? params.decision : Number(params.decision),
+      comments: params.comments ?? '',
     };
     await apiOk(
       asApiEnvelope<unknown>(apiFetch.POST('/api/Review/create', { body: payload })),

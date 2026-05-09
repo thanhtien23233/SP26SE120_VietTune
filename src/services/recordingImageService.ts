@@ -2,11 +2,13 @@
  * Recording Image API — multipart upload & management.
  *
  * Endpoints aligned with `docs/recording_image_api_guide.md`.
- * The server handles Supabase storage internally; the FE only sends
- * the raw File object via multipart/form-data.
+ * GET/PUT/DELETE use `openapi-fetch` (`apiFetch`); multipart upload uses `legacyPost`
+ * so the browser sets the multipart boundary (no manual Content-Type).
  */
 
-import { legacyGet, legacyPost, legacyPut, legacyDelete } from '@/api/legacyHttp';
+import { apiFetch, apiOk, asApiEnvelope, openApiQueryRecord } from '@/api';
+import { legacyPost } from '@/api/legacyHttp';
+import { getHttpStatus } from '@/utils/httpError';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -27,9 +29,24 @@ interface ServiceEnvelope<T> {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function unwrap<T>(envelope: ServiceEnvelope<T>): T {
-  if (envelope.data !== undefined) return envelope.data;
+function unwrap<T>(envelope: unknown): T {
+  const e = envelope as ServiceEnvelope<T>;
+  if (e && typeof e === 'object' && e.data !== undefined) return e.data;
   return envelope as unknown as T;
+}
+
+function mapDtoToRecordingImage(row: unknown): RecordingImage | null {
+  if (!row || typeof row !== 'object') return null;
+  const r = row as Record<string, unknown>;
+  const id = String(r.id ?? '').trim();
+  if (!id) return null;
+  return {
+    id,
+    recordingId: String(r.recordingId ?? '').trim(),
+    imageUrl: String(r.imageUrl ?? ''),
+    caption: r.caption == null ? null : String(r.caption),
+    sortOrder: typeof r.sortOrder === 'number' ? r.sortOrder : Number(r.sortOrder ?? 0),
+  };
 }
 
 // ── Service ────────────────────────────────────────────────────────────────
@@ -37,9 +54,7 @@ function unwrap<T>(envelope: ServiceEnvelope<T>): T {
 export const recordingImageService = {
   /**
    * 1. Upload image for a recording (multipart/form-data).
-   *    Server stores the file in Supabase `recording-images` bucket.
-   *
-   *    POST /api/recordingimage/{recordingId}/upload
+   *    POST /api/RecordingImage/{recordingId}/upload
    */
   uploadImage: async (
     recordingId: string,
@@ -50,77 +65,100 @@ export const recordingImageService = {
     formData.append('file', file);
     if (caption) formData.append('caption', caption);
 
-    const res = await legacyPost<ServiceEnvelope<RecordingImage>>(
+    const res = await legacyPost<ServiceEnvelope<RecordingImage | Record<string, unknown>>>(
       `/RecordingImage/${encodeURIComponent(recordingId)}/upload`,
       formData,
     );
-    return unwrap(res);
+    const raw = unwrap<RecordingImage | Record<string, unknown>>(res);
+    const mapped = mapDtoToRecordingImage(raw);
+    if (!mapped) {
+      throw new Error('Upload response missing image id');
+    }
+    return mapped;
   },
 
   /**
    * 2. Get all images for a recording (sorted by sortOrder asc).
-   *
-   *    GET /api/recordingimage/by-recording/{recordingId}
+   *    GET /api/RecordingImage/by-recording/{recordingId}
    */
   getByRecording: async (recordingId: string): Promise<RecordingImage[]> => {
-    const res = await legacyGet<ServiceEnvelope<RecordingImage[]>>(
-      `/RecordingImage/by-recording/${encodeURIComponent(recordingId)}`,
+    const envelope = await apiOk(
+      asApiEnvelope<unknown>(
+        apiFetch.GET('/api/RecordingImage/by-recording/{recordingId}', {
+          params: { path: { recordingId } },
+        }),
+      ),
     );
-    return unwrap(res) ?? [];
+    const raw = unwrap<unknown[]>(envelope) ?? [];
+    if (!Array.isArray(raw)) return [];
+    return raw.map(mapDtoToRecordingImage).filter((x): x is RecordingImage => x !== null);
   },
 
   /**
    * 3. Get primary image (sortOrder = 0) for a recording.
-   *
-   *    GET /api/recordingimage/primary/{recordingId}
+   *    GET /api/RecordingImage/primary/{recordingId}
    */
   getPrimary: async (recordingId: string): Promise<RecordingImage | null> => {
     try {
-      const res = await legacyGet<ServiceEnvelope<RecordingImage>>(
-        `/RecordingImage/primary/${encodeURIComponent(recordingId)}`,
+      const envelope = await apiOk(
+        asApiEnvelope<unknown>(
+          apiFetch.GET('/api/RecordingImage/primary/{recordingId}', {
+            params: { path: { recordingId } },
+          }),
+        ),
       );
-      return unwrap(res) ?? null;
+      const raw = unwrap(envelope);
+      return mapDtoToRecordingImage(raw);
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } }).response?.status;
-      if (status === 404) return null;
+      if (getHttpStatus(err) === 404) return null;
       throw err;
     }
   },
 
   /**
    * 4. Reorder images — first element becomes primary (sortOrder = 0).
-   *
-   *    PUT /api/recordingimage/reorder/{recordingId}
+   *    PUT /api/RecordingImage/reorder/{recordingId}
    */
   reorder: async (recordingId: string, imageIds: string[]): Promise<boolean> => {
-    const res = await legacyPut<ServiceEnvelope<boolean>>(
-      `/RecordingImage/reorder/${encodeURIComponent(recordingId)}`,
-      imageIds,
+    const envelope = await apiOk(
+      asApiEnvelope<unknown>(
+        apiFetch.PUT('/api/RecordingImage/reorder/{recordingId}', {
+          params: { path: { recordingId } },
+          body: imageIds,
+        }),
+      ),
     );
-    return unwrap(res) ?? true;
+    const v = unwrap<boolean>(envelope);
+    return Boolean(v ?? true);
   },
 
   /**
    * 5. Delete a single image (also removes file from Supabase).
-   *
-   *    DELETE /api/recordingimage/{imageId}
+   *    DELETE /api/RecordingImage/{id}
    */
   deleteImage: async (imageId: string): Promise<boolean> => {
-    const res = await legacyDelete<ServiceEnvelope<boolean>>(
-      `/RecordingImage/${encodeURIComponent(imageId)}`,
+    const envelope = await apiOk(
+      asApiEnvelope<unknown>(
+        apiFetch.DELETE('/api/RecordingImage/{id}', {
+          params: { path: { id: imageId } },
+        }),
+      ),
     );
-    return unwrap(res) ?? true;
+    const v = unwrap<boolean>(envelope);
+    return Boolean(v ?? true);
   },
 
   /**
    * 6. Delete orphaned cloud file by URL (safe no-op if invalid).
-   *
-   *    DELETE /api/recordingimage/cloud-file?url={publicUrl}
+   *    DELETE /api/RecordingImage/cloud-file?url={publicUrl}
    */
   deleteCloudFile: async (publicUrl: string): Promise<void> => {
-    await legacyDelete<ServiceEnvelope<unknown>>(
-      '/RecordingImage/cloud-file',
-      { params: { url: publicUrl } },
+    await apiOk(
+      asApiEnvelope<unknown>(
+        apiFetch.DELETE('/api/RecordingImage/cloud-file', {
+          params: { query: openApiQueryRecord({ url: publicUrl }) },
+        }),
+      ),
     );
   },
 };

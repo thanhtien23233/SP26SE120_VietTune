@@ -321,14 +321,6 @@ type RecordingSearchByFilterResponse =
       value?: Record<string, unknown>[];
     };
 
-type RecordingImageDto = {
-  id?: string;
-  recordingId?: string;
-  imageUrl?: string | null;
-  caption?: string | null;
-  sortOrder?: number;
-};
-
 export const recordingService = {
   /** Authenticated title search: GET /api/Recording/search-by-title */
   searchRecordingsByTitle: async (
@@ -585,50 +577,6 @@ export const recordingService = {
       }>(
         apiFetch.POST('/api/Submission/create-submission', {
           body: payload,
-        }),
-      ),
-    );
-  },
-
-  /**
-   * @deprecated Use `recordingImageService.getByRecording()` from `@/services/recordingImageService` instead.
-   * This uses the old paginated CRUD endpoint. The new endpoint returns a clean sorted list.
-   */
-  getRecordingImages: async (recordingId: string) => {
-    return apiOk(
-      asApiEnvelope<{
-        isSuccess?: boolean;
-        message?: string;
-        data?: RecordingImageDto[];
-        items?: RecordingImageDto[];
-      }>(
-        apiFetch.GET('/api/RecordingImage', {
-          params: { query: openApiQueryRecord({ recordingId, page: 1, pageSize: 100 }) },
-        }),
-      ),
-    );
-  },
-
-  /**
-   * @deprecated Use `recordingImageService.uploadImage()` from `@/services/recordingImageService` instead.
-   * The new endpoint uses multipart/form-data and handles Supabase storage server-side.
-   */
-  createRecordingImage: async (data: {
-    recordingId: string;
-    imageUrl: string;
-    caption?: string;
-    sortOrder?: number;
-  }) => {
-    const payload: RecordingImageDto = {
-      recordingId: data.recordingId,
-      imageUrl: data.imageUrl,
-      caption: data.caption ?? null,
-      sortOrder: data.sortOrder ?? 0,
-    };
-    return apiOk(
-      asApiEnvelope<{ isSuccess?: boolean; message?: string; data?: RecordingImageDto }>(
-        apiFetch.POST('/api/RecordingImage', {
-          body: payload as never,
         }),
       ),
     );

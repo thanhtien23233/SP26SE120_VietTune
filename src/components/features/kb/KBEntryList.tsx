@@ -114,10 +114,9 @@ export default function KBEntryList({
   );
 
   const pillClass = (active: boolean) =>
-    `rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-      active
-        ? 'border-primary-500 bg-primary-100 text-primary-800'
-        : 'border-neutral-300 bg-white text-neutral-700 hover:border-secondary-400 hover:bg-cream-50'
+    `rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active
+      ? 'border-primary-500 bg-primary-100 text-primary-800'
+      : 'border-neutral-300 bg-white text-neutral-700 hover:border-secondary-400 hover:bg-cream-50'
     }`;
 
   return (

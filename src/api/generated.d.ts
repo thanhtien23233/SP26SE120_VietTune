@@ -5539,6 +5539,215 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/RecordingImage/{recordingId}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    recordingId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "multipart/form-data": {
+                        /** Format: binary */
+                        File?: string;
+                        Caption?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/RecordingImage/by-recording/{recordingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    recordingId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/RecordingImage/primary/{recordingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    recordingId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/RecordingImage/reorder/{recordingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    recordingId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": string[];
+                    "text/json": string[];
+                    "application/*+json": string[];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/RecordingImage/cloud-file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: {
+                    url?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "application/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                        "text/json": components["schemas"]["VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ReferenceData/ethnic-groups": {
         parameters: {
             query?: never;
@@ -8369,6 +8578,8 @@ export interface components {
             submissionId?: string;
             /** Format: uuid */
             reviewerId?: string;
+            /** Format: int32 */
+            decision?: number;
             comments?: string | null;
         };
         "VietTuneArchive.Application.Mapper.DTOs.CreateSubmissionVersionDto": {
@@ -9111,6 +9322,12 @@ export interface components {
             success?: boolean;
             message?: string | null;
             data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.ProvinceDto"][] | null;
+            errors?: string[] | null;
+        };
+        "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
+            success?: boolean;
+            message?: string | null;
+            data?: components["schemas"]["VietTuneArchive.Application.Mapper.DTOs.RecordingImageDto"][] | null;
             errors?: string[] | null;
         };
         "VietTuneArchive.Application.Responses.ServiceResponse`1[[System.Collections.Generic.List`1[[VietTuneArchive.Application.Mapper.DTOs.SubmissionVersionDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {

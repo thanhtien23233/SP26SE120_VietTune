@@ -17,6 +17,7 @@ import { CONTRIBUTIONS_SUBMISSIONS_PANEL_ID } from '@/features/contributions/con
 import { useContributionsData } from '@/features/contributions/hooks/useContributionsData';
 import { useContributionsStatusTabA11y } from '@/features/contributions/hooks/useContributionsStatusTabA11y';
 import { referenceDataService, type InstrumentItem } from '@/services/referenceDataService';
+import { getReviewBySubmissionId, type ContributorSubmissionReview } from '@/services/reviewService';
 import { sessionSetItem } from '@/services/storageService';
 import {
   submissionService,
@@ -66,6 +67,8 @@ export default function ContributionsPage() {
   /** Id passed when opening the modal — fallback if GET /Submission/{id} payload omits `id` (camelCase). */
   const detailOpenedWithSubmissionIdRef = useRef<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailReview, setDetailReview] = useState<ContributorSubmissionReview | null>(null);
+  const [detailReviewLoading, setDetailReviewLoading] = useState(false);
   // Delete confirmation
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -104,6 +107,8 @@ export default function ContributionsPage() {
     detailOpenedWithSubmissionIdRef.current = null;
     setDetailSubmission(null);
     setDetailLoading(false);
+    setDetailReview(null);
+    setDetailReviewLoading(false);
   }, []);
 
   useEffect(() => {
@@ -129,29 +134,43 @@ export default function ContributionsPage() {
   const isNotContributor = !user || user.role !== UserRole.CONTRIBUTOR;
 
   const openDetail = async (submissionId: string) => {
-    detailOpenedWithSubmissionIdRef.current = submissionId.trim() || null;
+    const sid = submissionId.trim();
+    detailOpenedWithSubmissionIdRef.current = sid || null;
     setDetailLoading(true);
     setDetailSubmission(null);
+    setDetailReview(null);
+    setDetailReviewLoading(true);
     try {
-      const res = await submissionService.getSubmissionById(submissionId);
-      if (res?.isSuccess && res.data) {
-        let normalized = mapSubmissionListRowToSubmission(
-          res.data as unknown as Record<string, unknown>,
-        );
-        const sid = submissionId.trim();
-        if (!normalized.id && sid) {
-          normalized = {
-            ...normalized,
-            id: sid,
-            recordingId: normalized.recordingId || sid,
-          };
+      const [subOutcome, reviewOutcome] = await Promise.allSettled([
+        submissionService.getSubmissionById(submissionId),
+        getReviewBySubmissionId(sid),
+      ]);
+      const review = reviewOutcome.status === 'fulfilled' ? reviewOutcome.value : null;
+      setDetailReview(review);
+
+      if (subOutcome.status === 'fulfilled') {
+        const res = subOutcome.value;
+        if (res?.isSuccess && res.data) {
+          let normalized = mapSubmissionListRowToSubmission(
+            res.data as unknown as Record<string, unknown>,
+          );
+          if (!normalized.id && sid) {
+            normalized = {
+              ...normalized,
+              id: sid,
+              recordingId: normalized.recordingId || sid,
+            };
+          }
+          setDetailSubmission(normalized.id ? normalized : null);
         }
-        setDetailSubmission(normalized.id ? normalized : null);
+      } else {
+        console.error('Failed to load submission detail:', subOutcome.reason);
       }
     } catch (err) {
       console.error('Failed to load submission detail:', err);
     } finally {
       setDetailLoading(false);
+      setDetailReviewLoading(false);
     }
   };
 
@@ -394,6 +413,8 @@ export default function ContributionsPage() {
         <ContributionsDetailModal
           detailSubmission={detailSubmission}
           detailLoading={detailLoading}
+          reviewFeedback={detailReview}
+          reviewLoading={detailReviewLoading}
           onClose={closeDetail}
           instruments={instruments}
           onQuickEdit={handleQuickEdit}

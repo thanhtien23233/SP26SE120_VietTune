@@ -247,6 +247,7 @@ export async function executeModerationReject(p: ExecuteModerationRejectParams):
   void (async () => {
     const syncRes = await expertWorkflowService.syncRejectToServer(
       id,
+      user.id,
       decision,
       combinedRejectNotes,
     );
