@@ -12,7 +12,8 @@ namespace VietTuneArchive.Application.Mapper.DTOs
     {
         public Guid SubmissionId { get; set; }
         public Guid ReviewerId { get; set; }
-        public string? Comments { get; set; }
+        public int Decision { get; set; }
+        public string Comments { get; set; }
     }
     public class UpdateReviewDto
     {
