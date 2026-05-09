@@ -158,7 +158,6 @@ export default function ContributionsPage() {
             normalized = {
               ...normalized,
               id: sid,
-              recordingId: normalized.recordingId || sid,
             };
           }
           setDetailSubmission(normalized.id ? normalized : null);
@@ -174,8 +173,35 @@ export default function ContributionsPage() {
     }
   };
 
+  const isLikelyRecordingId = (submissionId: string, recordingId: string) => {
+    const s = submissionId.trim();
+    const r = recordingId.trim();
+    return r.length > 0 && r !== s;
+  };
+
   const handleQuickEdit = async (sub: Submission) => {
-    const rec = sub.recording;
+    let detail: Submission;
+    try {
+      const res = await submissionService.getSubmissionById(sub.id);
+      if (!res?.isSuccess || !res.data) {
+        uiToast.error('Không tải được chi tiết đóng góp. Vui lòng thử lại.');
+        return;
+      }
+      detail = mapSubmissionListRowToSubmission(res.data as unknown as Record<string, unknown>);
+      if (!detail.id.trim()) {
+        detail = { ...detail, id: sub.id.trim() };
+      }
+    } catch {
+      uiToast.error('Không tải được chi tiết đóng góp. Vui lòng thử lại.');
+      return;
+    }
+
+    if (!isLikelyRecordingId(detail.id, detail.recordingId)) {
+      uiToast.error('Không lấy được mã bản ghi để chỉnh sửa. Vui lòng thử lại sau.');
+      return;
+    }
+
+    const rec = detail.recording;
     const effectiveMediaType = rec?.videoFileUrl ? 'video' : 'audio';
     const audioUrl =
       effectiveMediaType === 'audio'
@@ -185,9 +211,9 @@ export default function ContributionsPage() {
 
     // Create a mock LocalRecordingStorage object for UploadMusic.tsx
     const editingObj = {
-      id: sub.id, // submissionId
-      recordingId: sub.recordingId,
-      submissionId: sub.id,
+      id: detail.id, // submissionId
+      recordingId: detail.recordingId,
+      submissionId: detail.id,
       mediaType: effectiveMediaType,
       youtubeUrl: videoUrl && videoUrl.includes('youtube') ? videoUrl : null,
       audioData: audioUrl,
@@ -221,7 +247,7 @@ export default function ContributionsPage() {
       },
       additionalNotes: {
         description: rec?.description || '',
-        fieldNotes: sub?.notes || '',
+        fieldNotes: detail?.notes || '',
         transcription: rec?.lyricsVietnamese || rec?.lyricsOriginal || '',
       },
       adminInfo: {
