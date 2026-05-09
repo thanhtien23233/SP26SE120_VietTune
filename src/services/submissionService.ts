@@ -173,7 +173,7 @@ export function mapSubmissionListRowToSubmission(row: Record<string, unknown>): 
 
   return {
     id: submissionId,
-    recordingId: recordingId || submissionId,
+    recordingId,
     contributorId: str(
       pickField(row, 'contributorId', 'ContributorId', 'uploadedById', 'UploadedById'),
     ),

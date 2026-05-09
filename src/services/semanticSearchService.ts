@@ -1,5 +1,5 @@
 import { apiFetch, apiOk, asApiEnvelope } from '@/api';
-import type { ApiSemanticSearchQuery } from '@/api';
+import type { ApiSemanticSearch768Query } from '@/api';
 import { Recording } from '@/types';
 
 const SEMANTIC_CIRCUIT_BREAKER_MS = 3 * 60 * 1000;
@@ -35,7 +35,7 @@ export const searchSemantic = async (
     throw new Error('Semantic search temporarily unavailable');
   }
 
-  const query: ApiSemanticSearchQuery = {
+  const query: ApiSemanticSearch768Query = {
     q: params.q,
     topK: params.topK ?? 10,
     minScore: params.minScore ?? 0.7,
@@ -44,7 +44,7 @@ export const searchSemantic = async (
   try {
     const result = await apiOk(
       asApiEnvelope<SemanticSearchResult[]>(
-        apiFetch.GET('/api/search/semantic', {
+        apiFetch.GET('/api/search/semantic-768', {
           params: { query },
         }),
       ),

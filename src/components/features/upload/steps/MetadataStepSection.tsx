@@ -116,11 +116,6 @@ type MetadataStepSectionProps = {
   setVocalStyle: (value: string) => void;
   requiresInstruments: boolean;
   allowsLyrics: boolean;
-  instrumentImage: File | null;
-  instrumentImagePreview: string;
-  setInstrumentImage: (value: File | null) => void;
-  setInstrumentImagePreview: (value: string) => void;
-  handleInstrumentImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   lyricsFile: File | null;
   setLyricsFile: (value: File | null) => void;
   handleLyricsFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -214,11 +209,6 @@ export default function MetadataStepSection({
   setVocalStyle,
   requiresInstruments,
   allowsLyrics,
-  instrumentImage,
-  instrumentImagePreview,
-  setInstrumentImage,
-  setInstrumentImagePreview,
-  handleInstrumentImageChange,
   lyricsFile,
   setLyricsFile,
   handleLyricsFileChange,
@@ -594,66 +584,6 @@ export default function MetadataStepSection({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2">
-            {(performanceType === 'instrumental' || performanceType === 'vocal_accompaniment') && (
-              <div
-                className={
-                  performanceType === 'vocal_accompaniment'
-                    ? 'col-span-1'
-                    : 'col-span-1 md:col-span-2'
-                }
-              >
-                <FormFieldComponent
-                  label="Tải lên hình ảnh nhạc cụ (nếu có)"
-                  hint="Ảnh minh họa cho các nhạc cụ sử dụng"
-                >
-                  <div className="flex items-center gap-3">
-                    <label
-                      className={`px-4 py-2 rounded-xl text-sm text-neutral-800 border border-neutral-300 transition-colors shadow-sm inline-block ${
-                        isFormDisabled
-                          ? 'opacity-50 cursor-not-allowed'
-                          : 'hover:shadow-md cursor-pointer hover:bg-[#F5F0E8]'
-                      } bg-surface-panel`}
-                    >
-                      Chọn ảnh
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleInstrumentImageChange}
-                        className="sr-only"
-                        disabled={isFormDisabled}
-                      />
-                    </label>
-                    {instrumentImage && (
-                      <span className="text-neutral-800/60 text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">
-                        {instrumentImage.name}
-                      </span>
-                    )}
-                    {instrumentImagePreview && (
-                      <img
-                        src={instrumentImagePreview}
-                        alt="Xem trước ảnh nhạc cụ"
-                        className="h-10 rounded-lg border border-neutral-300"
-                      />
-                    )}
-                    {instrumentImage && (
-                      <button
-                        type="button"
-                        className="ml-2 text-xs text-red-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-                        onClick={() => {
-                          if (isFormDisabled) return;
-                          setInstrumentImage(null);
-                          setInstrumentImagePreview('');
-                        }}
-                        disabled={isFormDisabled}
-                      >
-                        Xóa
-                      </button>
-                    )}
-                  </div>
-                </FormFieldComponent>
-              </div>
-            )}
-
             {allowsLyrics && (
               <div
                 className={
@@ -832,104 +762,102 @@ export default function MetadataStepSection({
         </div>
       </CollapsibleSectionComponent>
 
-      <div className="mt-6 mb-2 rounded-2xl border border-dashed border-secondary-200/60 bg-gradient-to-br from-secondary-50/70 via-primary-50/25 to-cream-50/60 p-6 shadow-sm sm:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <SectionHeaderComponent
-              icon={Navigation}
-              title="Gắn vị trí GPS"
-              subtitle="Lấy địa chỉ hiện tại để điền vào 'Địa điểm ghi âm' phía trên"
-              optional
-            />
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleGetGpsLocation}
-                  disabled={isFormDisabled || gpsLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer text-sm"
-                >
-                  <Navigation className="w-4 h-4" strokeWidth={2.5} />
-                  {gpsLoading ? 'Đang lấy vị trí...' : 'Lấy vị trí hiện tại'}
-                </button>
-              </div>
-              {showFatalGps && (
-                <p className="text-xs text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  {gpsError}
-                </p>
-              )}
-              {gpsExtrasVisible && showCoordsNoAddress && (
-                <p className="text-xs text-amber-900/90 flex items-center gap-1">
-                  <Info className="w-3.5 h-3.5 shrink-0" />
-                  Đã lấy tọa độ GPS. Chưa xác định được địa chỉ chi tiết.
-                </p>
-              )}
-              {gpsExtrasVisible && !showCoordsNoAddress && hasGps && (
-                <p className="text-xs text-green-700 flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5" />
-                  {`Đã gắn GPS: ${capturedGpsLat!.toFixed(6)}, ${capturedGpsLon!.toFixed(6)}`}
-                </p>
-              )}
-              {gpsExtrasVisible && capturedGpsAccuracy != null && (
-                <p className="text-xs text-neutral-700">
-                  {`Độ chính xác: ~${Math.round(capturedGpsAccuracy)}m${
-                    gpsAccuracyLabel ? ` (${gpsAccuracyLabel})` : ''
-                  }`}
-                </p>
-              )}
-              {gpsExtrasVisible && mapEmbedUrl && (
-                <div className="pt-2">
-                  <iframe
-                    title="GPS map preview"
-                    src={mapEmbedUrl}
-                    className="h-44 w-full rounded-xl border border-secondary-200/70"
-                    loading="lazy"
-                  />
-                </div>
-              )}
+      <div className="mt-6 space-y-4">
+        <CollapsibleSectionComponent
+          icon={Navigation}
+          title="Gắn vị trí GPS"
+          subtitle="Lấy địa chỉ hiện tại để điền vào 'Địa điểm ghi âm' phía trên"
+          optional
+          defaultOpen={false}
+        >
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleGetGpsLocation}
+                disabled={isFormDisabled || gpsLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer text-sm"
+              >
+                <Navigation className="w-4 h-4" strokeWidth={2.5} />
+                {gpsLoading ? 'Đang lấy vị trí...' : 'Lấy vị trí hiện tại'}
+              </button>
             </div>
+            {showFatalGps && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {gpsError}
+              </p>
+            )}
+            {gpsExtrasVisible && showCoordsNoAddress && (
+              <p className="text-xs text-amber-900/90 flex items-center gap-1">
+                <Info className="w-3.5 h-3.5 shrink-0" />
+                Đã lấy tọa độ GPS. Chưa xác định được địa chỉ chi tiết.
+              </p>
+            )}
+            {gpsExtrasVisible && !showCoordsNoAddress && hasGps && (
+              <p className="text-xs text-green-700 flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" />
+                {`Đã gắn GPS: ${capturedGpsLat!.toFixed(6)}, ${capturedGpsLon!.toFixed(6)}`}
+              </p>
+            )}
+            {gpsExtrasVisible && capturedGpsAccuracy != null && (
+              <p className="text-xs text-neutral-700">
+                {`Độ chính xác: ~${Math.round(capturedGpsAccuracy)}m${
+                  gpsAccuracyLabel ? ` (${gpsAccuracyLabel})` : ''
+                }`}
+              </p>
+            )}
+            {gpsExtrasVisible && mapEmbedUrl && (
+              <div className="pt-2">
+                <iframe
+                  title="GPS map preview"
+                  src={mapEmbedUrl}
+                  className="h-44 w-full rounded-xl border border-secondary-200/70"
+                  loading="lazy"
+                />
+              </div>
+            )}
           </div>
+        </CollapsibleSectionComponent>
 
-          <div className="space-y-4">
-            <SectionHeaderComponent
-              icon={Sparkles}
-              title="Hỗ trợ điền bằng AI"
-              subtitle="Dựa trên 'Lối hát' để gợi ý Dân tộc & Nhạc cụ phù hợp"
-              optional
-            />
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleAiSuggestMetadata}
-                  disabled={isFormDisabled || aiSuggestLoading || !vocalStyle}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer text-sm"
-                >
-                  <Sparkles className="w-4 h-4" strokeWidth={2.5} />
-                  {aiSuggestLoading ? 'Đang xử lý...' : 'Lấy gợi ý AI'}
-                </button>
-                {!vocalStyle && (
-                  <span className="text-xs text-neutral-500 italic">
-                    Chọn lối hát/thể loại trước khi dùng
-                  </span>
-                )}
-              </div>
-              {aiSuggestError && (
-                <p className="text-xs text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  {aiSuggestError}
-                </p>
-              )}
-              {aiSuggestSuccess && (
-                <p className="text-xs text-green-700 flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5" />
-                  {aiSuggestSuccess}
-                </p>
+        <CollapsibleSectionComponent
+          icon={Sparkles}
+          title="Hỗ trợ điền bằng AI"
+          subtitle="Dựa trên 'Lối hát' để gợi ý Dân tộc & Nhạc cụ phù hợp"
+          optional
+          defaultOpen={false}
+        >
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleAiSuggestMetadata}
+                disabled={isFormDisabled || aiSuggestLoading || !vocalStyle}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium transition-colors cursor-pointer text-sm"
+              >
+                <Sparkles className="w-4 h-4" strokeWidth={2.5} />
+                {aiSuggestLoading ? 'Đang xử lý...' : 'Lấy gợi ý AI'}
+              </button>
+              {!vocalStyle && (
+                <span className="text-xs text-neutral-500 italic">
+                  Chọn lối hát/thể loại trước khi dùng
+                </span>
               )}
             </div>
+            {aiSuggestError && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {aiSuggestError}
+              </p>
+            )}
+            {aiSuggestSuccess && (
+              <p className="text-xs text-green-700 flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" />
+                {aiSuggestSuccess}
+              </p>
+            )}
           </div>
-        </div>
+        </CollapsibleSectionComponent>
       </div>
     </>
   );

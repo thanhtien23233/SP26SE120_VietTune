@@ -1,9 +1,12 @@
-import { Bot, Database, Flag, Gauge } from 'lucide-react';
+import { Bot, Database, Flag, Gauge, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { AdminAiMonitoringStatGrid } from '@/components/admin/AdminStatsCards';
 import FlaggedResponseList from '@/components/features/ai/FlaggedResponseList';
 import type { ExpertPerformanceRow } from '@/features/admin/adminDashboardTypes';
+import { postRagChatEmbeddingsBackfill } from '@/services/ragChatService';
+import { notifyLine, uiToast } from '@/uiToast';
 
 export default function AdminDashboardAiMonitoringPanel({
   avgExpertAccuracy,
@@ -21,6 +24,7 @@ export default function AdminDashboardAiMonitoringPanel({
   currentUserId?: string;
 }) {
   const navigate = useNavigate();
+  const [backfillLoading, setBackfillLoading] = useState(false);
 
   return (
     <div className="p-8">
@@ -101,6 +105,43 @@ export default function AdminDashboardAiMonitoringPanel({
             Quản lý các gói cập nhật tri thức: thêm/sửa/xóa tài liệu, theo dõi phiên bản và kích hoạt
             huấn luyện lại.
           </p>
+          <div className="mb-5 rounded-xl border border-violet-200/70 bg-violet-50/40 p-4">
+            <p className="mb-1 text-sm font-semibold text-neutral-900">Backfill embedding RAG</p>
+            <p className="mb-3 text-sm leading-relaxed text-neutral-600">
+              Gọi API tạo vector embedding cho bản thu / mục tri thức đã công bố còn thiếu (phục vụ tìm
+              kiếm ngữ nghĩa và RAG). Thao tác có thể chạy lâu; chỉ dùng khi cần đồng bộ dữ liệu cũ.
+            </p>
+            <button
+              type="button"
+              disabled={backfillLoading}
+              onClick={async () => {
+                setBackfillLoading(true);
+                try {
+                  await postRagChatEmbeddingsBackfill();
+                  uiToast.success(
+                    notifyLine('Backfill', 'Đã gửi yêu cầu tạo embedding. Kiểm tra log server nếu cần.'),
+                  );
+                } catch (e) {
+                  uiToast.error(
+                    notifyLine(
+                      'Lỗi',
+                      e instanceof Error ? e.message : 'Không thể chạy backfill embedding.',
+                    ),
+                  );
+                } finally {
+                  setBackfillLoading(false);
+                }
+              }}
+              className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-violet-300/80 bg-white px-4 py-2.5 text-sm font-semibold text-violet-900 shadow-sm transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${backfillLoading ? 'animate-spin' : ''}`}
+                strokeWidth={2.5}
+                aria-hidden
+              />
+              {backfillLoading ? 'Đang xử lý...' : 'Chạy backfill embedding'}
+            </button>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
