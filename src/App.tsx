@@ -34,6 +34,7 @@ const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const ContributionsPage = lazy(() => import('./pages/ContributionsPage'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const MasterDataPage = lazy(() => import('./features/admin/master-data/pages/MasterDataPage').then(module => ({ default: module.MasterDataPage })));
 const KnowledgeBasePage = lazy(() => import('./pages/admin/KnowledgeBasePage'));
 const CreateExpertPage = lazy(() => import('./pages/admin/CreateExpertPage'));
 const ModerationPage = lazy(() => import('./pages/ModerationPage'));
@@ -272,6 +273,14 @@ const router = createBrowserRouter(
             element={
               <RouteSuspense>
                 <KnowledgeBasePage />
+              </RouteSuspense>
+            }
+          />
+          <Route
+            path="master-data"
+            element={
+              <RouteSuspense>
+                <MasterDataPage />
               </RouteSuspense>
             }
           />

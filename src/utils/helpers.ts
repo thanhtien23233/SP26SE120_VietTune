@@ -170,10 +170,10 @@ export function getModerationStatusLabel(
       return 'Đã được kiểm duyệt';
     case ModerationStatus.REJECTED:
     case 'REJECTED':
-      return 'Đã bị từ chối vĩnh viễn';
+      return 'Đã từ chối';
     case ModerationStatus.TEMPORARILY_REJECTED:
     case 'TEMPORARILY_REJECTED':
-      return 'Đã bị từ chối tạm thời';
+      return 'Đã yêu cầu cập nhật';
     case ModerationStatus.EMBARGOED:
     case 'EMBARGOED':
       return 'Đang hạn chế công bố';

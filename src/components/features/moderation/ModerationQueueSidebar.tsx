@@ -221,6 +221,7 @@ export function ModerationQueueSidebar({
         <ModerationVirtualizedList
           items={visibleQueueItems}
           ariaLabel="Danh sách bản thu trong hàng đợi kiểm duyệt"
+          estimateSize={248}
           getItemKey={(it) => it.id ?? ''}
           renderItem={(it, idx) => {
               const status = it.moderation?.status;
@@ -293,11 +294,11 @@ export function ModerationQueueSidebar({
                       : 'hover:bg-amber-50/40 hover:shadow-sm'
                   }`}
                 >
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1.5 mb-1">
-                    <h3 className="text-sm font-semibold text-neutral-900 line-clamp-2 pr-1">
+                  <div className="mb-2 space-y-1.5">
+                    <h3 className="min-w-0 text-sm font-semibold text-neutral-900 line-clamp-2">
                       {rowTitle}
                     </h3>
-                    <div className="flex flex-wrap items-center gap-1 shrink-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span className="w-fit px-2 py-0.5 rounded text-[11px] font-medium bg-neutral-200 text-neutral-900 border border-neutral-400/50">
                         {getModerationStatusLabel(status)}
                       </span>
@@ -309,7 +310,7 @@ export function ModerationQueueSidebar({
                       {claimedByMe && <ModerationStageBadge stage={rowStage} />}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-neutral-600">
+                  <div className="flex items-center gap-1.5 text-xs text-neutral-600 mt-1">
                     <UserIcon className="h-3.5 w-3.5 shrink-0" />
                     <span>{it.uploader?.username || 'Khách'}</span>
                   </div>

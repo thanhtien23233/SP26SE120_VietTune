@@ -44,7 +44,7 @@ export function useRecordingMetadataSuggestions(
     setError(null);
     setHttpStatus(null);
 
-    void (async () => {
+    const loadData = async () => {
       try {
         const [analysis, ethnicGroups, instruments, vocalStyles] = await Promise.all([
           instrumentDetectionService.analyzeRecording(recordingId),
@@ -71,10 +71,20 @@ export function useRecordingMetadataSuggestions(
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
+    };
+
+    void loadData();
+
+    const handleRefDataUpdate = () => {
+      console.log('Reference data updated, refetching metadata suggestions...');
+      void loadData();
+    };
+
+    window.addEventListener('viettune:refdata-updated', handleRefDataUpdate);
 
     return () => {
       cancelled = true;
+      window.removeEventListener('viettune:refdata-updated', handleRefDataUpdate);
     };
   }, [enabled, recordingId, availableRegions]);
 

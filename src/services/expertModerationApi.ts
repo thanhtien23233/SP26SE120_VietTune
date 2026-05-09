@@ -18,6 +18,7 @@ import { ModerationStatus } from '@/types';
 import { toModerationUiStatus } from '@/types/moderation';
 import { mutationFail, mutationOk } from '@/types/mutationResult';
 import type { MutationResult } from '@/types/mutationResult';
+import { ReviewDecision } from '@/types/reviewDecision';
 import { getHttpStatus } from '@/utils/httpError';
 import { isUuid } from '@/utils/validation';
 
@@ -334,15 +335,19 @@ export async function approveSubmissionOnServer(submissionId: string): Promise<M
   }
 }
 
-export async function rejectSubmissionOnServer(submissionId: string): Promise<MutationResult> {
+export async function createReviewDecisionOnServer(params: {
+  submissionId: string;
+  decision: ReviewDecision;
+  comment: string;
+}): Promise<MutationResult> {
   try {
-    const params: ApiSubmissionActionQuery = { submissionId };
+    const payload = {
+      submissionId: params.submissionId,
+      decision: params.decision,
+      comment: params.comment,
+    };
     await apiOk(
-      asApiEnvelope<unknown>(
-        apiFetch.PUT('/api/Submission/reject-submission', {
-          params: { query: openApiQueryRecord(params) },
-        }),
-      ),
+      asApiEnvelope<unknown>(apiFetch.POST('/api/Review/create', { body: payload })),
     );
     return mutationOk();
   } catch (err: unknown) {

@@ -17,9 +17,13 @@ export function useExploreFilterOptions(): ExploreFilterOptions {
 
   useEffect(() => {
     let cancelled = false;
-    if (optionsCache) return;
 
-    void (async () => {
+    const loadData = async () => {
+      if (optionsCache) {
+        setDynamicOptions(optionsCache);
+        return;
+      }
+      
       const [ethnicGroups, instruments] = await Promise.allSettled([
         referenceDataService.getEthnicGroups(),
         referenceDataService.getInstruments(),
@@ -39,10 +43,21 @@ export function useExploreFilterOptions(): ExploreFilterOptions {
 
       optionsCache = next;
       setDynamicOptions(next);
-    })();
+    };
+
+    void loadData();
+
+    const handleRefDataUpdate = () => {
+      console.log('Reference data updated, clearing optionsCache and refetching Explore options...');
+      optionsCache = null;
+      void loadData();
+    };
+
+    window.addEventListener('viettune:refdata-updated', handleRefDataUpdate);
 
     return () => {
       cancelled = true;
+      window.removeEventListener('viettune:refdata-updated', handleRefDataUpdate);
     };
   }, []);
 

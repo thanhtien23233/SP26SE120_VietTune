@@ -7,8 +7,6 @@ import { REGION_NAMES } from '@/config/constants';
 import { type Recording, VerificationStatus } from '@/types';
 import { cn } from '@/utils/helpers';
 
-const MAX_ROW_METADATA = 5;
-
 function asObject(input: unknown): Record<string, unknown> | null {
   return input && typeof input === 'object' && !Array.isArray(input)
     ? (input as Record<string, unknown>)
@@ -123,7 +121,6 @@ export const ExploreResultRow = memo(function ExploreResultRow({
           { label: 'Nghi lễ', value: 'Chưa cập nhật' },
           { label: 'Xã/Phường', value: 'Chưa cập nhật' },
         ];
-  const missingMetadataCount = MAX_ROW_METADATA - metadataPairs.length;
 
   return (
     <div
@@ -139,11 +136,6 @@ export const ExploreResultRow = memo(function ExploreResultRow({
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
                 <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
                 Đã xác minh
-              </span>
-            )}
-            {missingMetadataCount > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-100 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-                Thiếu metadata
               </span>
             )}
           </div>

@@ -42,7 +42,7 @@ import {
   scrollToFirstUploadError,
   validateUploadFormState,
 } from '@/features/upload/uploadFormValidation';
-import { recordingService } from '@/services/recordingService';
+import { recordingImageService } from '@/services/recordingImageService';
 import { useAuthStore } from '@/stores/authStore';
 import { UserRole } from '@/types';
 
@@ -332,15 +332,10 @@ export default function UploadMusic({ recordingId, isApprovedEdit }: UploadMusic
     let cancelled = false;
     void (async () => {
       try {
-        const res = await recordingService.getRecordingImages(editingRecordingId);
+        const images = await recordingImageService.getByRecording(editingRecordingId);
         if (cancelled) return;
-        const rows = Array.isArray(res?.data)
-          ? res.data
-          : Array.isArray((res as { items?: unknown[] })?.items)
-            ? ((res as { items?: unknown[] }).items ?? [])
-            : [];
-        const urls = rows
-          .map((row) => (row as { imageUrl?: string | null })?.imageUrl)
+        const urls = images
+          .map((img) => img.imageUrl)
           .filter((url): url is string => typeof url === 'string' && url.trim().length > 0);
         setExistingRecordingImageUrls(urls);
       } catch {

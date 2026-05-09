@@ -19,6 +19,8 @@ export type ApiEmbargoLiftDto = Schemas['VietTuneArchive.Application.Mapper.DTOs
 
 export type ApiEthnicGroupDto = Schemas['VietTuneArchive.Application.Mapper.DTOs.EthnicGroupDto'];
 export type ApiInstrumentDto = Schemas['VietTuneArchive.Application.Mapper.DTOs.InstrumentDto'];
+export type ApiCeremonyDto = Schemas['VietTuneArchive.Application.Mapper.DTOs.CeremonyDto'];
+export type ApiVocalStyleDto = Schemas['VietTuneArchive.Application.Mapper.DTOs.VocalStyleDto'];
 
 export type ApiRecordingDto = Schemas['VietTuneArchive.Application.Mapper.DTOs.RecordingDto'];
 export type ApiSubmissionDto = Schemas['VietTuneArchive.Application.Mapper.DTOs.SubmissionDto'];
@@ -136,6 +138,16 @@ export type ApiPagedResponseInstrumentDto =
 export type ApiServiceResponseInstrumentDto =
   Schemas['VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.InstrumentDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'];
 
+export type ApiPagedResponseCeremonyDto =
+  Schemas['VietTuneArchive.Application.Responses.PagedResponse`1[[VietTuneArchive.Application.Mapper.DTOs.CeremonyDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'];
+export type ApiServiceResponseCeremonyDto =
+  Schemas['VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.CeremonyDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'];
+
+export type ApiPagedResponseVocalStyleDto =
+  Schemas['VietTuneArchive.Application.Responses.PagedResponse`1[[VietTuneArchive.Application.Mapper.DTOs.VocalStyleDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'];
+export type ApiServiceResponseVocalStyleDto =
+  Schemas['VietTuneArchive.Application.Responses.ServiceResponse`1[[VietTuneArchive.Application.Mapper.DTOs.VocalStyleDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'];
+
 export type ApiPagedResponseRecordingDto =
   Schemas['VietTuneArchive.Application.Responses.PagedResponse`1[[VietTuneArchive.Application.Mapper.DTOs.GetRecordingDto, VietTuneArchive.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'];
 export type ApiServiceResponseRecordingDto =
@@ -173,6 +185,12 @@ export type ApiReferenceDataTagsQuery = NonNullable<
 >;
 export type ApiInstrumentListQuery = NonNullable<
   ApiPaths['/api/Instrument']['get']['parameters']['query']
+>;
+export type ApiCeremonyListQuery = NonNullable<
+  ApiPaths['/api/Ceremony']['get']['parameters']['query']
+>;
+export type ApiVocalStyleListQuery = NonNullable<
+  ApiPaths['/api/VocalStyle']['get']['parameters']['query']
 >;
 export type ApiDistrictListQuery = NonNullable<
   ApiPaths['/api/District']['get']['parameters']['query']

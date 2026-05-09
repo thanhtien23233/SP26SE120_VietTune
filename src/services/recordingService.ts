@@ -590,7 +590,10 @@ export const recordingService = {
     );
   },
 
-  // Recording images: list by recording id
+  /**
+   * @deprecated Use `recordingImageService.getByRecording()` from `@/services/recordingImageService` instead.
+   * This uses the old paginated CRUD endpoint. The new endpoint returns a clean sorted list.
+   */
   getRecordingImages: async (recordingId: string) => {
     return apiOk(
       asApiEnvelope<{
@@ -606,7 +609,10 @@ export const recordingService = {
     );
   },
 
-  // Recording images: create image entry
+  /**
+   * @deprecated Use `recordingImageService.uploadImage()` from `@/services/recordingImageService` instead.
+   * The new endpoint uses multipart/form-data and handles Supabase storage server-side.
+   */
   createRecordingImage: async (data: {
     recordingId: string;
     imageUrl: string;

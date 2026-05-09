@@ -94,7 +94,11 @@ export const KB_CATEGORIES = ['instrument', 'ceremony', 'term', 'general'] as co
 
 export const KB_CATEGORY_LABELS: Record<string, string> = {
   instrument: 'Nhạc cụ',
+  Instrument: 'Nhạc cụ',
   ceremony: 'Nghi lễ',
+  Ceremony: 'Nghi lễ',
   term: 'Thuật ngữ',
+  Term: 'Thuật ngữ',
   general: 'Tổng hợp',
+  General: 'Tổng hợp',
 };

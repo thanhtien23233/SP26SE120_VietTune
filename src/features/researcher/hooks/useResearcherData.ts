@@ -68,7 +68,7 @@ export function useResearcherData() {
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
+    const loadData = async () => {
       const settled = await Promise.allSettled([
         referenceDataService.getEthnicGroups(),
         referenceDataService.getCeremonies(),
@@ -102,9 +102,20 @@ export function useResearcherData() {
       } else if (communeOutcome.status === 'rejected') {
         console.warn('Failed to load communes', communeOutcome.reason);
       }
-    })();
+    };
+    
+    void loadData();
+
+    const handleRefDataUpdate = () => {
+      console.log('Reference data updated, refetching researcher data...');
+      void loadData();
+    };
+
+    window.addEventListener('viettune:refdata-updated', handleRefDataUpdate);
+
     return () => {
       cancelled = true;
+      window.removeEventListener('viettune:refdata-updated', handleRefDataUpdate);
     };
   }, []);
 

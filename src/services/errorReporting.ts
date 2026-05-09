@@ -62,3 +62,13 @@ export function reportError(
     console.error('[ErrorBoundary] reportError:', error, errorInfo, context);
   }
 }
+
+/**
+ * Ghi lại các sự kiện phân tích/telemetry (ví dụ: admin action, user flow).
+ */
+export function logEvent(eventName: string, data?: unknown): void {
+  if (import.meta.env.DEV) {
+    console.log(`[Telemetry] ${eventName}:`, data);
+  }
+  // TODO: Send to external analytics service (e.g. PostHog, Mixpanel) in Production
+}
