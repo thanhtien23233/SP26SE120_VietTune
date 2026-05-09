@@ -6,7 +6,7 @@ import {
   MODERATION_APPROVE_EXPERT_NOTES_MAX_LENGTH,
   MODERATION_EXPERT_TEXTAREA_MAX_LENGTH,
 } from '@/config/validationConstants';
-import { ReviewDecision, reviewDecisionLabelVi, type ReviewDecision } from '@/types/reviewDecision';
+import { ReviewDecision, reviewDecisionLabelVi } from '@/types/reviewDecision';
 
 export type ModerationPortalModal =
   | null

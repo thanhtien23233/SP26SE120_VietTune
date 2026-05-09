@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { memo, useMemo, useState } from 'react';
 
+import { deriveVerificationUiProgress } from '@/features/moderation/utils/deriveVerificationUiProgress';
 import { buildModerationChecklistConfig } from '@/features/moderation/utils/moderationChecklistConfig';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
 
@@ -51,6 +52,12 @@ export const ModerationStageChecklistPreview = memo(function ModerationStageChec
 }) {
   const normalizedStep = toStageStep(currentStep);
   const stages = useMemo(() => buildModerationChecklistConfig(verificationData), [verificationData]);
+  const uiProgress = useMemo(
+    () => (verificationData ? deriveVerificationUiProgress(verificationData) : null),
+    [verificationData],
+  );
+  const highlightStep =
+    uiProgress?.mode === 'in_progress' ? uiProgress.step : uiProgress?.mode === 'all_complete' ? null : normalizedStep;
   const [expanded, setExpanded] = useState<Record<StageStep, boolean>>({
     1: false,
     2: false,
@@ -63,7 +70,7 @@ export const ModerationStageChecklistPreview = memo(function ModerationStageChec
         const done = stage.fields.filter((f) => f.checked).length;
         const total = stage.fields.length;
         const visual = deriveVisualState(done, total);
-        const isCurrent = stage.step === normalizedStep;
+        const isCurrent = highlightStep === stage.step;
         const isOpen = expanded[stage.step];
 
         return (
@@ -124,7 +131,7 @@ export const ModerationStageChecklistPreview = memo(function ModerationStageChec
                     </li>
                   ))}
                 </ul>
-                {stage.step === normalizedStep && (
+                {stage.step === highlightStep && (
                   <p className="mt-2 text-[11px] text-neutral-500">
                     Chỉ xem. Mở wizard để cập nhật checklist.
                   </p>

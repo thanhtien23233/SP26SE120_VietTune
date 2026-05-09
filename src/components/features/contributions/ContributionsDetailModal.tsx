@@ -21,6 +21,7 @@ import {
 import { Fragment, type ReactNode } from 'react';
 
 import AudioPlayer from '@/components/features/AudioPlayer';
+import RecordingImageGallery from '@/components/features/RecordingImageGallery';
 import {
   ContributionStageBadge,
   ContributionStatusBadge,
@@ -290,6 +291,10 @@ export default function ContributionsDetailModal({
                   <FileAudio className="h-4 w-4 shrink-0 text-neutral-500" strokeWidth={2} />
                   Metadata bản thu
                 </h3>
+                <RecordingImageGallery
+                  recordingId={detailSubmission.recordingId}
+                  className="border-secondary-200/70 bg-white/80"
+                />
 
                 {(() => {
                   const rec = detailSubmission.recording;
