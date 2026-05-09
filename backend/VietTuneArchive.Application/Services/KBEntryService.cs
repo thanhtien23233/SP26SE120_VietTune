@@ -17,7 +17,7 @@ namespace VietTuneArchive.Application.Services
         private readonly IEmbeddingService _embeddingService;
         private readonly IUserRepository _userRepository;
         private readonly IRecordingRepository _recordingRepository;
-        private readonly string[] _validCategories = { "Instrument", "Ceremony", "MusicalTerm", "EthnicGroup", "VocalStyle" };
+        private readonly string[] _validCategories = { "Instrument", "Ceremony", "MusicalTerm", "EthnicGroup", "VocalStyle", "Ethnic"};
 
         public KBEntryService(IKBEntryRepository repo, IEmbeddingService embeddingService, IUserRepository userRepository, IRecordingRepository recordingRepository)
         {
