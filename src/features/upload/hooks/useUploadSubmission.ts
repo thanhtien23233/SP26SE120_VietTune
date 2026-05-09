@@ -9,7 +9,7 @@ import {
   instrumentDetectionService,
 } from '@/services/instrumentDetectionService';
 import { recordingService } from '@/services/recordingService';
-import { recordingImageService } from '@/services/recordingImageService';
+import { recordingImageService, fetchRecordingImageDisplayUrls } from '@/services/recordingImageService';
 import type {
   EthnicGroupItem,
   InstrumentItem,
@@ -119,6 +119,9 @@ type UseUploadSubmissionOptions = {
   setSubmitStatus: (value: 'idle' | 'success' | 'error') => void;
   setSubmitMessage: (value: string) => void;
   setIsSubmitting: (value: boolean) => void;
+  setExistingRecordingImageUrls: Dispatch<SetStateAction<string[]>>;
+  setRecordingImages: Dispatch<SetStateAction<File[]>>;
+  setRecordingImagePreviews: Dispatch<SetStateAction<string[]>>;
 };
 
 export function useUploadSubmission(options: UseUploadSubmissionOptions) {
@@ -268,6 +271,17 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           uiToast.warning('Một số ảnh minh họa chưa tải lên được. Bạn có thể thử lại sau.');
         }
       }
+
+      if (recordingIdForImages) {
+        try {
+          const urls = await fetchRecordingImageDisplayUrls(recordingIdForImages);
+          options.setExistingRecordingImageUrls(urls);
+        } catch {
+          /* ignore refresh errors */
+        }
+      }
+      options.setRecordingImages([]);
+      options.setRecordingImagePreviews([]);
 
       if (aiRes) {
         uiToast.success('upload.ai.success_detail');
@@ -530,13 +544,13 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           options.audioInfo?.type || options.existingMediaInfo?.type || options.file?.type || '';
         const fileSizeBytes =
           options.audioInfo?.size || options.existingMediaInfo?.size || options.file?.size || 0;
-        const finalMediaUrl = options.newUploadedUrl || options.existingMediaSrc || '';
+        const resolvedMedia = (options.newUploadedUrl || options.existingMediaSrc || '').trim();
 
         const payload: RecordingUploadDto = {
           title: options.title || undefined,
           description: options.description || undefined,
-          audioFileUrl: finalMediaUrl,
-          videoFileUrl: options.mediaType === 'video' ? finalMediaUrl : undefined,
+          audioFileUrl: options.mediaType === 'audio' ? resolvedMedia || undefined : undefined,
+          videoFileUrl: options.mediaType === 'video' ? resolvedMedia || undefined : undefined,
           audioFormat: audioFormat || undefined,
           durationSeconds,
           fileSizeBytes,
@@ -550,13 +564,11 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           lyricsOriginal: options.transcription || undefined,
           lyricsVietnamese: undefined,
           performerName: options.artistUnknown ? 'Không rõ nghệ sĩ' : options.artist || undefined,
-          performerAge: 0,
           recordingDate: options.recordingDate
             ? new Date(options.recordingDate).toISOString()
             : new Date().toISOString(),
-          gpsLatitude: options.capturedGpsLat ?? 0,
-          gpsLongitude: options.capturedGpsLon ?? 0,
-          tempo: 0,
+          gpsLatitude: options.capturedGpsLat ?? null,
+          gpsLongitude: options.capturedGpsLon ?? null,
           keySignature: undefined,
           instrumentIds: selectedInstrumentIds,
           composer: options.composerUnknown ? 'Dân gian/Không rõ' : options.composer || undefined,
@@ -566,7 +578,7 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
               ? options.customLanguage
               : options.language || undefined,
           recordingLocation: options.recordingLocation || undefined,
-          ...(isFinal ? { status: 1 } : {}),
+          ...(isFinal && !options.isEditMode ? { status: 1 as const } : {}),
         };
 
         await recordingService.updateRecording(targetId, payload);
@@ -575,7 +587,7 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           const isContributorEdit =
             options.isEditMode &&
             options.currentUserRole === UserRole.CONTRIBUTOR &&
-            Boolean(targetId);
+            Boolean(options.currentSubmissionId);
           if (!isContributorEdit) return;
           const changes = {
             note: isFinal
@@ -594,7 +606,7 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           };
           try {
             await submissionVersionApi.create({
-              submissionId: targetId,
+              submissionId: options.currentSubmissionId!,
               changesJson: JSON.stringify(changes),
             });
           } catch (err) {
@@ -603,19 +615,21 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
         };
 
         if (isFinal) {
-          const subIdToConfirm =
-            options.currentSubmissionId || (options.isEditMode ? options.editingRecordingId : null);
-          if (subIdToConfirm) {
-            const confirmRes = await submissionService.confirmSubmission(subIdToConfirm);
-            if (!confirmRes || !confirmRes.isSuccess) {
-              throw new Error(
-                confirmRes?.message || 'Không thể xác nhận bản đóng góp. Vui lòng thử lại.',
-              );
-            }
-            // Backend auto-notification: NewRecordingPending → tránh tạo thông báo kép ở FE.
-            // NOTE: nhánh edit-mode có thể cần notification riêng (submission_updated) nếu backend KHÔNG gửi.
-            // Hiện giữ behavior tối giản để tránh duplicate; UI vẫn báo submit thành công như trước.
+          const subIdToConfirm = options.currentSubmissionId;
+          if (!subIdToConfirm) {
+            throw new Error(
+              'Không tìm thấy mã đóng góp để xác nhận. Vui lòng thử lại từ đầu hoặc mở lại từ trang Đóng góp.',
+            );
           }
+          const confirmRes = await submissionService.confirmSubmission(subIdToConfirm);
+          if (!confirmRes || !confirmRes.isSuccess) {
+            throw new Error(
+              confirmRes?.message || 'Không thể xác nhận bản đóng góp. Vui lòng thử lại.',
+            );
+          }
+          // Backend auto-notification: NewRecordingPending → tránh tạo thông báo kép ở FE.
+          // NOTE: nhánh edit-mode có thể cần notification riêng (submission_updated) nếu backend KHÔNG gửi.
+          // Hiện giữ behavior tối giản để tránh duplicate; UI vẫn báo submit thành công như trước.
           await createSubmissionVersionBestEffort();
           options.setSubmitStatus('success');
           options.setSubmitMessage(

@@ -487,7 +487,7 @@ export default function ContributionsDetailModal({
             </button>
           )}
 
-          {detailSubmission && detailSubmission.status === 1 && (
+          {detailSubmission && (detailSubmission.status === 1 || detailSubmission.status === 4) && (
             <button
               type="button"
               className="inline-flex min-w-[140px] items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 px-6 py-2.5 font-medium text-white shadow-md transition-all duration-200 cursor-pointer hover:from-primary-500 hover:to-primary-600 hover:shadow-lg hover:scale-[1.02] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-panel"
