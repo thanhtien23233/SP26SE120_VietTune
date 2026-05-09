@@ -10,14 +10,19 @@ import { CHAT_INPUT_COUNTER_FROM, CHAT_INPUT_MAX_LENGTH } from '@/config/validat
 import { useAuth } from '@/contexts/AuthContext';
 import { useChatbotSession } from '@/hooks/useChatbotSession';
 import { chatSessionStorage } from '@/services/chatSessionStorage';
-import { createQAConversation, type QAConversationRequest } from '@/services/qaConversationService';
+import type { QAConversationRequest } from '@/services/qaConversationService';
 import {
-  createQAMessage,
+  createRagConversation,
+  getRagConversation,
+  mergeRagAndQaToChatMessages,
+  sendRagMessage,
+  sourcesToJsonFields,
+} from '@/services/ragChatService';
+import {
   fetchConversationMessages,
   flagMessage,
   unflagMessage,
 } from '@/services/qaMessageService';
-import { sendResearcherChatMessage } from '@/services/researcherChatService';
 import { Message } from '@/types/chat';
 import { getHttpStatus } from '@/utils/httpError';
 
@@ -27,7 +32,7 @@ const WELCOME_MESSAGE =
 
 /** Fallback khi API lỗi hoặc không trả về nội dung. */
 const FALLBACK_REPLY =
-  'Xin lỗi, tôi chưa thể trả lời. Vui lòng kiểm tra kết nối backend (VietTune API + Gemini) và thử lại.';
+  'Xin lỗi, tôi chưa thể trả lời. Vui lòng kiểm tra kết nối VietTune API (RAG chat) và thử lại.';
 
 /** Hiển thị khi guest chưa đăng nhập hoặc token hết hạn (HTTP 401). */
 const LOGIN_REQUIRED_REPLY = 'Bạn vui lòng đăng nhập để hiển thị kết quả.';
@@ -103,22 +108,19 @@ export default function ChatbotPage() {
     // Khởi tạo trạng thái rỗng trong lúc chờ
     setMessages([]);
 
-    const remoteMsgs = await fetchConversationMessages(conv.id);
-    if (remoteMsgs && remoteMsgs.length > 0) {
-      const mapped: Message[] = remoteMsgs.map((m) => ({
-        id: m.id,
-        role: m.role === 0 ? 'user' : 'assistant',
-        content: m.content,
-        timestamp: new Date(m.createdAt),
-        sourceRecordingIdsJson: m.sourceRecordingIdsJson,
-        sourceKBEntryIdsJson: m.sourceKBEntryIdsJson,
-        expertCorrection: m.expertCorrection,
-        flaggedByExpert: m.flaggedByExpert,
-      }));
-      setMessages(mapped);
+    try {
+      const [ragResult, qaResult] = await Promise.allSettled([
+        getRagConversation(conv.id),
+        fetchConversationMessages(conv.id),
+      ]);
+      const ragMessages = ragResult.status === 'fulfilled' ? ragResult.value.messages : [];
+      const qaMessages = qaResult.status === 'fulfilled' ? qaResult.value : [];
+
+      setMessages(mergeRagAndQaToChatMessages(ragMessages, qaMessages));
+    } finally {
+      setIsLoadingMessages(false);
     }
 
-    setIsLoadingMessages(false);
     // On mobile, close sidebar after selecting
     if (window.innerWidth < 1024) {
       setIsSidebarOpen(false);
@@ -188,64 +190,31 @@ export default function ChatbotPage() {
     setIsTyping(true);
 
     try {
+      let activeConvId = conversationId;
+
       if (isFirstMessage) {
         setChatTitle(text);
-        await createQAConversation({
-          id: conversationId,
-          userId: user?.id || '00000000-0000-0000-0000-000000000000',
-          title: text,
-          createdAt: userTimestamp.toISOString(),
-        });
+        const conv = await createRagConversation({ title: text });
+        activeConvId = conv.id;
+        setConversationId(conv.id);
         setIsFirstMessage(false);
-        void loadHistory(); // Refresh history list
+        void loadHistory();
       }
 
-      await createQAMessage({
-        id: userMsgId,
-        conversationId: conversationId,
-        role: 0,
-        content: text,
-        sourceRecordingIdsJson: '[]',
-        sourceKBEntryIdsJson: '[]',
-        confidenceScore: 0,
-        flaggedByExpert: false,
-        correctedByExpertId: null,
-        expertCorrection: null,
-        createdAt: userTimestamp.toISOString(),
-      });
+      const assistant = await sendRagMessage(activeConvId, { content: text });
+      const content = assistant.content?.trim() || FALLBACK_REPLY;
+      const { sourceRecordingIdsJson, sourceKBEntryIdsJson } = sourcesToJsonFields(assistant.sources);
 
-      const reply = await sendResearcherChatMessage(text);
-      const content = reply?.answer?.trim() || FALLBACK_REPLY;
-      
-      const citations = (reply?.citations ?? []).map((c) => ({
-        recordingId: c.recordingId,
-        label: c.title || `Bản thu ${c.recordingId.split('-')[0]}`,
-      }));
-
-      const botMsgId = crypto.randomUUID();
-      const botTimestamp = new Date();
       const botMsg: Message = {
-        id: botMsgId,
+        id: assistant.id,
         role: 'assistant',
         content,
-        timestamp: botTimestamp,
+        timestamp: new Date(assistant.createdAt),
+        sourceRecordingIdsJson,
+        sourceKBEntryIdsJson,
       };
 
       setMessages((prev) => [...prev, botMsg]);
-
-      await createQAMessage({
-        id: botMsgId,
-        conversationId: conversationId,
-        role: 1,
-        content: content,
-        sourceRecordingIdsJson: JSON.stringify(citations.map(c => c.recordingId)),
-        sourceKBEntryIdsJson: '[]',
-        confidenceScore: 0,
-        flaggedByExpert: false,
-        correctedByExpertId: null,
-        expertCorrection: null,
-        createdAt: botTimestamp.toISOString(),
-      });
     } catch (err) {
       const content = getHttpStatus(err) === 401 ? LOGIN_REQUIRED_REPLY : FALLBACK_REPLY;
       setMessages((prev) => [
