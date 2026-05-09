@@ -10,7 +10,7 @@ namespace VietTuneArchive.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize]
+    [Authorize(Roles = "Admin,Contributor,Researcher")]
     public class AIAnalysisController : ControllerBase
     {
         private readonly IAudioProcessingService _processingService;
@@ -30,7 +30,6 @@ namespace VietTuneArchive.API.Controllers
         // CHỨC NĂNG 2: CHỈ PHÂN TÍCH AI (TRẢ VỀ KẾT QUẢ + URL TẠM CỦA GEMINI)
         // GIỮ NGUYÊN - KHÔNG ĐƯỢC SỬA THEO YÊU CẦU
         [HttpPost("analyze-only")]
-        [AllowAnonymous]
         public async Task<ActionResult<AIAnalysisResultDto>> AnalyzeOnly(IFormFile audioFile)
         {
             var result = await _processingService.AnalyzeAudioAsync(audioFile);
@@ -43,7 +42,6 @@ namespace VietTuneArchive.API.Controllers
         /// Giới hạn: file ≤ 100MB, URL phải publicly accessible.
         /// </summary>
         [HttpPost("analyze-from-url")]
-        [AllowAnonymous]
         public async Task<ActionResult<AIAnalysisResultDto>> AnalyzeFromUrl([FromBody] AnalyzeFromUrlRequest request)
         {
             if (string.IsNullOrWhiteSpace(request?.AudioUrl))
@@ -73,7 +71,6 @@ namespace VietTuneArchive.API.Controllers
         /// Endpoint mới 1: Chỉ transcribe bằng local Whisper service
         /// </summary>
         [HttpPost("transcribe-only")]
-        [AllowAnonymous]
         public async Task<ActionResult<LocalTranscriptionResultDto>> TranscribeOnly(IFormFile audioFile)
         {
             if (audioFile == null || audioFile.Length == 0)
@@ -106,7 +103,6 @@ namespace VietTuneArchive.API.Controllers
         /// Endpoint mới 2: Chạy SONG SONG phân tích metadata + transcribe local
         /// </summary>
         [HttpPost("analyze-and-transcribe")]
-        [AllowAnonymous]
         public async Task<ActionResult<AnalyzeAndTranscribeResultDto>> AnalyzeAndTranscribe(IFormFile audioFile)
         {
             if (audioFile == null || audioFile.Length == 0)
