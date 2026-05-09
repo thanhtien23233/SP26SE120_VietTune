@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using GenerativeAI;
 using VietTuneArchive.Application.IServices;
 using VietTuneArchive.Application.Responses;
 using VietTuneArchive.Domain.Entities;
@@ -17,7 +18,7 @@ namespace VietTuneArchive.Application.Services
         private readonly IEmbeddingService _embeddingService;
         private readonly IUserRepository _userRepository;
         private readonly IRecordingRepository _recordingRepository;
-        private readonly string[] _validCategories = { "Instrument", "Ceremony", "MusicalTerm", "EthnicGroup", "VocalStyle", "Ethnic"};
+        private readonly string[] _validCategories = { "Instrument", "VocalStyle", "Genre", "Ceremony", "Ethnic", "EthnicGroup" };
 
         public KBEntryService(IKBEntryRepository repo, IEmbeddingService embeddingService, IUserRepository userRepository, IRecordingRepository recordingRepository)
         {

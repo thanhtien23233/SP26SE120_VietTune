@@ -24,13 +24,7 @@ namespace VietTuneArchive.Application.IServices
 
     public class SemanticSearchResult
     {
-        public Guid RecordingId { get; set; }
-        public string Title { get; set; } = string.Empty;
         public float SimilarityScore { get; set; }
-
-        public string? EthnicGroupName { get; set; }
-        public string? CeremonyName { get; set; }
-        public string? PerformerName { get; set; }
-        public List<string> InstrumentNames { get; set; } = new();
+        public VietTuneArchive.Application.Mapper.DTOs.GetRecordingDto Recording { get; set; } = null!;
     }
 }

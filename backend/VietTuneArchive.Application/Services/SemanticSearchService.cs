@@ -15,19 +15,22 @@ namespace VietTuneArchive.Application.Services
         private readonly IOpenAIEmbeddingService _geminiEmbeddingService;
         private readonly GeminiOptions _geminiOptions;
         private readonly ILogger<SemanticSearchService> _logger;
+        private readonly AutoMapper.IMapper _mapper;
 
         public SemanticSearchService(
             DBContext db,
             IEmbeddingService localEmbeddingService,
             IOpenAIEmbeddingService geminiEmbeddingService,
             IOptions<GeminiOptions> geminiOptions,
-            ILogger<SemanticSearchService> logger)
+            ILogger<SemanticSearchService> logger,
+            AutoMapper.IMapper mapper)
         {
             _db = db;
             _localEmbeddingService = localEmbeddingService;
             _geminiEmbeddingService = geminiEmbeddingService;
             _geminiOptions = geminiOptions.Value;
             _logger = logger;
+            _mapper = mapper;
         }
 
         public async Task<List<SemanticSearchResult>> SearchAsync(
@@ -80,30 +83,23 @@ namespace VietTuneArchive.Application.Services
             var recordings = await _db.Recordings
                 .Include(r => r.EthnicGroup)
                 .Include(r => r.Ceremony)
-                .Include(r => r.RecordingInstruments)
-                    .ThenInclude(ri => ri.Instrument)
+                .Include(r => r.Commune).ThenInclude(c => c.District).ThenInclude(d => d.Province)
+                .Include(r => r.VocalStyle)
+                .Include(r => r.MusicalScale)
+                .Include(r => r.RecordingInstruments).ThenInclude(ri => ri.Instrument)
                 .Where(r => recordingIds.Contains(r.Id))
-                .ToDictionaryAsync(r => r.Id, ct);
+                .ToListAsync(ct);
+
+            var recordingDtos = _mapper.Map<List<VietTuneArchive.Application.Mapper.DTOs.GetRecordingDto>>(recordings);
+            var dtosDict = recordingDtos.ToDictionary(r => r.Id);
 
             // 6. Map kết quả
             return topResults
-                .Where(t => recordings.ContainsKey(t.RecordingId))
-                .Select(t =>
+                .Where(t => dtosDict.ContainsKey(t.RecordingId))
+                .Select(t => new SemanticSearchResult
                 {
-                    var rec = recordings[t.RecordingId];
-                    return new SemanticSearchResult
-                    {
-                        RecordingId = t.RecordingId,
-                        Title = rec.Title ?? "Untitled",
-                        SimilarityScore = t.Score,
-                        EthnicGroupName = rec.EthnicGroup?.Name,
-                        CeremonyName = rec.Ceremony?.Name,
-                        PerformerName = rec.PerformerName,
-                        InstrumentNames = rec.RecordingInstruments?
-                            .Select(ri => ri.Instrument?.Name ?? "")
-                            .Where(n => !string.IsNullOrEmpty(n))
-                            .ToList() ?? new()
-                    };
+                    SimilarityScore = t.Score,
+                    Recording = dtosDict[t.RecordingId]
                 })
                 .ToList();
         }
@@ -158,29 +154,23 @@ namespace VietTuneArchive.Application.Services
             var recordings = await _db.Recordings
                 .Include(r => r.EthnicGroup)
                 .Include(r => r.Ceremony)
+                .Include(r => r.Commune).ThenInclude(c => c.District).ThenInclude(d => d.Province)
+                .Include(r => r.VocalStyle)
+                .Include(r => r.MusicalScale)
                 .Include(r => r.RecordingInstruments).ThenInclude(ri => ri.Instrument)
                 .Where(r => recordingIds.Contains(r.Id))
-                .ToDictionaryAsync(r => r.Id, ct);
+                .ToListAsync(ct);
+
+            var recordingDtos = _mapper.Map<List<VietTuneArchive.Application.Mapper.DTOs.GetRecordingDto>>(recordings);
+            var dtosDict = recordingDtos.ToDictionary(r => r.Id);
 
             // 6. Map kết quả
             return topResults
-                .Where(t => recordings.ContainsKey(t.RecordingId))
-                .Select(t =>
+                .Where(t => dtosDict.ContainsKey(t.RecordingId))
+                .Select(t => new SemanticSearchResult
                 {
-                    var rec = recordings[t.RecordingId];
-                    return new SemanticSearchResult
-                    {
-                        RecordingId = t.RecordingId,
-                        Title = rec.Title ?? "Untitled",
-                        SimilarityScore = t.Score,
-                        EthnicGroupName = rec.EthnicGroup?.Name,
-                        CeremonyName = rec.Ceremony?.Name,
-                        PerformerName = rec.PerformerName,
-                        InstrumentNames = rec.RecordingInstruments?
-                            .Select(ri => ri.Instrument?.Name ?? "")
-                            .Where(n => !string.IsNullOrEmpty(n))
-                            .ToList() ?? new()
-                    };
+                    SimilarityScore = t.Score,
+                    Recording = dtosDict[t.RecordingId]
                 })
                 .ToList();
         }
