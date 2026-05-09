@@ -27,6 +27,7 @@ import {
   confirmModerationApprove,
   executeModerationReject,
 } from '@/features/moderation/utils/moderationApproveReject';
+import { deriveVerificationUiProgress } from '@/features/moderation/utils/deriveVerificationUiProgress';
 import { mergeDisplayItem } from '@/features/moderation/utils/moderationDisplayMerge';
 import type { ModerationStageFilterKey } from '@/features/moderation/utils/queueStatusMeta';
 import { usePollWhileVisible } from '@/hooks/usePollWhileVisible';
@@ -141,9 +142,17 @@ export default function ModerationPage() {
     const claimedByCurrentUser =
       item.moderation?.claimedBy === user?.id || item.moderation?.reviewerId === user?.id;
     if (!claimedByCurrentUser) return null;
-    const step = getCurrentVerificationStep(selectedId);
+    const mergedVerificationData = {
+      ...(item.moderation?.verificationData || {}),
+      ...(verificationForms[selectedId] || {}),
+    } as ModerationVerificationData;
+    const uiProgress = deriveVerificationUiProgress(mergedVerificationData);
+    if (uiProgress.mode === 'all_complete') {
+      return { step: 3, stepName: 'Hoàn tất checklist' };
+    }
+    const step = uiProgress.step ?? getCurrentVerificationStep(selectedId);
     return { step, stepName: STAGE_NAME_BY_STEP[step] ?? STAGE_NAME_BY_STEP[1] };
-  }, [selectedId, allItems, selectedItemFull, user?.id, getCurrentVerificationStep]);
+  }, [selectedId, allItems, selectedItemFull, user?.id, verificationForms, getCurrentVerificationStep]);
 
   const handleExpertReviewNotesChange = useCallback((submissionId: string, text: string) => {
     setExpertReviewNotesDraft((prev) => ({ ...prev, [submissionId]: text }));

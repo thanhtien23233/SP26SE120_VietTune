@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 
 import { EXPERT_API_PHASE2 } from '@/config/expertWorkflowPhase';
 import { MODERATION_EXPERT_TEXTAREA_MAX_LENGTH } from '@/config/validationConstants';
+import RecordingImageGallery from '@/components/features/RecordingImageGallery';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
 import { ModerationStatus } from '@/types';
 import { toModerationUiStatus } from '@/types/moderation';
@@ -79,6 +80,7 @@ export function ModerationSubmissionDetailPanels({
       )}
       <div className="rounded-2xl border border-neutral-200/80 p-4 bg-white shadow-sm">
         <h3 className="text-base font-semibold text-neutral-900 mb-3">Thông tin bản thu</h3>
+        <RecordingImageGallery recordingId={item.id} className="mb-3" />
         <ul className="space-y-2 text-sm">
           {infoRows.map((row) => {
             const muted = isPlaceholderField(row.value);
