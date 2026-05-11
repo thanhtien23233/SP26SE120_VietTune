@@ -8,6 +8,8 @@ type UploadWizardStepperProps = {
   uploadWizardStep: number;
   canNavigateToStep: (step: number) => boolean;
   onStepChange: (step: number) => void;
+  /** True while upload / local probe / AI pipeline blocks forward navigation */
+  asyncPipelineBusy?: boolean;
 };
 
 export default function UploadWizardStepper({
@@ -15,11 +17,16 @@ export default function UploadWizardStepper({
   uploadWizardStep,
   canNavigateToStep,
   onStepChange,
+  asyncPipelineBusy = false,
 }: UploadWizardStepperProps) {
   if (!showWizard) return null;
 
   return (
-    <div className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-surface-panel via-cream-50/80 to-secondary-50/50 p-4 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl sm:p-6">
+    <div
+      className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-surface-panel via-cream-50/80 to-secondary-50/50 p-4 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-secondary-300/50 hover:shadow-xl sm:p-6"
+      aria-busy={asyncPipelineBusy}
+      aria-describedby={asyncPipelineBusy ? 'upload-wizard-async-hint' : undefined}
+    >
       <div className="mb-3 flex items-center gap-2 sm:mb-4 sm:gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-100/95 to-secondary-100/90 shadow-sm ring-1 ring-secondary-200/50 sm:h-10 sm:w-10">
           <Upload

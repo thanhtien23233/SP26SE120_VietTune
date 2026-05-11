@@ -292,6 +292,11 @@ body::-webkit-scrollbar-thumb:hover,
     @apply focus:outline-none;
   }
 
+  .scrollbar-brand {
+    scrollbar-width: thin;
+    scrollbar-color: #9b2c2c rgba(255, 255, 255, 0.3);
+  }
+
   /* Legacy support - map old classes to new ones */
   .spotlight-container {
     @apply vt-container;

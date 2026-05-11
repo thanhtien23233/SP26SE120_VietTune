@@ -12,6 +12,8 @@ import {
 import { notifyLine, uiToast } from '@/uiToast';
 import { formatDateTime } from '@/utils/helpers';
 
+const PAGE_SIZE = 20;
+
 export interface ModerationAITabProps {
   onOpenRecording?: (recordingId: string) => void;
   currentUserId?: string;
@@ -32,8 +34,12 @@ export default function ModerationAITab({ onOpenRecording, currentUserId }: Mode
   const [loadingAll, setLoadingAll] = useState(false);
   const [allError, setAllError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
-  const [paged, setPaged] = useState<QAMessagePagedResult>({ data: [], total: 0, page: 1, pageSize: 20 });
+  const [paged, setPaged] = useState<QAMessagePagedResult>({
+    data: [],
+    total: 0,
+    page: 1,
+    pageSize: PAGE_SIZE,
+  });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [flaggedKey, setFlaggedKey] = useState(0);
 
@@ -41,7 +47,7 @@ export default function ModerationAITab({ onOpenRecording, currentUserId }: Mode
     setLoadingAll(true);
     setAllError(null);
     try {
-      const res = await fetchAllMessages(page, pageSize);
+      const res = await fetchAllMessages(page, PAGE_SIZE);
       const assistantOnly = (res.data ?? []).filter((m) => m.role === 1);
       setPaged({
         data: assistantOnly,
@@ -54,7 +60,7 @@ export default function ModerationAITab({ onOpenRecording, currentUserId }: Mode
     } finally {
       setLoadingAll(false);
     }
-  }, [page, pageSize]);
+  }, [page]);
 
   useEffect(() => {
     if (!expandedAll) return;
@@ -62,8 +68,8 @@ export default function ModerationAITab({ onOpenRecording, currentUserId }: Mode
   }, [expandedAll, loadAll]);
 
   const totalPages = useMemo(
-    () => Math.max(1, Math.ceil((paged.total ?? 0) / pageSize)),
-    [paged.total, pageSize],
+    () => Math.max(1, Math.ceil((paged.total ?? 0) / PAGE_SIZE)),
+    [paged.total],
   );
   const canPaginate = useMemo(() => totalPages > 1, [totalPages]);
 

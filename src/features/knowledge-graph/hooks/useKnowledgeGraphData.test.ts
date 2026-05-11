@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { KNOWLEDGE_GRAPH_MAX_SOURCE_RECORDINGS } from '@/config/knowledgeGraphLimits';
 import { buildKnowledgeGraphData } from '@/features/knowledge-graph/hooks/useKnowledgeGraphData';
 import type { ResearcherAnalysisRecord } from '@/features/researcher/researcherPortalTypes';
 import {
@@ -95,6 +96,19 @@ describe('buildKnowledgeGraphData', () => {
     expect(uses).toHaveLength(1);
     const inst = data.nodes.find((n) => n.type === 'instrument');
     expect(inst?.val).toBe(0.4);
+  });
+
+  it('caps source recordings and exposes truncation metadata when over limit', () => {
+    const over = KNOWLEDGE_GRAPH_MAX_SOURCE_RECORDINGS + 5;
+    const recs: ResearcherAnalysisRecord[] = Array.from({ length: over }, (_, i) =>
+      baseRecording(`id-${i}`, `Title ${i}`),
+    );
+    const data = buildKnowledgeGraphData(recs, [], [], []);
+    expect(data.recordingInputTruncated).toBe(true);
+    expect(data.recordingInputTotal).toBe(over);
+    expect(data.nodes.filter((n) => n.type === 'recording').length).toBe(
+      KNOWLEDGE_GRAPH_MAX_SOURCE_RECORDINGS,
+    );
   });
 
   it('sets entityId / entityType / explorable for explore + recording-detail alignment', () => {

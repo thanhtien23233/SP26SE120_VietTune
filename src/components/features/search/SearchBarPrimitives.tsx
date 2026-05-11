@@ -1,15 +1,10 @@
 import { ChevronDown, Search, Plus } from 'lucide-react';
 import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
-import type { CSSProperties, ElementType, ReactNode } from 'react';
+import type { ElementType, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { isClickOnScrollbar } from '@/features/search/searchBarDomUtils';
 import { useButtonAnchorRect } from '@/hooks/useButtonAnchorRect';
-
-const DROPDOWN_SCROLL_LIST_STYLE: CSSProperties = {
-  scrollbarWidth: 'thin',
-  scrollbarColor: '#9B2C2C rgba(255, 255, 255, 0.3)',
-};
 
 export function SearchableDropdown({
   value,
@@ -118,7 +113,7 @@ export function SearchableDropdown({
                 </div>
               </div>
             )}
-            <div className="max-h-60 overflow-y-auto" style={DROPDOWN_SCROLL_LIST_STYLE}>
+            <div className="max-h-60 overflow-y-auto scrollbar-brand">
               {filteredOptions.length === 0 ? (
                 <div className="px-5 py-3 text-neutral-400 text-sm text-center">
                   Không tìm thấy kết quả
@@ -315,7 +310,7 @@ export function MultiSelectTags({
             className="rounded-2xl border border-neutral-300/80 shadow-xl backdrop-blur-sm overflow-hidden transition-all duration-300 bg-surface-panel"
             style={multiPortalMenuStyle}
           >
-            <div className="max-h-60 overflow-y-auto" style={DROPDOWN_SCROLL_LIST_STYLE}>
+            <div className="max-h-60 overflow-y-auto scrollbar-brand">
               {filteredOptions.length === 0 ? (
                 <div className="px-5 py-3 text-neutral-400 text-sm text-center">
                   {search ? 'Không tìm thấy kết quả' : 'Đã chọn tất cả'}

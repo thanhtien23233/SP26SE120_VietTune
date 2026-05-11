@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 
 import logo from '@/components/image/viettune_logo_img';
 import { APP_NAME } from '@/config/constants';
+import { CONTACT_EMAIL } from '@/config/contactInfo';
+import { SOCIAL_FACEBOOK_URL, SOCIAL_YOUTUBE_URL } from '@/config/socialLinks';
 import { useAuthStore } from '@/stores/authStore';
 import { UserRole } from '@/types';
 import { uiToast, notifyLine } from '@/uiToast';
@@ -12,7 +14,7 @@ export default function Footer() {
   const isExpert = user?.role === UserRole.EXPERT;
   const handleCopyEmail = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    const email = 'contact@viettune.com';
+    const email = CONTACT_EMAIL;
 
     navigator.clipboard
       .writeText(email)
@@ -121,28 +123,30 @@ export default function Footer() {
             <div className="text-left w-full max-w-[200px]">
               <h3 className="font-bold text-lg mb-4 text-white">Kết nối</h3>
               <div className="flex space-x-4 mb-6">
+                {SOCIAL_FACEBOOK_URL ? (
+                  <a
+                    href={SOCIAL_FACEBOOK_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2.5 bg-white/10 hover:bg-secondary-500 text-white rounded-full transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
+                    title="Facebook"
+                  >
+                    <Facebook className="h-5 w-5" strokeWidth={2.5} />
+                  </a>
+                ) : null}
+                {SOCIAL_YOUTUBE_URL ? (
+                  <a
+                    href={SOCIAL_YOUTUBE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2.5 bg-white/10 hover:bg-secondary-500 text-white rounded-full transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
+                    title="YouTube"
+                  >
+                    <Youtube className="h-5 w-5" strokeWidth={2.5} />
+                  </a>
+                ) : null}
                 <a
-                  href="https://facebook.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2.5 bg-white/10 hover:bg-secondary-500 text-white rounded-full transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
-                  title="Facebook"
-                >
-                  <Facebook className="h-5 w-5" strokeWidth={2.5} />
-                </a>
-                <a
-                  href="https://youtube.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2.5 bg-white/10 hover:bg-secondary-500 text-white rounded-full transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
-                  title="YouTube"
-                >
-                  <Youtube className="h-5 w-5" strokeWidth={2.5} />
-                </a>
-                <a
-                  href="https://mail.google.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={`mailto:${CONTACT_EMAIL}`}
                   className="p-2.5 bg-white/10 hover:bg-secondary-500 text-white rounded-full transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
                   title="Email"
                 >
@@ -152,12 +156,12 @@ export default function Footer() {
               <div className="space-y-2">
                 <p className="text-white text-sm font-medium">Email:</p>
                 <a
-                  href="mailto:contact@viettune.com"
+                  href={`mailto:${CONTACT_EMAIL}`}
                   onClick={handleCopyEmail}
                   className="text-white/90 text-sm hover:text-secondary-300 transition-colors cursor-pointer"
                   title="Nhấn để sao chép địa chỉ email"
                 >
-                  contact@viettune.com
+                  {CONTACT_EMAIL}
                 </a>
               </div>
             </div>

@@ -11,6 +11,7 @@ import { usePollWhileVisible } from '@/hooks/usePollWhileVisible';
 import { accountDeletionService } from '@/services/accountDeletionService';
 import { adminApi } from '@/services/adminApi';
 import { analyticsApi } from '@/services/analyticsApi';
+import { reportError, toReportableError } from '@/services/errorReporting';
 import { knowledgeBaseApi } from '@/services/knowledgeBaseApi';
 import { fetchAllMessages } from '@/services/qaMessageService';
 import { recordingRequestService } from '@/services/recordingRequestService';
@@ -389,14 +390,20 @@ export function useAdminDashboardData() {
         .getDeleteRecordingRequests()
         .then(setDeleteRecordingRequests)
         .catch((err) => {
-          console.warn('Failed to load delete recording requests', err);
+          reportError(toReportableError(err, 'Failed to load delete recording requests'), undefined, {
+            region: 'admin',
+            resource: 'deleteRecordingRequests',
+          });
           setDeleteRecordingRequests([]);
         });
       void recordingRequestService
         .getEditRecordingRequests()
         .then(setEditRecordingRequests)
         .catch((err) => {
-          console.warn('Failed to load edit recording requests', err);
+          reportError(toReportableError(err, 'Failed to load edit recording requests'), undefined, {
+            region: 'admin',
+            resource: 'editRecordingRequests',
+          });
           setEditRecordingRequests([]);
         });
     },

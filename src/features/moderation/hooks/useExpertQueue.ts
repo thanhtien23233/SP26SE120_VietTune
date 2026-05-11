@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
 import { projectModerationLists } from '@/features/moderation/utils/expertQueueProjection';
 import { buildQueueStatusMeta } from '@/features/moderation/utils/queueStatusMeta';
+import { reportError, toReportableError } from '@/services/errorReporting';
 import { expertWorkflowService } from '@/services/expertWorkflowService';
 import { migrateVideoDataToVideoData } from '@/utils/helpers';
 
@@ -31,7 +32,10 @@ export function useExpertQueue(opts: {
       setAllItems(expertItems);
       setItems(visibleItems);
     } catch (err) {
-      console.error(err);
+      reportError(toReportableError(err, 'Expert queue load failed'), undefined, {
+        region: 'moderation',
+        stage: 'expert_queue',
+      });
       setItems([]);
       setAllItems([]);
     } finally {

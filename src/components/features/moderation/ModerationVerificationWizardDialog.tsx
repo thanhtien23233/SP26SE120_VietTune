@@ -12,6 +12,7 @@ import { getMissingStep2Fields } from '@/features/moderation/hooks/useModeration
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
 import { buildRecordingForModerationWizard } from '@/features/moderation/utils/buildRecordingForModerationWizard';
 import { resolveCulturalContextForDisplay } from '@/features/moderation/utils/resolveReferenceDisplayStrings';
+import { reportError, toReportableError } from '@/services/errorReporting';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
 import { referenceDataService, type InstrumentItem } from '@/services/referenceDataService';
 import { detectCrossCaseWarning } from '@/utils/crossCaseInstrumentWarning';
@@ -186,7 +187,10 @@ export function ModerationVerificationWizardDialog({
         if (!cancelled && next) setResolvedCulturalContext(next);
       })
       .catch((err) => {
-        console.warn('resolveCulturalContextForDisplay failed', err);
+        reportError(toReportableError(err, 'resolveCulturalContextForDisplay failed'), undefined, {
+          region: 'moderation',
+          stage: 'verification_wizard',
+        });
       });
     return () => {
       cancelled = true;

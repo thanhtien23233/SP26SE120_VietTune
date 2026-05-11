@@ -273,8 +273,7 @@ export default function ExplorePage() {
     setCurrentPage(1);
     setSearchParams(buildExploreSearchParams(mapped, exploreMode, semanticInput), { replace: true });
   }, [
-    exploreFilterOptions.ethnicities,
-    exploreFilterOptions.instruments,
+    exploreFilterOptions,
     filters,
     exploreMode,
     semanticInput,

@@ -91,13 +91,7 @@ export function RoleSelectDropdown({
               zIndex: 40,
             }}
           >
-            <div
-              className="max-h-60 overflow-y-auto"
-              style={{
-                scrollbarWidth: 'thin',
-                scrollbarColor: '#9B2C2C rgba(255, 255, 255, 0.3)',
-              }}
-            >
+            <div className="max-h-60 overflow-y-auto scrollbar-brand">
               {ROLE_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -212,10 +206,7 @@ export function ExpertSelectDropdown({
               zIndex: 40,
             }}
           >
-            <div
-              className="max-h-60 overflow-y-auto"
-              style={{ scrollbarWidth: 'thin', scrollbarColor: '#9B2C2C rgba(255, 255, 255, 0.3)' }}
-            >
+            <div className="max-h-60 overflow-y-auto scrollbar-brand">
               <button
                 type="button"
                 onClick={() => {

@@ -4,9 +4,10 @@ import type {
   ApiPagedResponseEthnicGroupDto,
   ApiServiceResponseEthnicGroupDto,
 } from '@/api';
+import { PAGE_SIZE_ETHNICITY_LIST } from '@/config/pagination';
 
 export const ethnicityService = {
-  getEthnicities: async (page: number = 1, pageSize: number = 100) => {
+  getEthnicities: async (page: number = 1, pageSize: number = PAGE_SIZE_ETHNICITY_LIST) => {
     const res = await apiOk<ApiPagedResponseEthnicGroupDto>(
       asApiEnvelope<ApiPagedResponseEthnicGroupDto>(
         apiFetch.GET('/api/EthnicGroup', { params: { query: { page, pageSize } } }),

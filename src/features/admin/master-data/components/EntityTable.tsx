@@ -1,7 +1,10 @@
 import { Pencil, Trash2 } from 'lucide-react';
+
 import type { ReferenceEntity, EntityKind } from '../types/masterDataTypes';
 import { entityConfigs } from '../utils/entityFieldConfig';
+
 import { EntityStatusBadge } from './EntityStatusBadge';
+
 import Pagination from '@/components/common/Pagination';
 
 interface EntityTableProps {

@@ -162,7 +162,11 @@ export function enrichGraphWithDegreeVal(data: KnowledgeGraphData): KnowledgeGra
     ...n,
     val: 2 + Math.min(deg.get(n.id) ?? 0, 12),
   }));
-  return { nodes, links: data.links };
+  return {
+    ...data,
+    nodes,
+    links: data.links,
+  };
 }
 
 /** Neighbor node IDs of `selectedId` (one hop). */

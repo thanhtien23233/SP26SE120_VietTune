@@ -17,6 +17,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import WaveformProgressBar from './WaveformProgressBar';
 
 import { RECORDING_TYPE_NAMES } from '@/config/constants';
+import { reportError, toReportableError } from '@/services/errorReporting';
 import { useAuthStore } from '@/stores/authStore';
 import { useMediaFocusStore } from '@/stores/mediaFocusStore';
 import { UserRole } from '@/types';
@@ -241,7 +242,10 @@ export default function AudioPlayer({
       await media.play();
       setPlaying(true);
     } catch (e) {
-      console.warn('Play failed:', e);
+      reportError(toReportableError(e, 'Audio play failed'), undefined, {
+        region: 'media',
+        component: 'AudioPlayer',
+      });
       setActiveMediaId(null);
     }
   };

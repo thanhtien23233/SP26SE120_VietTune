@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { reportError, toReportableError } from '@/services/errorReporting';
 import { submissionService, type Submission } from '@/services/submissionService';
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -41,7 +42,9 @@ export function useContributionsData(userId: string | undefined) {
         setHasMore(false);
       }
     } catch (err: unknown) {
-      console.error('Failed to load submissions:', err);
+      reportError(toReportableError(err, 'Failed to load submissions'), undefined, {
+        region: 'contributions',
+      });
       setError('Không thể tải danh sách đóng góp. Vui lòng thử lại.');
       setSubmissions([]);
     } finally {

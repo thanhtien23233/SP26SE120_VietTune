@@ -1,20 +1,22 @@
 import { useState, useMemo } from 'react';
 
-import BackButton from '@/components/common/BackButton';
-import { EntitySidebar } from '../components/EntitySidebar';
-import { EntityTableToolbar } from '../components/EntityTableToolbar';
-import { EntityTable } from '../components/EntityTable';
-import { TableSkeleton } from '../components/TableSkeleton';
 import { EmptyState } from '../components/EmptyState';
-import { ErrorState } from '../components/ErrorState';
-import { EntityFormDialog } from '../components/EntityFormDialog';
 import { EntityDeleteDialog } from '../components/EntityDeleteDialog';
-import { useMasterDataEntity } from '../hooks/useMasterDataEntity';
+import { EntityFormDialog } from '../components/EntityFormDialog';
+import { EntitySidebar } from '../components/EntitySidebar';
+import { EntityTable } from '../components/EntityTable';
+import { EntityTableToolbar } from '../components/EntityTableToolbar';
+import { ErrorState } from '../components/ErrorState';
+import { TableSkeleton } from '../components/TableSkeleton';
 import { useEntitySearch } from '../hooks/useEntitySearch';
+import { useMasterDataEntity } from '../hooks/useMasterDataEntity';
 import { masterDataService } from '../services/masterDataService';
-import { entityConfigs } from '../utils/entityFieldConfig';
 import type { EntityKind, ReferenceEntity, EntityFormValues } from '../types/masterDataTypes';
+import { entityConfigs } from '../utils/entityFieldConfig';
 import { normalizeSlug } from '../utils/slugNormalizer';
+
+import BackButton from '@/components/common/BackButton';
+import { reportError, toReportableError } from '@/services/errorReporting';
 
 export function MasterDataPage() {
   const [currentKind, setCurrentKind] = useState<EntityKind>('instruments');
@@ -38,7 +40,7 @@ export function MasterDataPage() {
   const config = entityConfigs[currentKind];
 
   const handlePageChange = (newPage: number) => {
-    fetchItems(newPage);
+    void fetchItems(newPage);
   };
 
   const handleAddClick = () => {
@@ -60,7 +62,10 @@ export function MasterDataPage() {
       const usageCount = await masterDataService.checkUsage(currentKind, entity.id);
       setSelectedEntity((prev) => prev && prev.id === entity.id ? { ...prev, usageCount } : prev);
     } catch (err) {
-      console.warn('Failed to fetch usage count', err);
+      reportError(toReportableError(err, 'Failed to fetch usage count'), undefined, {
+        region: 'admin',
+        masterData: currentKind,
+      });
     }
   };
 

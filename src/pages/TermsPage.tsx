@@ -1,4 +1,5 @@
 import BackButton from '@/components/common/BackButton';
+import { getTermsContactClause } from '@/config/contactInfo';
 
 export default function TermsPage() {
   return (
@@ -481,7 +482,7 @@ export default function TermsPage() {
                 giữa Người dùng và VietTune.
               </p>
               <p className="leading-relaxed">
-                <strong>20. Liên hệ:</strong> Email: contact@viettune.com | Hotline: 1900-xxxx-xx
+                <strong>20. Liên hệ:</strong> {getTermsContactClause()}
               </p>
             </div>
           </div>

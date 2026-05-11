@@ -1,8 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 
+import RecordingImageGallery from '@/components/features/RecordingImageGallery';
 import { EXPERT_API_PHASE2 } from '@/config/expertWorkflowPhase';
 import { MODERATION_EXPERT_TEXTAREA_MAX_LENGTH } from '@/config/validationConstants';
-import RecordingImageGallery from '@/components/features/RecordingImageGallery';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
 import { ModerationStatus } from '@/types';
 import { toModerationUiStatus } from '@/types/moderation';

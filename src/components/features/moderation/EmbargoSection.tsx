@@ -1,8 +1,8 @@
 import { AlertCircle, Loader2, Lock, Unlock } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { EMBARGO_REASON_MAX_LENGTH } from '@/config/validationConstants';
 import { formatViDateTimeShortBangkok } from '@/config/datetimeDisplay';
+import { EMBARGO_REASON_MAX_LENGTH } from '@/config/validationConstants';
 import { embargoApi } from '@/services/embargoApi';
 import type { EmbargoCreateUpdateDto, EmbargoDto } from '@/types/embargo';
 import { EMBARGO_STATUS_LABELS } from '@/types/embargo';

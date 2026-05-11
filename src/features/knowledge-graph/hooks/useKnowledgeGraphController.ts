@@ -64,7 +64,7 @@ export function mergeSubgraph(
   acc: KnowledgeGraphData,
   next: KnowledgeGraphData,
 ): KnowledgeGraphData {
-  if (!acc.nodes.length) return { nodes: [...next.nodes], links: [...next.links] };
+  if (!acc.nodes.length) return { ...next, nodes: [...next.nodes], links: [...next.links] };
   const nodeMap = new Map<string, GraphNode>();
   for (const n of acc.nodes) nodeMap.set(n.id, n);
   for (const n of next.nodes) {
@@ -92,7 +92,12 @@ export function mergeSubgraph(
     linkSeen.add(k);
     links.push(l);
   }
-  return { nodes: Array.from(nodeMap.values()), links };
+  return {
+    nodes: Array.from(nodeMap.values()),
+    links,
+    recordingInputTruncated: Boolean(acc.recordingInputTruncated || next.recordingInputTruncated),
+    recordingInputTotal: acc.recordingInputTotal ?? next.recordingInputTotal,
+  };
 }
 
 export function useKnowledgeGraphController({

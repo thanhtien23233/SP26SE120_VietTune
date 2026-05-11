@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { REGION_NAMES } from '@/config/constants';
+import { KNOWLEDGE_GRAPH_MAX_SOURCE_RECORDINGS } from '@/config/knowledgeGraphLimits';
 import { buildViewerNodeId } from '@/features/knowledge-graph/utils/knowledgeGraphApiAdapter';
 import type { ResearcherAnalysisRecord } from '@/features/researcher/researcherPortalTypes';
 import { CeremonyItem, EthnicGroupItem, InstrumentItem } from '@/services/referenceDataService';
@@ -66,8 +67,7 @@ function makeSlug(name: string): string {
   return normalizeSearchText(name) || 'unknown';
 }
 
-// TODO: Phase 2 - Move this massive graph computation to backend/Neo4j API
-// when the dataset scales beyond a few thousand nodes to prevent UI freezes.
+// Prefer backend graph API at scale; client-side build is capped (see knowledgeGraphLimits).
 export function buildKnowledgeGraphData(
   recordings: ResearcherAnalysisRecord[],
   ethnicRefData: EthnicGroupItem[],
@@ -75,6 +75,12 @@ export function buildKnowledgeGraphData(
   ceremonyRefData: CeremonyItem[],
 ): KnowledgeGraphData {
   if (!recordings || recordings.length === 0) return { nodes: [], links: [] };
+
+  const totalRecordings = recordings.length;
+  const capped =
+    totalRecordings > KNOWLEDGE_GRAPH_MAX_SOURCE_RECORDINGS
+      ? recordings.slice(0, KNOWLEDGE_GRAPH_MAX_SOURCE_RECORDINGS)
+      : recordings;
 
   const nodesMap = new Map<string, GraphNode>();
   const links: GraphLink[] = [];
@@ -118,7 +124,7 @@ export function buildKnowledgeGraphData(
     if (i.imageUrl) instImageMap[i.id] = i.imageUrl;
   });
 
-  recordings.forEach((r) => {
+  capped.forEach((r) => {
     if (!r || !r.id) return;
     const recNode = makeLocalNode('Recording', r.id, makeSlug(r.title || r.id), {
       name: r.title || 'Unknown',
@@ -189,6 +195,12 @@ export function buildKnowledgeGraphData(
   return {
     nodes: Array.from(nodesMap.values()),
     links,
+    ...(totalRecordings > KNOWLEDGE_GRAPH_MAX_SOURCE_RECORDINGS
+      ? {
+          recordingInputTruncated: true,
+          recordingInputTotal: totalRecordings,
+        }
+      : {}),
   };
 }
 

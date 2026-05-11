@@ -5,9 +5,10 @@ import type {
   ApiPagedResponseInstrumentDto,
   ApiServiceResponseInstrumentDto,
 } from '@/api';
+import { PAGE_SIZE_INSTRUMENT_LIST } from '@/config/pagination';
 
 export const instrumentService = {
-  getInstruments: async (page: number = 1, pageSize: number = 50) => {
+  getInstruments: async (page: number = 1, pageSize: number = PAGE_SIZE_INSTRUMENT_LIST) => {
     const query: ApiInstrumentListQuery = { page, pageSize };
     const res = await apiOk<ApiPagedResponseInstrumentDto>(
       asApiEnvelope<ApiPagedResponseInstrumentDto>(

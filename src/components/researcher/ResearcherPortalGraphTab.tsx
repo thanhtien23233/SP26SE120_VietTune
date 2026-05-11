@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 
+import { KNOWLEDGE_GRAPH_MAX_SOURCE_RECORDINGS } from '@/config/knowledgeGraphLimits';
 import GraphBreadcrumb from '@/features/knowledge-graph/components/GraphBreadcrumb';
 import GraphInsights from '@/features/knowledge-graph/components/GraphInsights';
 import GraphToolbar from '@/features/knowledge-graph/components/GraphToolbar';
@@ -108,6 +109,17 @@ export default function ResearcherPortalGraphTab({
       </p>
     ) : null;
 
+  const graphTruncationBanner =
+    ctrl.dataSourceKind === 'local' && ctrl.displayGraph.recordingInputTruncated ? (
+      <p className="text-xs rounded-lg px-3 py-1.5 mb-2 border border-amber-200 bg-amber-50/90 text-amber-950">
+        Đồ thị cục bộ chỉ xử lý tối đa {KNOWLEDGE_GRAPH_MAX_SOURCE_RECORDINGS} bản phân tích đầu tiên
+        {typeof ctrl.displayGraph.recordingInputTotal === 'number'
+          ? ` (${ctrl.displayGraph.recordingInputTotal} bản trong tập)`
+          : ''}{' '}
+        để tránh đơ giao diện. Khi API tổng quan khả dụng, hệ thống sẽ dùng dữ liệu máy chủ.
+      </p>
+    ) : null;
+
   return (
     <div className="p-3 sm:p-4 lg:p-6 space-y-3">
       <div className="rounded-2xl border border-secondary-200/50 bg-gradient-to-br from-surface-panel via-cream-50/80 to-secondary-50/50 shadow-sm backdrop-blur-sm p-3 sm:p-4">
@@ -164,6 +176,7 @@ export default function ResearcherPortalGraphTab({
 
         {overviewErrorBanner}
         {exploreErrorBanner}
+        {graphTruncationBanner}
 
         <div className="flex gap-3 mt-3">
           {ctrl.leftOpen ? (

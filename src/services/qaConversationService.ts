@@ -1,5 +1,6 @@
 import { apiFetch, apiOk, normalizePagedResponse } from '@/api';
 import type { ApiQAConversationByUserQuery, ApiQAConversationDto } from '@/api';
+import { PAGE_SIZE_QA_CONVERSATIONS } from '@/config/pagination';
 import type { ServiceApiClient } from '@/services/serviceApiClient';
 import { logServiceError } from '@/services/serviceLogger';
 
@@ -78,7 +79,7 @@ export async function fetchUserConversations(userId: string): Promise<QAConversa
   }
 }
 
-export async function fetchQAConversationsPaged(page = 1, pageSize = 20): Promise<QAConversationRequest[]> {
+export async function fetchQAConversationsPaged(page = 1, pageSize = PAGE_SIZE_QA_CONVERSATIONS): Promise<QAConversationRequest[]> {
   const res = await apiOk(
     apiFetch.GET('/api/QAConversation', { params: { query: { page, pageSize } } }),
   );

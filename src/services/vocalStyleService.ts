@@ -5,9 +5,10 @@ import type {
   ApiPagedResponseVocalStyleDto,
   ApiServiceResponseVocalStyleDto,
 } from '@/api';
+import { PAGE_SIZE_VOCAL_STYLE_LIST } from '@/config/pagination';
 
 export const vocalStyleService = {
-  getVocalStyles: async (page: number = 1, pageSize: number = 50) => {
+  getVocalStyles: async (page: number = 1, pageSize: number = PAGE_SIZE_VOCAL_STYLE_LIST) => {
     const query: ApiVocalStyleListQuery = { page, pageSize };
     const res = await apiOk<ApiPagedResponseVocalStyleDto>(
       asApiEnvelope<ApiPagedResponseVocalStyleDto>(

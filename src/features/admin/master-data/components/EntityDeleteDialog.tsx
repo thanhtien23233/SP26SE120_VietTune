@@ -1,6 +1,8 @@
-import ConfirmationDialog from '@/components/common/ConfirmationDialog';
 import { Trash2, AlertTriangle } from 'lucide-react';
+
 import type { ReferenceEntity } from '../types/masterDataTypes';
+
+import ConfirmationDialog from '@/components/common/ConfirmationDialog';
 
 interface EntityDeleteDialogProps {
   isOpen: boolean;

@@ -76,7 +76,6 @@ export function useRecordingMetadataSuggestions(
     void loadData();
 
     const handleRefDataUpdate = () => {
-      console.log('Reference data updated, refetching metadata suggestions...');
       void loadData();
     };
 

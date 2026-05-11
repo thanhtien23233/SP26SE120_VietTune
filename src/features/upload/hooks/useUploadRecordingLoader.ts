@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { LANGUAGES } from '@/features/upload/uploadConstants';
 import type { LoadedRecording, LocalRecordingStorage } from '@/features/upload/uploadRecordingTypes';
+import { reportError, toReportableError } from '@/services/errorReporting';
 import { getLocalRecordingFull } from '@/services/recordingStorage';
 import { sessionGetItem } from '@/services/storageService';
 
@@ -178,7 +179,10 @@ export function useUploadRecordingLoader(
 
           s.setIsEditMode(true);
         } catch (err) {
-          console.error('Error loading recording by id:', err);
+          reportError(toReportableError(err, 'Error loading recording by id'), undefined, {
+            region: 'upload',
+            stage: 'load_recording',
+          });
         }
       })();
       return () => {
@@ -310,7 +314,10 @@ export function useUploadRecordingLoader(
 
           s.setIsEditMode(true);
         } catch (err) {
-          console.error('Error loading editing recording:', err);
+          reportError(toReportableError(err, 'Error loading editing recording'), undefined, {
+            region: 'upload',
+            stage: 'load_editing_recording',
+          });
         }
       })();
 

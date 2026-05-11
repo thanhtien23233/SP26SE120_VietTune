@@ -73,4 +73,8 @@ export interface GraphLink {
 export interface KnowledgeGraphData {
   nodes: GraphNode[];
   links: GraphLink[];
+  /** Client graph build capped `recordings` input (see `KNOWLEDGE_GRAPH_MAX_SOURCE_RECORDINGS`). */
+  recordingInputTruncated?: boolean;
+  /** Original recording count before cap (when truncated). */
+  recordingInputTotal?: number;
 }

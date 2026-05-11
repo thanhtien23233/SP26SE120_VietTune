@@ -176,13 +176,6 @@ export default function ExportDatasetDialog({
       }
 
       triggerDownload(blob, buildFilename(format));
-      
-      try {
-        // Fake audit log to satisfy requirements - failing won't crash the export
-        await Promise.resolve();
-      } catch (auditErr) {
-        console.warn('Audit log failed, but export succeeded', auditErr);
-      }
 
       uiToast.success(
         notifyLine(

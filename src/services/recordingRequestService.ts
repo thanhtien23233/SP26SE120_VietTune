@@ -9,6 +9,7 @@
  */
 
 import { apiFetch, apiFetchLoose, apiOk, asApiEnvelope, openApiQueryRecord } from '@/api';
+import { PAGE_SIZE_DEFAULT, PAGE_SIZE_RECORDING_REQUEST_REVIEW } from '@/config/pagination';
 import { logServiceError, logServiceWarn } from '@/services/serviceLogger';
 import type {
   DeleteRecordingRequest,
@@ -101,7 +102,7 @@ function rowValueToLowerText(v: unknown): string {
   return '';
 }
 
-async function reviewGetAll(page = 1, pageSize = 500): Promise<ReviewDecisionRow[]> {
+async function reviewGetAll(page = 1, pageSize = PAGE_SIZE_RECORDING_REQUEST_REVIEW): Promise<ReviewDecisionRow[]> {
   const res = await apiOk(
     asApiEnvelope<unknown>(
       apiFetchLoose.GET(REVIEW_ENDPOINTS.collection, { params: { query: { page, pageSize } } }),
@@ -562,7 +563,7 @@ export const recordingRequestService = {
       const rawItems = Array.isArray(body?.items) ? (body.items as Array<Record<string, unknown>>) : [];
       const page = typeof body?.page === 'number' ? (body.page as number) : Number(params?.page ?? 1);
       const pageSize =
-        typeof body?.pageSize === 'number' ? (body.pageSize as number) : Number(params?.pageSize ?? 20);
+        typeof body?.pageSize === 'number' ? (body.pageSize as number) : Number(params?.pageSize ?? PAGE_SIZE_DEFAULT);
       const total = typeof body?.total === 'number' ? (body.total as number) : rawItems.length;
       return {
         items: rawItems.map(mapNotificationFromApiRecord),
@@ -571,7 +572,7 @@ export const recordingRequestService = {
         total,
       };
     } catch {
-      return { items: [], page: Number(params?.page ?? 1), pageSize: Number(params?.pageSize ?? 20), total: 0 };
+      return { items: [], page: Number(params?.page ?? 1), pageSize: Number(params?.pageSize ?? PAGE_SIZE_DEFAULT), total: 0 };
     }
   },
 

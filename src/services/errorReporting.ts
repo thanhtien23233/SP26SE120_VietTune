@@ -1,3 +1,4 @@
+import { addBreadcrumb, getClient } from '@sentry/core';
 import { captureReactException, init } from '@sentry/react';
 import type { ErrorInfo } from 'react';
 
@@ -39,6 +40,12 @@ export function setErrorReporter(
   reporter = fn;
 }
 
+/** Chuẩn hóa unknown → Error cho reportError / Sentry */
+export function toReportableError(reason: unknown, fallbackMessage: string): Error {
+  if (reason instanceof Error) return reason;
+  return new Error(`${fallbackMessage}: ${String(reason)}`);
+}
+
 /**
  * Báo lỗi từ Error Boundary (hoặc bất kỳ đâu).
  * Nếu đã gọi setErrorReporter (Sentry/LogRocket), sẽ gửi lên service;
@@ -65,10 +72,27 @@ export function reportError(
 
 /**
  * Ghi lại các sự kiện phân tích/telemetry (ví dụ: admin action, user flow).
+ * Production: gửi breadcrumb vào Sentry khi SDK đã init (`VITE_SENTRY_DSN`).
  */
 export function logEvent(eventName: string, data?: unknown): void {
   if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console -- DEV telemetry until external analytics is wired (see TODO below)
     console.log(`[Telemetry] ${eventName}:`, data);
+  }
+
+  if (getClient()) {
+    const payload =
+      data !== undefined && data !== null && typeof data === 'object' && !Array.isArray(data)
+        ? (data as Record<string, unknown>)
+        : data !== undefined
+          ? { payload: data }
+          : undefined;
+    addBreadcrumb({
+      category: 'telemetry',
+      message: eventName,
+      level: 'info',
+      data: payload,
+    });
   }
   // TODO: Send to external analytics service (e.g. PostHog, Mixpanel) in Production
 }

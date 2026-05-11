@@ -4,6 +4,7 @@ import type { ModerationPortalModal } from '@/components/features/moderation/Mod
 import { MODERATION_APPROVE_EXPERT_NOTES_MAX_LENGTH } from '@/config/validationConstants';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
 import { projectModerationLists } from '@/features/moderation/utils/expertQueueProjection';
+import { reportError, toReportableError } from '@/services/errorReporting';
 import type { ModerationVerificationData } from '@/services/expertWorkflowService';
 import { expertWorkflowService } from '@/services/expertWorkflowService';
 import { ModerationStatus } from '@/types';
@@ -124,7 +125,11 @@ export async function confirmModerationApprove(p: ConfirmModerationApproveParams
   void (async () => {
     const syncRes = await expertWorkflowService.syncApproveToServer(id);
     if (!syncRes.ok) {
-      console.warn('[moderationApproveReject] syncApproveToServer failed', syncRes.error);
+      reportError(
+        toReportableError(syncRes.error, 'syncApproveToServer failed'),
+        undefined,
+        { region: 'moderation', action: 'syncApproveToServer' },
+      );
       await expertWorkflowService.restoreSubmissionOverlay(id, overlaySnapshot);
       uiToast.error('moderation.approve.server_failed');
       await p.load();
@@ -252,7 +257,11 @@ export async function executeModerationReject(p: ExecuteModerationRejectParams):
       combinedRejectNotes,
     );
     if (!syncRes.ok) {
-      console.warn('[moderationApproveReject] syncRejectToServer failed', syncRes.error);
+      reportError(
+        toReportableError(syncRes.error, 'syncRejectToServer failed'),
+        undefined,
+        { region: 'moderation', action: 'syncRejectToServer' },
+      );
       await expertWorkflowService.restoreSubmissionOverlay(id, overlaySnapshot);
       uiToast.error('moderation.reject.server_failed');
       await p.load();

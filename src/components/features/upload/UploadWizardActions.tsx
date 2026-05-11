@@ -6,6 +6,8 @@ type UploadWizardActionsProps = {
   uploadWizardStep: number;
   isAnalyzing: boolean;
   isSubmitting: boolean;
+  /** Upload draft / AI analyze / local media probe — blocks wizard advance + draft save */
+  asyncNavigationBlocked?: boolean;
   isFormDisabled: boolean;
   isApprovedEdit?: boolean;
   isFormComplete: boolean;
@@ -22,6 +24,7 @@ export default function UploadWizardActions({
   uploadWizardStep,
   isAnalyzing,
   isSubmitting,
+  asyncNavigationBlocked = false,
   isFormDisabled,
   isApprovedEdit,
   isFormComplete,
@@ -31,6 +34,14 @@ export default function UploadWizardActions({
   onPrev,
   onNext,
 }: UploadWizardActionsProps) {
+  const blocked = asyncNavigationBlocked;
+  const nextDisabled = !canNavigateToStep(uploadWizardStep + 1);
+  const nextTitle =
+    blocked && nextDisabled
+      ? 'Đang tải file hoặc phân tích âm thanh / AI. Chờ hoàn tất trước khi sang bước tiếp.'
+      : nextDisabled
+        ? 'Hoàn thành các điều kiện của bước hiện tại để tiếp tục.'
+        : undefined;
   return (
     <>
       {showFinalActions && (
@@ -47,7 +58,7 @@ export default function UploadWizardActions({
             <button
               type="button"
               onClick={onSaveDraft}
-              disabled={isAnalyzing || isSubmitting || isFormDisabled}
+              disabled={blocked || isAnalyzing || isSubmitting || isFormDisabled}
               className="flex cursor-pointer items-center gap-2 rounded-full border border-secondary-300/80 bg-secondary-100/90 px-6 py-2.5 font-medium text-neutral-800 shadow-sm transition-all duration-200 hover:bg-secondary-200/80 hover:shadow-md active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Shield className="h-4 w-4" />
@@ -55,13 +66,15 @@ export default function UploadWizardActions({
             </button>
             <button
               type="submit"
-              disabled={isAnalyzing || isSubmitting || isFormDisabled}
+              disabled={blocked || isAnalyzing || isSubmitting || isFormDisabled}
               title={
                 isFormDisabled
                   ? isApprovedEdit
                     ? 'Bạn cần có tài khoản Người đóng góp hoặc Chuyên gia để chỉnh sửa bản thu'
                     : 'Bạn cần có tài khoản Người đóng góp để đóng góp bản thu'
-                  : !isFormComplete
+                  : blocked
+                    ? 'Đang tải hoặc phân tích — chờ hoàn tất trước khi gửi.'
+                    : !isFormComplete
                     ? 'Vui lòng hoàn thành các trường bắt buộc'
                     : undefined
               }
@@ -98,7 +111,7 @@ export default function UploadWizardActions({
               <button
                 type="button"
                 onClick={onSaveDraft}
-                disabled={isAnalyzing || isSubmitting || isFormDisabled}
+                disabled={blocked || isAnalyzing || isSubmitting || isFormDisabled}
                 className="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-secondary-300/80 bg-secondary-100/90 px-6 py-2 font-medium text-neutral-800 shadow-sm transition-all duration-200 hover:bg-secondary-200/80 hover:shadow-md active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Shield className="h-4 w-4" />
@@ -109,7 +122,9 @@ export default function UploadWizardActions({
               <button
                 type="button"
                 onClick={onNext}
-                disabled={!canNavigateToStep(uploadWizardStep + 1)}
+                disabled={nextDisabled}
+                title={nextTitle}
+                aria-busy={blocked}
                 className="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 px-6 py-2 font-medium text-white shadow-lg shadow-primary-600/30 transition-all hover:from-primary-500 hover:to-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Tiếp theo

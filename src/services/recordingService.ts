@@ -6,6 +6,7 @@ import type {
 } from '@/api';
 import type { RecordingUploadDto } from '@/api';
 import { legacyGetAnonymous } from '@/api/legacyHttp';
+import { PAGE_SIZE_DEFAULT } from '@/config/pagination';
 import {
   Recording,
   SearchFilters,
@@ -326,7 +327,7 @@ export const recordingService = {
   searchRecordingsByTitle: async (
     title: string,
     page: number = 1,
-    pageSize: number = 20,
+    pageSize: number = PAGE_SIZE_DEFAULT,
     opts?: { signal?: AbortSignal },
   ): Promise<PaginatedResponse<Recording>> => {
     const data = await apiOk(
@@ -344,7 +345,7 @@ export const recordingService = {
   searchGuestRecordingsByTitle: async (
     title: string,
     page: number = 1,
-    pageSize: number = 20,
+    pageSize: number = PAGE_SIZE_DEFAULT,
     opts?: { signal?: AbortSignal },
   ): Promise<PaginatedResponse<Recording>> => {
     const reqOpts = {
@@ -366,7 +367,7 @@ export const recordingService = {
 
   getRecordings: async (
     page: number = 1,
-    pageSize: number = 20,
+    pageSize: number = PAGE_SIZE_DEFAULT,
     opts?: { signal?: AbortSignal },
   ) => {
     const params: ApiRecordingListQuery = { page, pageSize };
@@ -386,7 +387,7 @@ export const recordingService = {
    */
   getGuestRecordings: async (
     page: number = 1,
-    pageSize: number = 20,
+    pageSize: number = PAGE_SIZE_DEFAULT,
     opts?: { signal?: AbortSignal },
   ) => {
     const reqOpts = { signal: opts?.signal, params: { page, pageSize } };
@@ -407,7 +408,7 @@ export const recordingService = {
   getGuestRecordingsByFilter: async (
     filters: SearchFilters,
     page: number = 1,
-    pageSize: number = 20,
+    pageSize: number = PAGE_SIZE_DEFAULT,
     opts?: { signal?: AbortSignal },
   ) => {
     const q = filters.query?.trim();
@@ -488,7 +489,7 @@ export const recordingService = {
   searchRecordings: async (
     filters: SearchFilters,
     page: number = 1,
-    pageSize: number = 20,
+    pageSize: number = PAGE_SIZE_DEFAULT,
     opts?: { signal?: AbortSignal },
   ) => {
     const q = filters.query?.trim();

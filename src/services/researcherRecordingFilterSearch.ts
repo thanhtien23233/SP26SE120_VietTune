@@ -1,13 +1,14 @@
 import { apiFetch, apiOk, asApiEnvelope, openApiQueryRecord } from '@/api';
 import type { ApiRecordingSearchByFilterQuery } from '@/api';
+import { PAGE_SIZE_RESEARCHER_SEARCH_DEFAULT } from '@/config/pagination';
 import { buildSubmissionLookupMaps } from '@/services/expertModerationApi';
 import { recordingService } from '@/services/recordingService';
 import { mapSubmissionToLocalRecording } from '@/services/submissionApiMapper';
 import type { SubmissionLookupMaps } from '@/services/submissionApiMapper';
 import type { LocalRecording, Recording } from '@/types';
 import type { Region } from '@/types/reference';
-import { normalizeSearchText } from '@/utils/searchText';
 import { convertLocalToRecording } from '@/utils/localRecordingToRecording';
+import { normalizeSearchText } from '@/utils/searchText';
 
 /** Query for GET /Recording/search-by-filter (see BE Swagger). */
 export type RecordingSearchByFilterQuery = ApiRecordingSearchByFilterQuery & {
@@ -227,7 +228,7 @@ export async function fetchGuestRecordingsSearchByFilter(
     tags: [],
   };
   const page = query.page ?? 1;
-  const pageSize = query.pageSize ?? 500;
+  const pageSize = query.pageSize ?? PAGE_SIZE_RESEARCHER_SEARCH_DEFAULT;
   const result = await recordingService.getGuestRecordingsByFilter(filters, page, pageSize);
   return Array.isArray(result?.items) ? result.items : [];
 }

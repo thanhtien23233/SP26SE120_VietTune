@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
-import { referenceDataService } from '@/services/referenceDataService';
+
 import type { EntityKind } from '../types/masterDataTypes';
+
+import { referenceDataService } from '@/services/referenceDataService';
 
 export const REF_DATA_UPDATED_EVENT = 'viettune:refdata-updated';
 

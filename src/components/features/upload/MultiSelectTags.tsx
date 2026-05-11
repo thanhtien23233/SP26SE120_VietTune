@@ -160,13 +160,7 @@ export function MultiSelectTags({
               zIndex: 40,
             }}
           >
-            <div
-              className="max-h-60 overflow-y-auto"
-              style={{
-                scrollbarWidth: 'thin',
-                scrollbarColor: '#9B2C2C rgba(255, 255, 255, 0.3)',
-              }}
-            >
+            <div className="max-h-60 overflow-y-auto scrollbar-brand">
               {filteredOptions.length === 0 ? (
                 <div className="px-5 py-3 text-neutral-400 text-sm text-center">
                   {search ? 'Không tìm thấy kết quả' : 'Đã chọn tất cả'}

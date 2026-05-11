@@ -2,8 +2,8 @@ import { ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { isClickOnScrollbar } from '@/features/upload/uploadConstants';
 import { formatViDateBangkok } from '@/config/datetimeDisplay';
+import { isClickOnScrollbar } from '@/features/upload/uploadConstants';
 
 export function UploadDatePicker({
   value,
@@ -227,13 +227,7 @@ export function UploadDatePicker({
                     <div
                       className="absolute top-full left-0 mt-1 rounded-xl shadow-xl border border-neutral-300 overflow-hidden z-10 min-w-[120px] bg-surface-panel"
                     >
-                      <div
-                        className="max-h-48 overflow-y-auto"
-                        style={{
-                          scrollbarWidth: 'thin',
-                          scrollbarColor: '#9B2C2C rgba(255,255,255,0.3)',
-                        }}
-                      >
+                      <div className="max-h-48 overflow-y-auto scrollbar-brand">
                         {monthNames.map((month, index) => {
                           const isFutureMonth =
                             viewDate.getFullYear() === currentYear && index > currentMonth;
@@ -284,13 +278,7 @@ export function UploadDatePicker({
                     <div
                       className="absolute top-full right-0 mt-1 rounded-xl shadow-xl border border-neutral-300 overflow-hidden z-10 min-w-[120px] bg-surface-panel"
                     >
-                      <div
-                        className="max-h-48 overflow-y-auto"
-                        style={{
-                          scrollbarWidth: 'thin',
-                          scrollbarColor: '#9B2C2C rgba(255,255,255,0.3)',
-                        }}
-                      >
+                      <div className="max-h-48 overflow-y-auto scrollbar-brand">
                         {years.map((year) => (
                           <button
                             key={year}

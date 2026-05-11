@@ -340,13 +340,7 @@ export default function SearchableDropdown({
                 )}
               </div>
             )}
-            <div
-              className="max-h-60 overflow-y-auto"
-              style={{
-                scrollbarWidth: 'thin',
-                scrollbarColor: '#9B2C2C rgba(255, 255, 255, 0.3)',
-              }}
-            >
+            <div className="max-h-60 overflow-y-auto scrollbar-brand">
               {filteredOptions.length === 0 ? (
                 <div className={`${emptyPadding} text-neutral-400 text-sm text-center`}>
                   Không tìm thấy kết quả

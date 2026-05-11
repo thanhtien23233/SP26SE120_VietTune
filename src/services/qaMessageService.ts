@@ -5,6 +5,7 @@ import type {
   ApiQAMessageFlagQuery,
   ApiQAMessageListQuery,
 } from '@/api';
+import { PAGE_SIZE_QA_MESSAGES } from '@/config/pagination';
 import type { ServiceApiClient } from '@/services/serviceApiClient';
 import { logServiceError } from '@/services/serviceLogger';
 
@@ -132,7 +133,7 @@ export async function fetchConversationMessages(conversationId: string): Promise
   }
 }
 
-export async function fetchAllMessages(page = 1, pageSize = 10): Promise<QAMessagePagedResult> {
+export async function fetchAllMessages(page = 1, pageSize = PAGE_SIZE_QA_MESSAGES): Promise<QAMessagePagedResult> {
   try {
     const params: ApiQAMessageListQuery = { page, pageSize };
     const res = await apiOk(apiFetch.GET('/api/QAMessage', { params: { query: params } }));

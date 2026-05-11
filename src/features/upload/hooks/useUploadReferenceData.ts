@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   macroRegionDisplayNameFromProvinceRegionCode as getRegionName,
 } from '@/config/provinceRegionCodes';
+import { reportError, toReportableError } from '@/services/errorReporting';
 import {
   referenceDataService,
   type CeremonyItem,
@@ -52,7 +53,10 @@ export function useUploadReferenceData(options: {
           setETHNICITIES(ethnicGroups.map((e) => e.name));
         }
       } catch (err) {
-        console.warn('Failed to load ethnic groups', err);
+        reportError(toReportableError(err, 'Failed to load ethnic groups'), undefined, {
+          region: 'upload',
+          refData: 'ethnicGroups',
+        });
       }
 
       try {
@@ -62,7 +66,10 @@ export function useUploadReferenceData(options: {
           setEVENT_TYPES(ceremonies.map((c) => c.name));
         }
       } catch (err) {
-        console.warn('Failed to load ceremonies', err);
+        reportError(toReportableError(err, 'Failed to load ceremonies'), undefined, {
+          region: 'upload',
+          refData: 'ceremonies',
+        });
       }
 
       try {
@@ -72,7 +79,10 @@ export function useUploadReferenceData(options: {
           setINSTRUMENTS(Array.from(new Set(instrumentItems.map((i) => i.name))));
         }
       } catch (err) {
-        console.warn('Failed to load instruments', err);
+        reportError(toReportableError(err, 'Failed to load instruments'), undefined, {
+          region: 'upload',
+          refData: 'instruments',
+        });
       }
 
       try {
@@ -83,7 +93,10 @@ export function useUploadReferenceData(options: {
           setREGIONS(regionCodes.map((code) => getRegionName(code)).sort());
         }
       } catch (err) {
-        console.warn('Failed to load provinces', err);
+        reportError(toReportableError(err, 'Failed to load provinces'), undefined, {
+          region: 'upload',
+          refData: 'provinces',
+        });
       }
 
       try {
@@ -96,14 +109,16 @@ export function useUploadReferenceData(options: {
           setMusicalScalesData(ms);
         }
       } catch (err) {
-        console.warn('Failed to load music style traits', err);
+        reportError(toReportableError(err, 'Failed to load music style traits'), undefined, {
+          region: 'upload',
+          refData: 'vocalStylesMusicalScales',
+        });
       }
     };
     
     void loadData();
 
     const handleRefDataUpdate = () => {
-      console.log('Reference data updated, refetching...');
       void loadData();
     };
 
@@ -129,7 +144,10 @@ export function useUploadReferenceData(options: {
           setCommunesData(allComm);
         }
       } catch (err) {
-        console.warn('Failed to load full admin hierarchy for edit mode', err);
+        reportError(toReportableError(err, 'Failed to load full admin hierarchy for edit mode'), undefined, {
+          region: 'upload',
+          refData: 'districtsCommunesPrefetch',
+        });
       }
     })();
     return () => {
@@ -153,7 +171,10 @@ export function useUploadReferenceData(options: {
         const dist = await referenceDataService.getDistrictsByProvince(provId);
         if (!cancelled) setDistrictsData(dist);
       } catch (err) {
-        console.warn('Failed to load districts', err);
+        reportError(toReportableError(err, 'Failed to load districts'), undefined, {
+          region: 'upload',
+          refData: 'districtsByProvince',
+        });
       }
     })();
     return () => {
@@ -177,7 +198,10 @@ export function useUploadReferenceData(options: {
         const com = await referenceDataService.getCommunesByDistrict(distId);
         if (!cancelled) setCommunesData(com);
       } catch (err) {
-        console.warn('Failed to load communes', err);
+        reportError(toReportableError(err, 'Failed to load communes'), undefined, {
+          region: 'upload',
+          refData: 'communesByDistrict',
+        });
       }
     })();
     return () => {

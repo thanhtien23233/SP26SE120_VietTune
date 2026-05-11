@@ -6,6 +6,7 @@ import type {
   ApiSubmissionGetByStatusQuery,
   ApiSubmissionMyQuery,
 } from '@/api';
+import { PAGE_SIZE_SUBMISSION_LIST } from '@/config/pagination';
 import { getHttpStatus } from '@/utils/httpError';
 
 // Types matching the backend response
@@ -197,7 +198,7 @@ export const submissionService = {
    * 1) Có `userId` (userId + page/pageSize)
    * 2) Không `userId` (chỉ page/pageSize)
    */
-  getMySubmissions: async (userId: string, page: number = 1, pageSize: number = 10) => {
+  getMySubmissions: async (userId: string, page: number = 1, pageSize: number = PAGE_SIZE_SUBMISSION_LIST) => {
     const uid = userId.trim().toLowerCase();
     const attempts: ApiSubmissionMyQuery[] = [
       { page, pageSize, userId },
@@ -253,7 +254,7 @@ export const submissionService = {
   },
 
   /** Get submissions by status (paginated) */
-  getSubmissionsByStatus: async (status: number, page: number = 1, pageSize: number = 10) => {
+  getSubmissionsByStatus: async (status: number, page: number = 1, pageSize: number = PAGE_SIZE_SUBMISSION_LIST) => {
     const params: ApiSubmissionGetByStatusQuery = {
       status: toSubmissionStatus(status),
       page,

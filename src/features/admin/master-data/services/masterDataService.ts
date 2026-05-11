@@ -1,9 +1,12 @@
+import type { EntityKind, EntityFormValues, ReferenceEntity } from '../types/masterDataTypes';
+
+import type { ApiInstrumentDto, ApiEthnicGroupDto, ApiCeremonyDto, ApiVocalStyleDto } from '@/api';
+import { legacyGet } from '@/api/legacyHttp';
+import { logEvent } from '@/services/errorReporting';
 import { ethnicityService } from '@/services/ethnicityService';
 import { instrumentService } from '@/services/instrumentService';
 import { ritualService } from '@/services/ritualService';
 import { vocalStyleService } from '@/services/vocalStyleService';
-import type { EntityKind, ReferenceEntity } from '../types/masterDataTypes';
-import type { ApiInstrumentDto, ApiEthnicGroupDto, ApiCeremonyDto, ApiVocalStyleDto } from '@/api';
 
 export const masterDataService = {
   list: async (kind: EntityKind, page: number, pageSize: number) => {
@@ -61,7 +64,7 @@ export const masterDataService = {
     }
   },
 
-  create: async (kind: EntityKind, data: any) => {
+  create: async (kind: EntityKind, data: EntityFormValues) => {
     switch (kind) {
       case 'instruments':
         return await instrumentService.createInstrument(data);
@@ -76,7 +79,7 @@ export const masterDataService = {
     }
   },
 
-  update: async (kind: EntityKind, id: string, data: any) => {
+  update: async (kind: EntityKind, id: string, data: EntityFormValues) => {
     switch (kind) {
       case 'instruments':
         return await instrumentService.updateInstrument(id, data);
@@ -106,10 +109,29 @@ export const masterDataService = {
     }
   },
 
-  checkUsage: async (_kind: EntityKind, _id: string): Promise<number> => {
-    // TODO: Phase 3 implementation plan notes that backend lacks usage endpoints.
-    // E.g., GET /api/Instrument/{id}/usage.
-    // For now, return 0 to allow deletion. Once backend adds the endpoint, implement here.
+  /**
+   * Reference count before delete. Without `VITE_MASTER_DATA_USAGE_PATH`, returns 0 (unknown → allow delete in UI).
+   * When set, performs GET `{API_BASE_URL}/{path}` with `{kind}` and `{id}` substituted (encodeURIComponent).
+   * Expect JSON like `{ count }` or `{ usageCount }`.
+   */
+  checkUsage: async (kind: EntityKind, id: string): Promise<number> => {
+    const tmpl = (import.meta.env.VITE_MASTER_DATA_USAGE_PATH as string | undefined)?.trim();
+    if (!tmpl) return 0;
+    try {
+      const path = tmpl
+        .replace('{kind}', encodeURIComponent(kind))
+        .replace('{id}', encodeURIComponent(id));
+      const normalized = path.startsWith('/') ? path.slice(1) : path;
+      const res = await legacyGet<unknown>(normalized);
+      if (res && typeof res === 'object' && !Array.isArray(res)) {
+        const o = res as Record<string, unknown>;
+        const raw = o.count ?? o.usageCount ?? o.referenceCount;
+        const n = typeof raw === 'number' ? raw : Number(raw);
+        if (Number.isFinite(n)) return Math.max(0, Math.floor(n));
+      }
+    } catch {
+      logEvent('master_data.usage_check_failed', { kind, id });
+    }
     return 0;
   },
 };

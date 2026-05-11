@@ -48,7 +48,6 @@ export function useExploreFilterOptions(): ExploreFilterOptions {
     void loadData();
 
     const handleRefDataUpdate = () => {
-      console.log('Reference data updated, clearing optionsCache and refetching Explore options...');
       optionsCache = null;
       void loadData();
     };

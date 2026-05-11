@@ -1,13 +1,16 @@
+import { clsx } from 'clsx';
+import { X, AlertCircle } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, AlertCircle } from 'lucide-react';
-import { entityConfigs } from '../utils/entityFieldConfig';
+
 import type { EntityKind, ReferenceEntity, EntityFormValues } from '../types/masterDataTypes';
 import { isDuplicateName } from '../utils/duplicateDetector';
+import { entityConfigs } from '../utils/entityFieldConfig';
 import { normalizeSlug } from '../utils/slugNormalizer';
+
 import Button from '@/components/common/Button';
 import Input from '@/components/common/Input';
-import { clsx } from 'clsx';
+
 
 interface EntityFormDialogProps {
   isOpen: boolean;

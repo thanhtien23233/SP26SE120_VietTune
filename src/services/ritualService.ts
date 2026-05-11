@@ -5,9 +5,10 @@ import type {
   ApiPagedResponseCeremonyDto,
   ApiServiceResponseCeremonyDto,
 } from '@/api';
+import { PAGE_SIZE_RITUAL_LIST } from '@/config/pagination';
 
 export const ritualService = {
-  getCeremonies: async (page: number = 1, pageSize: number = 50) => {
+  getCeremonies: async (page: number = 1, pageSize: number = PAGE_SIZE_RITUAL_LIST) => {
     const query: ApiCeremonyListQuery = { page, pageSize };
     const res = await apiOk<ApiPagedResponseCeremonyDto>(
       asApiEnvelope<ApiPagedResponseCeremonyDto>(

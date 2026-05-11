@@ -10,6 +10,7 @@ import type {
 import { mapRecordingToAnalysisRecord, mapRecordingToUiRecord } from '../researcherRecordingUtils';
 
 import { REGION_NAMES } from '@/config/constants';
+import { logEvent, reportError, toReportableError } from '@/services/errorReporting';
 import {
   referenceDataService,
   type CeremonyItem,
@@ -82,32 +83,43 @@ export function useResearcherData() {
       if (ethnicOutcome.status === 'fulfilled' && ethnicOutcome.value.length > 0) {
         setEthnicRefData(ethnicOutcome.value);
       } else if (ethnicOutcome.status === 'rejected') {
-        console.warn('Failed to load ethnic groups', ethnicOutcome.reason);
+        reportError(toReportableError(ethnicOutcome.reason, 'Failed to load ethnic groups'), undefined, {
+          region: 'researcher',
+          refData: 'ethnicGroups',
+        });
       }
 
       if (ceremonyOutcome.status === 'fulfilled' && ceremonyOutcome.value.length > 0) {
         setCeremonyRefData(ceremonyOutcome.value);
       } else if (ceremonyOutcome.status === 'rejected') {
-        console.warn('Failed to load ceremonies', ceremonyOutcome.reason);
+        reportError(toReportableError(ceremonyOutcome.reason, 'Failed to load ceremonies'), undefined, {
+          region: 'researcher',
+          refData: 'ceremonies',
+        });
       }
 
       if (instrumentOutcome.status === 'fulfilled' && instrumentOutcome.value.length > 0) {
         setInstrumentRefData(instrumentOutcome.value);
       } else if (instrumentOutcome.status === 'rejected') {
-        console.warn('Failed to load instruments', instrumentOutcome.reason);
+        reportError(toReportableError(instrumentOutcome.reason, 'Failed to load instruments'), undefined, {
+          region: 'researcher',
+          refData: 'instruments',
+        });
       }
 
       if (communeOutcome.status === 'fulfilled' && communeOutcome.value.length > 0) {
         setCommuneRefData(communeOutcome.value);
       } else if (communeOutcome.status === 'rejected') {
-        console.warn('Failed to load communes', communeOutcome.reason);
+        reportError(toReportableError(communeOutcome.reason, 'Failed to load communes'), undefined, {
+          region: 'researcher',
+          refData: 'communes',
+        });
       }
     };
     
     void loadData();
 
     const handleRefDataUpdate = () => {
-      console.log('Reference data updated, refetching researcher data...');
       void loadData();
     };
 
@@ -137,13 +149,7 @@ export function useResearcherData() {
     const q = buildRecordingSearchQuery();
 
     const logTelemetry = (source: string, count: number, extra: Record<string, unknown> = {}) => {
-      if (!import.meta.env.DEV) return;
-      console.warn('[ResearcherSearch]', {
-        source,
-        count,
-        query: q,
-        ...extra,
-      });
+      logEvent('ResearcherSearch', { source, count, query: q, ...extra });
     };
     try {
       const apiList = await fetchRecordingsSearchByFilter(q);
@@ -162,7 +168,10 @@ export function useResearcherData() {
         logTelemetry('empty', 0, { status: 'no-results' });
       }
     } catch (err) {
-      console.error('Researcher catalog load API failed:', err);
+      reportError(toReportableError(err, 'Researcher catalog load API failed'), undefined, {
+        region: 'researcher',
+        stage: 'catalog_load',
+      });
       setSearchResults([]);
       setAnalysisDataset([]);
       setUiDerivedData([]);

@@ -1,21 +1,11 @@
 import { useCallback, useState } from 'react';
 
-type UseUploadWizardParams = {
-  isFormDisabled: boolean;
-  isEditMode: boolean;
-  file: File | null;
-  existingMediaSrc: string | null;
-  createdRecordingId: string | null;
-  title: string;
-  artist: string;
-  artistUnknown: boolean;
-  composer: string;
-  composerUnknown: boolean;
-  performanceType: string;
-  vocalStyle: string;
-  requiresInstruments: boolean;
-  instruments: string[];
-};
+import {
+  canNavigateToWizardStep,
+  type WizardNavigationParams,
+} from '@/features/upload/uploadFormValidation';
+
+type UseUploadWizardParams = Omit<WizardNavigationParams, 'uploadWizardStep'>;
 
 function scrollToTopRespectMotion(): void {
   const behavior =
@@ -29,6 +19,7 @@ export function useUploadWizard(params: UseUploadWizardParams) {
   const {
     isFormDisabled,
     isEditMode,
+    isAsyncNavigationBlocked,
     file,
     existingMediaSrc,
     createdRecordingId,
@@ -41,38 +32,32 @@ export function useUploadWizard(params: UseUploadWizardParams) {
     vocalStyle,
     requiresInstruments,
     instruments,
+    mediaType,
   } = params;
 
   const [uploadWizardStep, setUploadWizardStep] = useState(1);
 
   const canNavigateToStep = useCallback(
     (targetStep: number): boolean => {
-      if (isFormDisabled) return false;
-      if (targetStep <= uploadWizardStep) return true;
-
-      if (targetStep >= 2) {
-        const hasMedia = file || (isEditMode && !!existingMediaSrc);
-        if (!hasMedia) return false;
-        if (!isEditMode && !createdRecordingId) return false;
-      }
-
-      if (isEditMode) return true;
-
-      if (targetStep >= 3) {
-        if (!title.trim()) return false;
-        if (!artistUnknown && !artist.trim()) return false;
-        if (!composerUnknown && !composer.trim()) return false;
-        if (!performanceType) return false;
-        if (
-          (performanceType === 'vocal_accompaniment' || performanceType === 'acappella') &&
-          !vocalStyle
-        ) {
-          return false;
-        }
-        if (requiresInstruments && instruments.length === 0) return false;
-      }
-
-      return true;
+      return canNavigateToWizardStep(targetStep, {
+        isFormDisabled,
+        isEditMode,
+        isAsyncNavigationBlocked,
+        file,
+        existingMediaSrc,
+        createdRecordingId,
+        title,
+        artist,
+        artistUnknown,
+        composer,
+        composerUnknown,
+        performanceType,
+        vocalStyle,
+        requiresInstruments,
+        instruments,
+        mediaType,
+        uploadWizardStep,
+      });
     },
     [
       artist,
@@ -83,8 +68,10 @@ export function useUploadWizard(params: UseUploadWizardParams) {
       existingMediaSrc,
       file,
       instruments,
+      isAsyncNavigationBlocked,
       isEditMode,
       isFormDisabled,
+      mediaType,
       performanceType,
       requiresInstruments,
       title,

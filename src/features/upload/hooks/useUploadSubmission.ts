@@ -1,15 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import type { RecordingUploadDto } from '@/api';
 import { legacyPost } from '@/api/legacyHttp';
 import { LANGUAGES } from '@/features/upload/uploadConstants';
+import { reportError, toReportableError } from '@/services/errorReporting';
 import {
   instrumentDetectionFlags,
   instrumentDetectionService,
 } from '@/services/instrumentDetectionService';
-import { recordingService } from '@/services/recordingService';
 import { recordingImageService, fetchRecordingImageDisplayUrls } from '@/services/recordingImageService';
+import { recordingService } from '@/services/recordingService';
 import type {
   EthnicGroupItem,
   InstrumentItem,
@@ -27,6 +28,20 @@ import {
   mapInstrumentsToMetadataSuggestions,
   normalizeInstrumentMatchKey,
 } from '@/utils/instrumentMetadataMapper';
+
+/** Never use a sentinel id (e.g. `'1'`) — misattributes ownership if JWT/session is missing. */
+const MISSING_CONTRIBUTOR_USER_ID = 'MISSING_CONTRIBUTOR_USER_ID';
+
+function resolveContributorUserId(userId: string | number | undefined | null): string {
+  if (userId === undefined || userId === null) {
+    throw new Error(MISSING_CONTRIBUTOR_USER_ID);
+  }
+  const s = String(userId).trim();
+  if (s === '') {
+    throw new Error(MISSING_CONTRIBUTOR_USER_ID);
+  }
+  return s;
+}
 
 type NameItem = { id?: string; name: string };
 type IdNameItem = { id: string; name: string };
@@ -125,10 +140,18 @@ type UseUploadSubmissionOptions = {
 };
 
 export function useUploadSubmission(options: UseUploadSubmissionOptions) {
+  /** Prevents concurrent draft uploads (double-click before createdRecordingId is set → duplicate recordings). */
+  const draftUploadInFlightRef = useRef(false);
+  /** Prevents double submit (rapid clicks on Đóng góp / Lưu / dialog Gửi before React commits isSubmitting). */
+  const submitInFlightRef = useRef(false);
+
   const handleUploadAndCreateDraft = useCallback(async () => {
     if (!options.file || options.createdRecordingId) return;
+    if (draftUploadInFlightRef.current) return;
+    draftUploadInFlightRef.current = true;
 
-    options.setIsUploadingMedia(true);
+    try {
+      options.setIsUploadingMedia(true);
     options.setUploadProgress(0);
     options.setErrors((prev) => {
       const next = { ...prev };
@@ -208,9 +231,13 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
             const payload = aiResult.value as { data?: unknown };
             aiRes = (payload.data ?? aiResult.value) as AiAnalysisResult;
           } else {
-            console.warn(
-              'AI Analysis failed:',
-              aiResult.status === 'rejected' ? aiResult.reason : 'No value',
+            reportError(
+              toReportableError(
+                aiResult.status === 'rejected' ? aiResult.reason : 'No value',
+                'AI analysis failed',
+              ),
+              undefined,
+              { region: 'upload', stage: 'ai_analysis' },
             );
             uiToast.warning('upload.ai.partial_fail');
           }
@@ -225,9 +252,10 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           if (detectionResult.status === 'fulfilled' && detectionResult.value) {
             mlDetectionResult = detectionResult.value;
           } else if (detectionResult.status === 'rejected') {
-            console.warn(
-              'Instrument detection failed (confidence unavailable):',
-              detectionResult.reason,
+            reportError(
+              toReportableError(detectionResult.reason, 'Instrument detection failed'),
+              undefined,
+              { region: 'upload', stage: 'instrument_detection' },
             );
           }
         } finally {
@@ -244,7 +272,7 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
 
       let recordingIdForImages: string | null = options.isEditMode ? options.editingRecordingId : null;
       if (!options.isEditMode) {
-        const uploaderId = options.currentUserId ? options.currentUserId.toString() : '1';
+        const uploaderId = resolveContributorUserId(options.currentUserId);
         const res = await recordingService.createSubmission({
           audioFileUrl: publicUrl,
           videoFileUrl: options.mediaType === 'video' ? publicUrl : undefined,
@@ -289,9 +317,6 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           const seen = new Set<string>();
           const mappedFromAi = aiRes.instruments
             .map((item) => {
-              // DEBUG: inspect raw AI instrument prediction shape
-              // eslint-disable-next-line no-console
-              console.log('[VietTune AI Debug] Raw instrument prediction:', item);
               const name = item?.name?.trim();
               if (!name) return null;
               const key = name.toLowerCase();
@@ -492,16 +517,33 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
       }
       options.setUploadProgress(100);
     } catch (error: unknown) {
-      console.error('Lỗi khi tải lên file hoặc tạo bản thu:', error);
-      options.setErrors((prev) => ({ ...prev, file: 'Có lỗi khi tải lên. Vui lòng thử lại sau.' }));
+      reportError(toReportableError(error, 'Upload media or create recording failed'), undefined, {
+        region: 'upload',
+        stage: 'upload_media',
+      });
+      const ownershipMissing =
+        error instanceof Error && error.message === MISSING_CONTRIBUTOR_USER_ID;
+      options.setErrors((prev) => ({
+        ...prev,
+        file: ownershipMissing
+          ? 'Không xác định người đăng tải. Vui lòng đăng nhập lại và thử lần nữa.'
+          : 'Có lỗi khi tải lên. Vui lòng thử lại sau.',
+      }));
     } finally {
       clearInterval(progressInterval);
       options.setIsUploadingMedia(false);
+    }
+    } finally {
+      draftUploadInFlightRef.current = false;
     }
   }, [options]);
 
   const handleConfirmSubmit = useCallback(
     async (isFinal: boolean) => {
+      if (submitInFlightRef.current) return;
+      submitInFlightRef.current = true;
+
+      try {
       options.setIsSubmitting(true);
       options.setSubmitStatus('idle');
       options.setSubmitMessage('');
@@ -511,6 +553,23 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
         options.setSubmitStatus('error');
         options.setSubmitMessage('Không tìm thấy ID bản thu. Vui lòng thử tải lại file ở Bước 1.');
         options.setIsSubmitting(false);
+        return;
+      }
+
+      let uploadedByIdStr: string;
+      try {
+        uploadedByIdStr = resolveContributorUserId(options.currentUserId);
+      } catch {
+        options.setSubmitStatus('error');
+        options.setSubmitMessage(
+          'Không xác định được tài khoản đóng góp. Vui lòng đăng nhập lại.',
+        );
+        options.setIsSubmitting(false);
+        reportError(new Error(MISSING_CONTRIBUTOR_USER_ID), undefined, {
+          region: 'upload',
+          stage: 'submit',
+          reason: 'missing_current_user_id',
+        });
         return;
       }
 
@@ -554,7 +613,7 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           audioFormat: audioFormat || undefined,
           durationSeconds,
           fileSizeBytes,
-          uploadedById: options.currentUserId ? options.currentUserId.toString() : '1',
+          uploadedById: uploadedByIdStr,
           communeId: selectedCommuneId || undefined,
           ethnicGroupId: ethnicGroupId || undefined,
           ceremonyId: ceremonyId || undefined,
@@ -610,7 +669,10 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
               changesJson: JSON.stringify(changes),
             });
           } catch (err) {
-            console.warn('Submission version create failed:', err);
+            reportError(toReportableError(err, 'Submission version create failed'), undefined, {
+              region: 'upload',
+              stage: 'submission_version',
+            });
           }
         };
 
@@ -644,7 +706,10 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
           );
         }
       } catch (error: unknown) {
-        console.error('Lỗi khi lưu dữ liệu:', error);
+        reportError(toReportableError(error, 'Save submission failed'), undefined, {
+          region: 'upload',
+          stage: 'submit',
+        });
         let errorDetail = 'Lỗi không xác định khi lưu dữ liệu. Vui lòng thử lại.';
         const serverData = (error as { response?: { data?: unknown } }).response?.data;
         if (serverData !== undefined) {
@@ -682,6 +747,9 @@ export function useUploadSubmission(options: UseUploadSubmissionOptions) {
         options.setSubmitMessage(errorDetail);
       } finally {
         options.setIsSubmitting(false);
+      }
+      } finally {
+        submitInFlightRef.current = false;
       }
     },
     [options],

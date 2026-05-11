@@ -6,6 +6,8 @@ import { useUploadWizard } from './useUploadWizard';
 const baseParams = {
   isFormDisabled: false,
   isEditMode: false,
+  isAsyncNavigationBlocked: false,
+  mediaType: 'audio' as const,
   file: new File([new Uint8Array([1])], 'audio.mp3', { type: 'audio/mpeg' }),
   existingMediaSrc: null,
   createdRecordingId: 'rec-1',
@@ -50,6 +52,45 @@ describe('useUploadWizard', () => {
     );
 
     expect(result.current.canNavigateToStep(3)).toBe(false);
+  });
+
+  it('blocks forward navigation while upload/analyze pipeline is running', () => {
+    const { result } = renderHook(() =>
+      useUploadWizard({
+        ...baseParams,
+        isAsyncNavigationBlocked: true,
+      }),
+    );
+
+    expect(result.current.uploadWizardStep).toBe(1);
+    expect(result.current.canNavigateToStep(2)).toBe(false);
+    expect(result.current.canNavigateToStep(3)).toBe(false);
+  });
+
+  it('allows backward navigation while async pipeline is running', () => {
+    const { result } = renderHook(() =>
+      useUploadWizard({
+        ...baseParams,
+        isAsyncNavigationBlocked: true,
+      }),
+    );
+
+    act(() => result.current.goToStep(3));
+    expect(result.current.uploadWizardStep).toBe(3);
+    expect(result.current.canNavigateToStep(2)).toBe(true);
+    expect(result.current.canNavigateToStep(1)).toBe(true);
+  });
+
+  it('does not apply async block in edit mode', () => {
+    const { result } = renderHook(() =>
+      useUploadWizard({
+        ...baseParams,
+        isEditMode: true,
+        isAsyncNavigationBlocked: true,
+      }),
+    );
+
+    expect(result.current.canNavigateToStep(2)).toBe(true);
   });
 
   it('updates step with next/prev/reset', () => {

@@ -32,6 +32,29 @@ export const RESEARCHER_ROUTE_POLICY: RouteGuardPolicy = {
   requireActive: true,
 };
 
+/** Đăng nhập bắt buộc; mọi vai trò đã kích hoạt (profile, đóng góp của tôi, thông báo). */
+export const AUTHENTICATED_ROUTE_POLICY: RouteGuardPolicy = {
+  allowedRoles: [
+    UserRole.USER,
+    UserRole.CONTRIBUTOR,
+    UserRole.RESEARCHER,
+    UserRole.EXPERT,
+    UserRole.MODERATOR,
+    UserRole.ADMIN,
+  ],
+  unauthorizedRedirectTo: '/403',
+  inactiveRedirectTo: '/',
+  requireActive: true,
+};
+
+/** Kiểm duyệt / bản ghi đã duyệt — khớp ModerationPage & ApprovedRecordingsPage (Chuyên gia). */
+export const EXPERT_ROUTE_POLICY: RouteGuardPolicy = {
+  allowedRoles: [UserRole.EXPERT],
+  unauthorizedRedirectTo: '/403',
+  inactiveRedirectTo: '/',
+  requireActive: true,
+};
+
 export function buildLoginRedirectPath(pathname: string): string {
   return `/login?redirect=${encodeURIComponent(pathname)}`;
 }
@@ -143,8 +166,14 @@ export function resolvePostLoginPath(user: User, requestedRedirect: string | nul
   return getDefaultPostLoginPath(user);
 }
 
+export type RouteGuardName =
+  | 'AdminGuard'
+  | 'ResearcherGuard'
+  | 'AuthenticatedGuard'
+  | 'ExpertGuard';
+
 export function logGuardDecision(
-  guardName: 'AdminGuard' | 'ResearcherGuard',
+  guardName: RouteGuardName,
   pathname: string,
   decision: GuardDecision,
 ): void {

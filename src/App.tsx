@@ -11,6 +11,8 @@ import {
 
 import AdminGuard from './components/admin/AdminGuard';
 import ResearcherGuard from './components/admin/ResearcherGuard';
+import AuthenticatedGuard from './components/auth/AuthenticatedGuard';
+import ExpertGuard from './components/auth/ExpertGuard';
 import LoginModal from './components/auth/LoginModal';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LoadingState from './components/common/LoadingState';
@@ -97,7 +99,7 @@ const router = createBrowserRouter(
             </RouteSuspense>
           }
         />
-        {/* TODO(route-policy): candidate protected route review in Sprint 3.2+ */}
+        {/* Public: EditRecordingPage enforces ownership / role in-page */}
         <Route
           path="recordings/:id/edit"
           element={
@@ -106,7 +108,7 @@ const router = createBrowserRouter(
             </RouteSuspense>
           }
         />
-        {/* TODO(route-policy): candidate protected route review in Sprint 3.2+ */}
+        {/* Public: UploadPage prompts Contributor login in-page */}
         <Route
           path="upload"
           element={
@@ -195,52 +197,51 @@ const router = createBrowserRouter(
             </RouteSuspense>
           }
         />
-        {/* TODO(route-policy): auth-only route candidate in Sprint 3.2+ */}
-        <Route
-          path="profile"
-          element={
-            <RouteSuspense>
-              <ProfilePage />
-            </RouteSuspense>
-          }
-        />
-        {/* TODO(route-policy): auth-only route candidate in Sprint 3.2+ */}
-        <Route
-          path="contributions"
-          element={
-            <RouteSuspense>
-              <ContributionsPage />
-            </RouteSuspense>
-          }
-        />
+        <Route element={<AuthenticatedGuard />}>
+          <Route
+            path="profile"
+            element={
+              <RouteSuspense>
+                <ProfilePage />
+              </RouteSuspense>
+            }
+          />
+          <Route
+            path="contributions"
+            element={
+              <RouteSuspense>
+                <ContributionsPage />
+              </RouteSuspense>
+            }
+          />
+          <Route
+            path="notifications"
+            element={
+              <RouteSuspense>
+                <NotificationPage />
+              </RouteSuspense>
+            }
+          />
+        </Route>
         <Route path="dashboard" element={<Navigate to="/moderation" replace />} />
-        {/* TODO(route-policy): role/auth review in Sprint 3.2+ */}
-        <Route
-          path="moderation"
-          element={
-            <RouteSuspense>
-              <ModerationPage />
-            </RouteSuspense>
-          }
-        />
-        {/* TODO(route-policy): role/auth review in Sprint 3.2+ */}
-        <Route
-          path="approved-recordings"
-          element={
-            <RouteSuspense>
-              <ApprovedRecordingsPage />
-            </RouteSuspense>
-          }
-        />
-        {/* TODO(route-policy): auth-only route candidate in Sprint 3.2+ */}
-        <Route
-          path="notifications"
-          element={
-            <RouteSuspense>
-              <NotificationPage />
-            </RouteSuspense>
-          }
-        />
+        <Route element={<ExpertGuard />}>
+          <Route
+            path="moderation"
+            element={
+              <RouteSuspense>
+                <ModerationPage />
+              </RouteSuspense>
+            }
+          />
+          <Route
+            path="approved-recordings"
+            element={
+              <RouteSuspense>
+                <ApprovedRecordingsPage />
+              </RouteSuspense>
+            }
+          />
+        </Route>
         <Route path="researcher" element={<ResearcherGuard />}>
           <Route
             index

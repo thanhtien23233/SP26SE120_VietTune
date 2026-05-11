@@ -21,16 +21,16 @@ import { useResearcherData } from '@/features/researcher/hooks/useResearcherData
 import type { ResearcherPortalChatMessage } from '@/features/researcher/researcherPortalTypes';
 import { buildCitationCandidates } from '@/features/researcher/researcherRecordingUtils';
 import { useChatbotSession } from '@/hooks/useChatbotSession';
+import type { QAConversationRequest } from '@/services/qaConversationService';
+import {
+  fetchConversationMessages,
+} from '@/services/qaMessageService';
 import {
   createRagConversation,
   getRagConversation,
   mergeRagAndQaToChatMessages,
   sendRagMessage,
 } from '@/services/ragChatService';
-import {
-  fetchConversationMessages,
-} from '@/services/qaMessageService';
-import type { QAConversationRequest } from '@/services/qaConversationService';
 import { Recording, UserRole } from '@/types';
 import { isYouTubeUrl } from '@/utils/youtube';
 

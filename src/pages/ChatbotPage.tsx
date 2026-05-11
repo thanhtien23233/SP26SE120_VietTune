@@ -12,17 +12,17 @@ import { useChatbotSession } from '@/hooks/useChatbotSession';
 import { chatSessionStorage } from '@/services/chatSessionStorage';
 import type { QAConversationRequest } from '@/services/qaConversationService';
 import {
+  fetchConversationMessages,
+  flagMessage,
+  unflagMessage,
+} from '@/services/qaMessageService';
+import {
   createRagConversation,
   getRagConversation,
   mergeRagAndQaToChatMessages,
   sendRagMessage,
   sourcesToJsonFields,
 } from '@/services/ragChatService';
-import {
-  fetchConversationMessages,
-  flagMessage,
-  unflagMessage,
-} from '@/services/qaMessageService';
 import { Message } from '@/types/chat';
 import { getHttpStatus } from '@/utils/httpError';
 

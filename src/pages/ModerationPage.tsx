@@ -22,12 +22,12 @@ import { useExpertQueue } from '@/features/moderation/hooks/useExpertQueue';
 import { useModerationWizard } from '@/features/moderation/hooks/useModerationWizard';
 import { useSubmissionOverlay } from '@/features/moderation/hooks/useSubmissionOverlay';
 import type { LocalRecordingMini } from '@/features/moderation/types/localRecordingQueue.types';
+import { deriveVerificationUiProgress } from '@/features/moderation/utils/deriveVerificationUiProgress';
 import { isLockedToAnotherExpert } from '@/features/moderation/utils/expertSubmissionLock';
 import {
   confirmModerationApprove,
   executeModerationReject,
 } from '@/features/moderation/utils/moderationApproveReject';
-import { deriveVerificationUiProgress } from '@/features/moderation/utils/deriveVerificationUiProgress';
 import { mergeDisplayItem } from '@/features/moderation/utils/moderationDisplayMerge';
 import type { ModerationStageFilterKey } from '@/features/moderation/utils/queueStatusMeta';
 import { usePollWhileVisible } from '@/hooks/usePollWhileVisible';

@@ -3,6 +3,10 @@
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string;
   readonly VITE_APP_NAME: string;
+  readonly VITE_CONTACT_EMAIL?: string;
+  readonly VITE_CONTACT_HOTLINE?: string;
+  readonly VITE_SOCIAL_FACEBOOK_URL?: string;
+  readonly VITE_SOCIAL_YOUTUBE_URL?: string;
   readonly VITE_VIETTUNE_AI_BASE_URL?: string;
   readonly VITE_VIETTUNE_AI_CHAT_PATH?: string;
   /** `true` → expert queue + claim/approve/reject use Archive API (Phase 2). */
@@ -22,6 +26,11 @@ interface ImportMetaEnv {
   readonly VITE_COMPARE_SPECTROGRAM_RENDERER?: string;
   /** `true` → console.debug FFT + canvas checkpoints (dev only). */
   readonly VITE_SPECTROGRAM_DEBUG?: string;
+  /**
+   * Optional relative API path for master-data usage count (GET). Placeholders `{kind}` and `{id}`.
+   * Example: `Admin/reference-usage/{kind}/{id}` — when backend ships the route.
+   */
+  readonly VITE_MASTER_DATA_USAGE_PATH?: string;
 }
 
 interface ImportMeta {

@@ -1,9 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
+
 import { masterDataService } from '../services/masterDataService';
-import { useMasterDataInvalidation } from './useMasterDataInvalidation';
 import type { EntityKind, ReferenceEntity, EntityFormValues } from '../types/masterDataTypes';
-import { logServiceWarn } from '@/services/serviceLogger';
+
+import { useMasterDataInvalidation } from './useMasterDataInvalidation';
+
 import { logEvent } from '@/services/errorReporting';
+import { logServiceWarn } from '@/services/serviceLogger';
 import { uiToast, notifyLine } from '@/uiToast';
 
 interface UseMasterDataEntityOptions {
@@ -37,7 +40,7 @@ export function useMasterDataEntity({ kind, pageSize = 50 }: UseMasterDataEntity
   }, [kind, pageSize]);
 
   useEffect(() => {
-    fetchItems(1);
+    void fetchItems(1);
   }, [fetchItems]);
 
   const createItem = async (data: EntityFormValues) => {

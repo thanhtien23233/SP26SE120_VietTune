@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 
 import logo from '@/components/image/viettune_logo_img';
+import { WAVEFORM_COLORS } from '@/config/brandColors';
 import type { Recording } from '@/types';
 
 type SingleTrackPlayerProps = {
@@ -37,9 +38,9 @@ export default function SingleTrackPlayer({ recording, className = '' }: SingleT
       barWidth: 3,
       barGap: 2,
       barRadius: 4,
-      waveColor: '#E8C98E',
-      progressColor: '#9B2C2C',
-      cursorColor: '#9B2C2C',
+      waveColor: WAVEFORM_COLORS.primary.wave,
+      progressColor: WAVEFORM_COLORS.primary.progress,
+      cursorColor: WAVEFORM_COLORS.primary.cursor,
       cursorWidth: 2,
       normalize: true,
     });

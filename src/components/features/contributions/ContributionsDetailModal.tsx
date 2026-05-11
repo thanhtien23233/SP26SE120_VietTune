@@ -22,11 +22,11 @@ import {
 import { Fragment, type ReactNode } from 'react';
 
 import AudioPlayer from '@/components/features/AudioPlayer';
-import RecordingImageGallery from '@/components/features/RecordingImageGallery';
 import {
   ContributionStageBadge,
   ContributionStatusBadge,
 } from '@/components/features/contributions/ContributionCard';
+import RecordingImageGallery from '@/components/features/RecordingImageGallery';
 import SubmissionVersionTimeline from '@/components/features/submission/SubmissionVersionTimeline';
 import VideoPlayer from '@/components/features/VideoPlayer';
 import {

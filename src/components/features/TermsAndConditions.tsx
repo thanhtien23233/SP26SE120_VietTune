@@ -2,6 +2,8 @@ import { X } from 'lucide-react';
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
+import { getTermsContactClause } from '@/config/contactInfo';
+
 interface TermsAndConditionsProps {
   isOpen: boolean;
   onClose: () => void;
@@ -93,13 +95,7 @@ export default function TermsAndConditions({ isOpen, onClose }: TermsAndConditio
         </div>
 
         {/* Content */}
-        <div
-          className="overflow-y-auto p-6 space-y-6"
-          style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#9B2C2C rgba(255,255,255,0.3)',
-          }}
-        >
+        <div className="overflow-y-auto p-6 space-y-6 scrollbar-brand">
           {/* Preamble */}
           <div
             className="rounded-2xl border border-neutral-200/80 shadow-lg backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-xl bg-surface-panel"
@@ -569,7 +565,7 @@ export default function TermsAndConditions({ isOpen, onClose }: TermsAndConditio
                 giữa Người dùng và VietTune.
               </p>
               <p className="leading-relaxed">
-                <strong>20. Liên hệ:</strong> Email: contact@viettune.com | Hotline: 1900-xxxx-xx
+                <strong>20. Liên hệ:</strong> {getTermsContactClause()}
               </p>
             </div>
           </div>

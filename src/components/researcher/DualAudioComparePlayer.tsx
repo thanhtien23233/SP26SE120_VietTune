@@ -2,6 +2,7 @@ import { Pause, Play, RotateCcw, Volume2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 
+import { WAVEFORM_COLORS } from '@/config/brandColors';
 import type { Recording } from '@/types';
 
 type AudioFocusMode = 'both' | 'left' | 'right';
@@ -104,9 +105,9 @@ export default function DualAudioComparePlayer({
       barWidth: 3,
       barGap: 2,
       barRadius: 4,
-      waveColor: '#E8C98E',
-      progressColor: '#9B2C2C',
-      cursorColor: '#9B2C2C',
+      waveColor: WAVEFORM_COLORS.primary.wave,
+      progressColor: WAVEFORM_COLORS.primary.progress,
+      cursorColor: WAVEFORM_COLORS.primary.cursor,
       cursorWidth: 2,
       normalize: true,
       fetchParams: {
@@ -172,9 +173,9 @@ export default function DualAudioComparePlayer({
       barWidth: 3,
       barGap: 2,
       barRadius: 4,
-      waveColor: '#D9EAFD',
-      progressColor: '#1D4ED8',
-      cursorColor: '#1D4ED8',
+      waveColor: WAVEFORM_COLORS.compare.wave,
+      progressColor: WAVEFORM_COLORS.compare.progress,
+      cursorColor: WAVEFORM_COLORS.compare.cursor,
       cursorWidth: 2,
       normalize: true,
       fetchParams: {

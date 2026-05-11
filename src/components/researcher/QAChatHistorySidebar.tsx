@@ -1,8 +1,8 @@
 import { ChevronLeft, History, Menu, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import type { QAConversationRequest } from '@/services/qaConversationService';
 import { formatViDateTimeShortBangkok } from '@/config/datetimeDisplay';
+import type { QAConversationRequest } from '@/services/qaConversationService';
 
 interface QAChatHistorySidebarProps {
   isSidebarOpen: boolean;

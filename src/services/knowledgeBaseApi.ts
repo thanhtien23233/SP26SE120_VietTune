@@ -7,6 +7,7 @@ import type {
   ApiUpdateKBEntryRequest as UpdateKBEntryRequest,
   ApiUpdateKBEntryStatusRequest as UpdateKBEntryStatusRequest,
 } from '@/api';
+import { PAGE_SIZE_KNOWLEDGE_BASE_LIST } from '@/config/pagination';
 import type {
   ArticleSearchResultPagedList,
   KBEntry,
@@ -250,7 +251,7 @@ export const knowledgeBaseApi = {
     q: string,
     category?: string,
     page = 1,
-    pageSize = 15,
+    pageSize = PAGE_SIZE_KNOWLEDGE_BASE_LIST,
   ): Promise<ArticleSearchResultPagedList> {
     return apiOk(
       asApiEnvelope<ArticleSearchResultPagedList>(

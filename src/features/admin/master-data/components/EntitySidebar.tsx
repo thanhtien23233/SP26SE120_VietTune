@@ -1,8 +1,9 @@
-import { entityConfigs } from '../utils/entityFieldConfig';
-import type { EntityKind } from '../types/masterDataTypes';
 import { clsx } from 'clsx';
 import { Music, Users, Mic2, Flame, Database } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+
+import type { EntityKind } from '../types/masterDataTypes';
+import { entityConfigs } from '../utils/entityFieldConfig';
 
 interface EntitySidebarProps {
   currentKind: EntityKind;

@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom';
 import BackButton from '@/components/common/BackButton';
 import UploadMusic from '@/components/features/UploadMusic';
 import ForbiddenPage from '@/pages/ForbiddenPage';
+import { reportError, toReportableError } from '@/services/errorReporting';
 import { getLocalRecordingFull } from '@/services/recordingStorage';
 import { useAuthStore } from '@/stores/authStore';
 import { ModerationStatus, UserRole } from '@/types';
@@ -66,7 +67,10 @@ export default function EditRecordingPage() {
           setRecording(r);
         }
       } catch (err) {
-        console.error('EditRecordingPage load error:', err);
+        reportError(toReportableError(err, 'EditRecordingPage load error'), undefined, {
+          region: 'upload',
+          stage: 'edit_recording_load',
+        });
         if (!cancelled) setForbidden(true);
       } finally {
         if (!cancelled) setLoading(false);

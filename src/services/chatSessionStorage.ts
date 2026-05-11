@@ -11,8 +11,8 @@
  * - Resilience against brief network interruptions
  */
 
-import type { Message } from '@/types/chat';
 import type { QAConversationRequest } from '@/services/qaConversationService';
+import type { Message } from '@/types/chat';
 
 const STORAGE_KEYS = {
   SESSION_MESSAGES: 'viettune_chat_session_messages',
